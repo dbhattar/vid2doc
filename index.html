@@ -1,0 +1,109 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>vid2doc — Turn any video into a searchable document</title>
+  <meta name="description" content="vid2doc automatically transcribes, diarizes, and formats your videos into a searchable document with the right images in the right places." />
+  <link rel="icon" href="assets/favicon.svg" type="image/svg+xml" />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <header class="site-header">
+    <div class="container">
+      <div class="wordmark">vid<span>2</span>doc</div>
+    </div>
+  </header>
+
+  <main>
+    <section class="hero">
+      <div class="hero-glow"></div>
+      <div class="container">
+        <h1>Turn any video into a searchable document</h1>
+        <p class="hero-subhead">
+          Stop scrubbing through hours of footage to find one moment. vid2doc turns your videos
+          into a clean, formatted document you can search, skim, and share.
+        </p>
+
+        <div class="waitlist-card">
+          <form
+            name="waitlist"
+            method="POST"
+            data-netlify="true"
+            netlify-honeypot="bot-field"
+            action="/thanks.html"
+            class="waitlist-form"
+            id="waitlist-form"
+          >
+            <input type="hidden" name="form-name" value="waitlist" />
+            <p class="honeypot-field">
+              <label>Don't fill this out if you're human: <input name="bot-field" /></label>
+            </p>
+
+            <div class="field-row">
+              <div>
+                <label for="name">Name</label>
+                <input type="text" id="name" name="name" required autocomplete="name" />
+              </div>
+              <div>
+                <label for="email">Email</label>
+                <input type="email" id="email" name="email" required autocomplete="email" />
+              </div>
+            </div>
+
+            <button type="submit" class="btn-primary">Join the waitlist</button>
+            <p class="form-error" id="form-error">Something went wrong. Please try again.</p>
+            <p class="form-note">No spam, just a heads up when it's ready.</p>
+          </form>
+
+          <div class="success-message" id="success-message">
+            <div class="check">&#10003;</div>
+            <h3>You're on the list</h3>
+            <p>We'll email you as soon as vid2doc is ready.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="features">
+      <div class="container">
+        <h2>How it works</h2>
+        <p class="features-intro">
+          vid2doc watches and listens to your video so you don't have to do it again later.
+        </p>
+
+        <div class="feature-grid">
+          <div class="feature-card">
+            <div class="feature-icon">&#127908;</div>
+            <h3>Automatic transcript with speakers</h3>
+            <p>Full transcription with speaker labels, so you know who said what and when.</p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon">&#128247;</div>
+            <h3>Smart frame capture</h3>
+            <p>Pulls out only the visuals that actually matter — slides, diagrams, key moments.</p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon">&#128196;</div>
+            <h3>Real document formatting</h3>
+            <p>Proper headings and sections, not a wall of raw text you have to clean up yourself.</p>
+          </div>
+          <div class="feature-card">
+            <div class="feature-icon">&#128269;</div>
+            <h3>Instantly searchable</h3>
+            <p>Find any topic in seconds — no more rewatching a video to find one moment.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container">
+      &copy; 2026 vid2doc. All rights reserved.
+    </div>
+  </footer>
+
+  <script src="script.js"></script>
+</body>
+</html>
