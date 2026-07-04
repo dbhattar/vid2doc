@@ -30,7 +30,7 @@ assemble_document = importlib.import_module("7_assemble").assemble_document
 load_dotenv()
 
 
-def main(video_path: Path, output_dir: Path):
+def main(video_path: Path, output_dir: Path, transcription_engine: str, whisper_model: str):
     output_dir.mkdir(parents=True, exist_ok=True)
 
     print("== Stage 1: extract audio ==")
@@ -38,13 +38,22 @@ def main(video_path: Path, output_dir: Path):
 
     print("\n== Stage 2: transcribe + diarize ==")
     segments = []
-    if os.environ.get("ASSEMBLYAI_API_KEY"):
-        transcript = transcribe_diarize(audio_path)
+    engine = transcription_engine
+    if engine == "auto":
+        if os.environ.get("ASSEMBLYAI_API_KEY"):
+            engine = "assemblyai"
+        elif os.environ.get("HF_TOKEN"):
+            engine = "whisper-diarized"
+        else:
+            engine = "whisper"
+
+    if engine == "assemblyai" and not os.environ.get("ASSEMBLYAI_API_KEY"):
+        print("SKIPPED (no ASSEMBLYAI_API_KEY; pass --transcription-engine whisper to use local Whisper instead)")
+    else:
+        transcript = transcribe_diarize(audio_path, engine=engine, whisper_model=whisper_model)
         (output_dir / "transcript.json").write_text(json.dumps(transcript, indent=2))
         segments = transcript["segments"]
-        print(f"{len(segments)} segments")
-    else:
-        print("SKIPPED (no ASSEMBLYAI_API_KEY)")
+        print(f"{len(segments)} segments (engine: {engine})")
 
     print("\n== Stage 3: extract frames ==")
     frame_paths = extract_frames(video_path, output_dir / "frames_raw")
@@ -84,5 +93,17 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("video_path", type=Path)
     parser.add_argument("--output-dir", type=Path, default=Path("output"))
+    parser.add_argument(
+        "--transcription-engine", choices=["auto", "assemblyai", "whisper", "whisper-diarized"], default="auto",
+        help=(
+            "auto (default): assemblyai if ASSEMBLYAI_API_KEY is set, else whisper-diarized "
+            "if HF_TOKEN is set, else plain local whisper (no diarization)."
+        ),
+    )
+    parser.add_argument(
+        "--whisper-model", default="base",
+        choices=["tiny", "base", "small", "medium", "large"],
+        help="Used with the whisper or whisper-diarized engines.",
+    )
     args = parser.parse_args()
-    main(args.video_path, args.output_dir)
+    main(args.video_path, args.output_dir, args.transcription_engine, args.whisper_model)
