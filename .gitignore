@@ -12,3 +12,7 @@ local_test/output/
 local_test/*.mp4
 local_test/*.webm
 local_test/*.mkv
+
+# backend service scratch
+backend/data/
+backend/**/__pycache__/
