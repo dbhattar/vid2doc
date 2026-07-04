@@ -4,3 +4,11 @@ node_modules/
 npm-debug.log*
 .env
 .env.local
+
+# local_test pipeline scratch
+local_test/venv/
+local_test/__pycache__/
+local_test/output/
+local_test/*.mp4
+local_test/*.webm
+local_test/*.mkv
