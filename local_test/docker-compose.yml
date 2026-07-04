@@ -1,0 +1,10 @@
+services:
+  pipeline:
+    build: .
+    image: vid2doc-pipeline
+    env_file:
+      - .env
+    volumes:
+      - ./data:/data
+    # Override with: docker compose run pipeline python 2_transcribe.py ...
+    command: ["run_pipeline.py", "--help"]

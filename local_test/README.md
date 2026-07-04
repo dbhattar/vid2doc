@@ -91,3 +91,66 @@ with images in `output/document/images/`.
 - `output/accepted_frames.json` — spot-check captions/relevance calls.
 - `output/document/document.md` — open in a Markdown viewer, confirm images
   land in sensible places relative to the surrounding transcript text.
+
+## Running in Docker
+
+The `Dockerfile` packages stages 1-7 (everything except `0_download_video.py`,
+which is a local dev convenience for grabbing test clips — a real deployment
+receives already-uploaded videos, not YouTube URLs) into a self-contained,
+CPU-only image with `ffmpeg`, `tesseract`, and all Python dependencies
+preinstalled. This is what makes it portable to any cloud provider: build
+once, push to any container registry, run on any platform that accepts a
+Docker image (a VM, ECS/Cloud Run/Fly.io/Railway, etc.) — no host setup
+beyond Docker itself.
+
+Build:
+
+```bash
+docker build -t vid2doc-pipeline .
+```
+
+Run against a local video, writing output back to the host via a mounted
+volume, with API keys passed through an env file:
+
+```bash
+docker run --rm \
+  -v $(pwd)/data:/data \
+  --env-file .env \
+  vid2doc-pipeline \
+  run_pipeline.py /data/video.mp4 --output-dir /data/output
+```
+
+Any of the individual stage scripts work the same way, since the container
+has no fixed entrypoint beyond `python3`:
+
+```bash
+docker run --rm -v $(pwd)/data:/data --env-file .env \
+  vid2doc-pipeline 2_transcribe.py /data/output/audio.wav --engine whisper-diarized
+```
+
+Or with `docker-compose.yml` (reads `.env` and mounts `./data` automatically):
+
+```bash
+docker compose run pipeline run_pipeline.py /data/video.mp4 --output-dir /data/output
+```
+
+### Deploying the image
+
+```bash
+docker tag vid2doc-pipeline <registry>/<your-account>/vid2doc-pipeline:latest
+docker push <registry>/<your-account>/vid2doc-pipeline:latest
+```
+
+`<registry>` is whichever provider you're targeting — Docker Hub
+(`docker.io`), GitHub Container Registry (`ghcr.io`), AWS ECR, Google
+Artifact Registry, etc. Once pushed, any container platform can pull and run
+it; just make sure to pass the same environment variables (`ASSEMBLYAI_API_KEY`,
+`ANTHROPIC_API_KEY`, `HF_TOKEN`) as deployment secrets, and give the worker
+somewhere to read input video from / write the output document to (the real
+app will use R2 for this per the plan; for a one-off container run, a mounted
+volume or a cloud disk works too).
+
+Note: the image is CPU-only (~2.2GB, no CUDA) by design — most cheap cloud
+compute has no GPU, and it's more than fast enough for `tiny`/`base`/`small`
+Whisper models. If you later need GPU acceleration for larger Whisper models,
+that requires a different base image and deploy target with GPU support.
