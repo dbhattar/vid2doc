@@ -7,6 +7,31 @@ from ..exceptions import PipelineError
 
 PYANNOTE_MODEL = "pyannote/speaker-diarization-3.1"
 
+# Merge consecutive same-speaker fragments into readable paragraphs. Raw ASR
+# output (especially local Whisper) segments every few words, which reads as
+# a wall of one-line "speaker" attributions rather than flowing prose. A gap
+# cap keeps real pauses as paragraph breaks; a length cap keeps a single
+# uninterrupted speaker turn (e.g. plain "whisper" engine, one speaker for
+# the whole video) from collapsing into one giant undifferentiated blob.
+MERGE_MAX_GAP_SECONDS = 2.0
+MERGE_MAX_PARAGRAPH_CHARS = 400
+
+
+def _merge_fragments(segments: list[dict]) -> list[dict]:
+    merged: list[dict] = []
+    for seg in segments:
+        if merged:
+            prev = merged[-1]
+            gap = seg["start_ts"] - prev["end_ts"]
+            same_speaker = prev["speaker"] == seg["speaker"]
+            fits = len(prev["text"]) < MERGE_MAX_PARAGRAPH_CHARS
+            if same_speaker and gap <= MERGE_MAX_GAP_SECONDS and fits:
+                prev["text"] = f"{prev['text']} {seg['text']}".strip()
+                prev["end_ts"] = seg["end_ts"]
+                continue
+        merged.append(dict(seg))
+    return merged
+
 
 def transcribe_assemblyai(audio_path: Path) -> dict:
     import assemblyai as aai
@@ -25,7 +50,7 @@ def transcribe_assemblyai(audio_path: Path) -> dict:
     segments = [
         {
             "speaker": utt.speaker,
-            "text": utt.text,
+            "text": utt.text.strip(),
             "start_ts": utt.start / 1000,
             "end_ts": utt.end / 1000,
         }
@@ -88,29 +113,24 @@ def transcribe_whisper_diarized(audio_path: Path, model_size: str = "base") -> d
                 best_overlap, best_speaker = overlap, speaker
         return best_speaker
 
-    words = [
-        {"text": w["word"], "start": w["start"], "end": w["end"], "speaker": speaker_for(w["start"], w["end"])}
+    # One "segment" per word here -- _merge_fragments (applied uniformly for
+    # all engines below) does the actual paragraph-building, so this stays a
+    # plain word-level list rather than pre-merging without a length cap.
+    segments = [
+        {"speaker": speaker_for(w["start"], w["end"]), "text": w["word"].strip(), "start_ts": w["start"], "end_ts": w["end"]}
         for seg in result["segments"]
         for w in seg.get("words", [])
     ]
-
-    segments = []
-    for w in words:
-        if segments and segments[-1]["speaker"] == w["speaker"]:
-            segments[-1]["text"] += w["text"]
-            segments[-1]["end_ts"] = w["end"]
-        else:
-            segments.append({"speaker": w["speaker"], "text": w["text"], "start_ts": w["start"], "end_ts": w["end"]})
-
-    for s in segments:
-        s["text"] = s["text"].strip()
-
     return {"segments": segments}
 
 
 def transcribe_diarize(audio_path: Path, engine: str = "assemblyai", whisper_model: str = "base") -> dict:
     if engine == "whisper":
-        return transcribe_whisper_local(audio_path, whisper_model)
-    if engine == "whisper-diarized":
-        return transcribe_whisper_diarized(audio_path, whisper_model)
-    return transcribe_assemblyai(audio_path)
+        result = transcribe_whisper_local(audio_path, whisper_model)
+    elif engine == "whisper-diarized":
+        result = transcribe_whisper_diarized(audio_path, whisper_model)
+    else:
+        result = transcribe_assemblyai(audio_path)
+
+    result["segments"] = _merge_fragments(result["segments"])
+    return result

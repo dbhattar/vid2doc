@@ -3,7 +3,7 @@ from pathlib import Path
 
 from . import jobs
 from .config import settings
-from .stages import assemble, audio, frames, sections, transcribe, vision
+from .stages import assemble, audio, classify, compose, frames, transcribe
 
 
 def _resolve_engine() -> str:
@@ -15,6 +15,24 @@ def _resolve_engine() -> str:
     if os.environ.get("HF_TOKEN"):
         return "whisper-diarized"
     return "whisper"
+
+
+def _llm_available() -> bool:
+    if settings.LLM_PROVIDER == "openai":
+        return bool(os.environ.get("OPENAI_API_KEY"))
+    return bool(os.environ.get("ANTHROPIC_API_KEY"))
+
+
+def _fallback_sections(segments: list[dict]) -> list[dict]:
+    """No LLM configured: still produce a document, just the raw merged
+    transcript under one heading instead of a composed, topic-organized one."""
+    return [{
+        "heading": "Transcript",
+        "blocks": [
+            {"type": "paragraph", "text": f"{s['speaker']}: {s['text']}", "ref": 0, "caption": ""}
+            for s in segments
+        ],
+    }]
 
 
 def run_job(job: dict) -> None:
@@ -36,19 +54,40 @@ def run_job(job: dict) -> None:
         jobs.update_job(job_id, progress_stage="filtering_frames")
         candidates = frames.filter_frames(raw_frames)
 
-        accepted_frames: list[dict] = []
-        section_list: list[dict] = []
-        if os.environ.get("ANTHROPIC_API_KEY"):
-            jobs.update_job(job_id, progress_stage="judging_frames")
-            accepted_frames = vision.judge_frames(candidates, segments)
+        images_meta: list[dict] = []
+        tables_meta: list[dict] = []
+        sections: list[dict] = []
+        title = "Video Transcript"
 
-            jobs.update_job(job_id, progress_stage="segmenting_topics")
-            section_list = sections.segment_transcript(segments)
+        if _llm_available():
+            jobs.update_job(job_id, progress_stage="classifying_frames")
+            images_meta, tables_meta = classify.classify_frames(candidates)
 
-        jobs.update_job(job_id, progress_stage="assembling_document")
-        matched_frames = assemble.match_frames_to_segments(accepted_frames, segments)
+            jobs.update_job(job_id, progress_stage="composing_document")
+            sections = compose.compose_document(segments, images_meta + tables_meta)
+            title = compose.generate_title(sections)
+
+        if not sections:
+            sections = _fallback_sections(segments)
+
+        jobs.update_job(job_id, progress_stage="rendering_document")
         doc_dir = output_dir / "document"
-        doc_path = assemble.assemble_document(section_list, segments, matched_frames, doc_dir)
+        doc_dir.mkdir(parents=True, exist_ok=True)
+        images_by_id = {img["id"]: img for img in images_meta}
+        tables_by_id = {tbl["id"]: tbl for tbl in tables_meta}
+
+        doc_path = assemble.render_markdown(title, sections, images_by_id, tables_by_id, doc_dir)
+
+        # Best-effort exports on top of the canonical Markdown -- a rendering
+        # failure here shouldn't fail the whole job.
+        try:
+            assemble.render_docx(title, sections, images_by_id, tables_by_id, doc_dir / "document.docx")
+        except Exception as e:
+            print(f"DOCX export failed for job {job_id}: {e}", flush=True)
+        try:
+            assemble.render_pdf(title, sections, images_by_id, tables_by_id, doc_dir / "document.pdf")
+        except Exception as e:
+            print(f"PDF export failed for job {job_id}: {e}", flush=True)
 
         jobs.update_job(job_id, status="done", progress_stage="done", document_path=str(doc_path))
     except Exception as e:

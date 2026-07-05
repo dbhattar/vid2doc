@@ -18,6 +18,11 @@ class Settings:
     TRANSCRIPTION_ENGINE = os.environ.get("TRANSCRIPTION_ENGINE", "auto")
     WHISPER_MODEL = os.environ.get("WHISPER_MODEL", "base")
 
+    # LLM provider for the vision-judgment and topic-segmentation stages.
+    # anthropic (default): claude-sonnet-5. openai: gpt-5.4-mini (vision + structured outputs, cost-efficient).
+    LLM_PROVIDER = os.environ.get("LLM_PROVIDER", "anthropic")
+    OPENAI_MODEL = os.environ.get("OPENAI_MODEL", "gpt-5.4-mini")
+
     WORKER_POLL_SECONDS = float(os.environ.get("WORKER_POLL_SECONDS", 2.0))
 
 
