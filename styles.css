@@ -31,7 +31,13 @@ body {
 
 /* Header */
 .site-header {
-  padding: 28px 0;
+  padding: 24px 0;
+}
+
+.header-inner {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
 }
 
 .wordmark {
@@ -44,12 +50,65 @@ body {
   color: var(--accent);
 }
 
+.site-nav {
+  display: flex;
+  align-items: center;
+  gap: 28px;
+}
+
+.site-nav a {
+  color: var(--text-muted);
+  text-decoration: none;
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+.site-nav a:hover {
+  color: var(--text);
+}
+
+.site-nav .btn-nav {
+  color: #fff;
+  background: var(--accent);
+  padding: 9px 16px;
+  border-radius: 999px;
+  transition: background 0.15s ease;
+}
+
+.site-nav .btn-nav:hover {
+  background: var(--accent-dark);
+  color: #fff;
+}
+
+@media (max-width: 640px) {
+  .site-nav {
+    gap: 14px;
+  }
+
+  .site-nav a:not(.btn-nav) {
+    display: none;
+  }
+}
+
 /* Hero */
 .hero {
   position: relative;
   overflow: hidden;
   padding: 72px 0 96px;
   text-align: center;
+}
+
+.hero-eyebrow {
+  display: inline-block;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--accent);
+  background: var(--accent-soft);
+  padding: 5px 12px;
+  border-radius: 999px;
+  margin: 0 0 18px;
 }
 
 .hero-glow {
@@ -77,21 +136,67 @@ body {
 }
 
 .hero-subhead {
-  max-width: 560px;
-  margin: 0 auto 40px;
+  max-width: 600px;
+  margin: 0 auto 32px;
   font-size: 1.15rem;
   color: var(--text-muted);
 }
 
-/* Waitlist form */
-.waitlist-card {
-  max-width: 440px;
+.hero-cta-row {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+.btn-hero {
+  width: auto;
+  padding: 14px 28px;
+  font-size: 1.05rem;
+  text-decoration: none;
+  display: inline-block;
+}
+
+.btn-hero-secondary {
+  color: var(--text);
+  font-weight: 600;
+  text-decoration: none;
+  font-size: 1.05rem;
+}
+
+.btn-hero-secondary:hover {
+  color: var(--accent);
+}
+
+/* Signup form */
+.signup {
+  padding: 0 0 96px;
+}
+
+.signup-card {
+  max-width: 480px;
   margin: 0 auto;
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
-  padding: 28px;
+  padding: 36px;
+  text-align: center;
+}
+
+.signup-card h2 {
+  margin: 0 0 8px;
+  font-size: 1.6rem;
+  letter-spacing: -0.02em;
+}
+
+.signup-intro {
+  color: var(--text-muted);
+  margin: 0 0 24px;
+}
+
+.waitlist-form {
   text-align: left;
 }
 
@@ -365,6 +470,141 @@ body {
   margin: 0;
   color: var(--text-muted);
   font-size: 0.95rem;
+}
+
+/* Pricing */
+.pricing {
+  padding: 64px 0 96px;
+}
+
+.pricing h2 {
+  text-align: center;
+  font-size: 1.8rem;
+  letter-spacing: -0.02em;
+  margin: 0 0 12px;
+}
+
+.pricing-intro {
+  text-align: center;
+  color: var(--text-muted);
+  max-width: 520px;
+  margin: 0 auto 48px;
+}
+
+.pricing-grid {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 24px;
+  max-width: 720px;
+  margin: 0 auto;
+}
+
+@media (max-width: 640px) {
+  .pricing-grid {
+    grid-template-columns: 1fr;
+  }
+}
+
+.pricing-card {
+  position: relative;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 32px 28px;
+  text-align: left;
+}
+
+.pricing-card.featured {
+  border-color: var(--accent);
+  box-shadow: 0 10px 30px rgba(109, 94, 248, 0.2);
+}
+
+.pricing-badge {
+  position: absolute;
+  top: -13px;
+  right: 24px;
+  font-size: 0.7rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: #fff;
+  background: var(--accent);
+  padding: 4px 10px;
+  border-radius: 999px;
+}
+
+.pricing-card h3 {
+  margin: 0 0 8px;
+  font-size: 1.2rem;
+}
+
+.price {
+  margin: 0 0 12px;
+}
+
+.price-amount {
+  font-size: 2.2rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+
+.price-period {
+  color: var(--text-muted);
+  font-size: 0.95rem;
+  margin-left: 4px;
+}
+
+.pricing-tagline {
+  color: var(--text-muted);
+  font-size: 0.9rem;
+  margin: 0 0 20px;
+  min-height: 40px;
+}
+
+.pricing-features {
+  list-style: none;
+  margin: 0 0 24px;
+  padding: 0;
+}
+
+.pricing-features li {
+  position: relative;
+  padding-left: 26px;
+  margin-bottom: 10px;
+  font-size: 0.95rem;
+}
+
+.pricing-features li::before {
+  content: "\2713";
+  position: absolute;
+  left: 0;
+  color: var(--accent);
+  font-weight: 700;
+}
+
+.pricing-card .btn-primary,
+.pricing-card .btn-secondary {
+  display: block;
+  text-align: center;
+  text-decoration: none;
+  width: 100%;
+  padding: 12px 18px;
+  border-radius: 10px;
+  font-weight: 600;
+  font-size: 0.95rem;
+  box-sizing: border-box;
+}
+
+.pricing-card .btn-secondary {
+  background: var(--accent-soft);
+  color: var(--accent);
+  border: none;
+  transition: background 0.15s ease;
+}
+
+.pricing-card .btn-secondary:hover {
+  background: #e2dcfc;
 }
 
 /* Footer */
