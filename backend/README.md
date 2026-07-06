@@ -51,43 +51,70 @@ step if this needs to survive a VPS being rebuilt or scale past one host.
 
 ## API
 
-Every endpoint except `/health` requires an `X-API-Key` header. The key is a
-single hardcoded shared secret for v1 (`API_KEY` env var) — per-user dynamic
-keys are a future iteration once API key management exists.
+Every endpoint except `/health` and `/api/auth/google` requires
+`Authorization: Bearer <token>`, where the token is issued by
+`/api/auth/google` after verifying a Google Sign-In ID token — there is no
+shared/static API key anymore. (Per-user long-lived API keys, for
+programmatic/non-browser callers, are a separate upcoming mechanism alongside
+this, not a replacement for it.)
+
+### `POST /api/auth/google`
+
+Exchanges a Google Identity Services ID token (obtained client-side, e.g. by
+the frontend's "Sign in with Google" button) for an app session token.
+Creates the user on first login.
+
+```bash
+curl -X POST http://localhost:8000/api/auth/google \
+  -H "Content-Type: application/json" \
+  -d '{"id_token": "<google-issued ID token>"}'
+```
+
+- `200` — `{"access_token": "...", "user": {"id", "email", "display_name", "avatar_url", ...}}`
+- `401` — invalid/unverifiable Google ID token (wrong audience, expired, bad signature)
+
+### `GET /api/auth/me`
+
+Returns the caller's own user record. Mainly useful to confirm a token is
+valid and to build an authenticated shell page.
+
+```bash
+curl -H "Authorization: Bearer $TOKEN" http://localhost:8000/api/auth/me
+```
 
 ### `POST /api/convert_to_doc`
 
-Multipart upload, field name `video`.
+Multipart upload, field name `video`. Jobs are scoped to the caller.
 
 ```bash
 curl -X POST http://localhost:8000/api/convert_to_doc \
-  -H "X-API-Key: $API_KEY" \
+  -H "Authorization: Bearer $TOKEN" \
   -F "video=@lecture.mp4"
 ```
 
 - `202` — `{"job_id": "...", "status": "queued"}`
 - `400` — bad/missing file, unsupported extension, unreadable video, or
   duration exceeds `MAX_DURATION_SECONDS`
-- `401` — missing/invalid API key
+- `401` — missing/invalid/expired token
 - `413` — file exceeds `MAX_UPLOAD_BYTES`
 
 ### `GET /api/get_status?job_id=...`
 
 ```bash
-curl -H "X-API-Key: $API_KEY" "http://localhost:8000/api/get_status?job_id=$JOB_ID"
+curl -H "Authorization: Bearer $TOKEN" "http://localhost:8000/api/get_status?job_id=$JOB_ID"
 ```
 
 - `200` — `{"job_id", "status", "progress_stage", "document_url"?, "document_docx_url"?, "document_pdf_url"?, "error"?}`
   - `status`: `queued` | `processing` | `done` | `failed`
   - `document_url` (Markdown) present whenever `status == "done"`; `document_docx_url`/`document_pdf_url` present only if those best-effort exports actually rendered successfully
   - `error` present only when `status == "failed"`
-- `404` — unknown job id
+- `404` — unknown job id, or a job id that belongs to a different user (ownership is never revealed)
 
 ### `GET /api/documents/{job_id}/{file_path}`
 
 Serves the generated document in any of its rendered forms (`document.md`,
 `document.docx`, `document.pdf`) plus `images/xxxxx.jpg`. This is what the
-`document_*_url` fields above point to.
+`document_*_url` fields above point to. Same ownership scoping as `get_status`.
 
 ### `GET /health`
 
@@ -105,7 +132,9 @@ docker compose up --build
 
 | Variable | Purpose |
 |---|---|
-| `API_KEY` | Shared secret required on every request (default `dev-secret-key` — change before exposing this publicly) |
+| `GOOGLE_CLIENT_ID` | Google OAuth Web Client ID, used to verify ID tokens on `/api/auth/google`. Also needed by the frontend as `NEXT_PUBLIC_GOOGLE_CLIENT_ID` |
+| `JWT_SECRET` | Signs the app session token returned by `/api/auth/google` (default is dev-only — generate a real one for prod, e.g. `openssl rand -hex 32`) |
+| `CORS_ALLOWED_ORIGINS` | Comma-separated browser origins allowed to call this API (default `http://localhost:3000`) — add the production frontend origin here once deployed |
 | `ASSEMBLYAI_API_KEY` | Real hosted diarization |
 | `HF_TOKEN` | Local diarization fallback (Whisper + pyannote) if no AssemblyAI key |
 | `ANTHROPIC_API_KEY` | Frame classification + document composition via Claude (used when `LLM_PROVIDER=anthropic`, the default) |
@@ -124,8 +153,9 @@ To apply schema changes without restarting a container: `docker compose run --rm
 
 1. Copy this `backend/` directory to the VPS (or clone the repo there).
 2. Install Docker + the Compose plugin on the VPS.
-3. `cp .env.example .env` and fill in real secrets, including a strong
-   `API_KEY` (the default `dev-secret-key` must not be used in production).
+3. `cp .env.example .env` and fill in real secrets, including a real
+   `JWT_SECRET` (the default dev value must not be used in production) and
+   your production `GOOGLE_CLIENT_ID`.
 4. `docker compose up -d --build`
 5. Put a reverse proxy (Caddy/nginx/Traefik) in front of port 8000 for TLS —
    not included here, since it depends on your domain/certs setup.
@@ -136,7 +166,8 @@ other stateful service if you care about surviving a host rebuild.
 
 ## What's not in v1
 
-- No auth beyond the single shared API key — no per-user accounts, no
+- No per-user API keys yet (for programmatic callers that can't do a browser
+  Google OAuth flow) — only browser-issued session tokens work today. No
   request-level rate limiting (the size/duration caps are the only
   cost/abuse guardrail right now).
 - No job retry on worker crash mid-processing — a killed worker leaves a

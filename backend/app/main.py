@@ -1,10 +1,21 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 
-from .routes import convert, documents, health, status
+from .config import settings
+from .routes import auth, convert, documents, health, status
 
 app = FastAPI(title="vid2doc API")
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=settings.CORS_ALLOWED_ORIGINS,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 app.include_router(health.router)
+app.include_router(auth.router)
 app.include_router(convert.router)
 app.include_router(status.router)
 app.include_router(documents.router)

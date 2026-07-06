@@ -3,7 +3,17 @@ from pathlib import Path
 
 
 class Settings:
-    API_KEY = os.environ.get("API_KEY", "dev-secret-key")
+    # Verifies the ID token the frontend gets from Google Identity Services.
+    GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "")
+    # Signs the app-issued session JWT handed back after Google verification.
+    JWT_SECRET = os.environ.get("JWT_SECRET", "dev-jwt-secret-change-me")
+    JWT_EXPIRES_DAYS = int(os.environ.get("JWT_EXPIRES_DAYS", 7))
+
+    # Frontend origin(s) allowed to call this API from the browser (comma-separated).
+    # Must be exact scheme+host+port -- no wildcards, no trailing slash.
+    CORS_ALLOWED_ORIGINS = [
+        o.strip() for o in os.environ.get("CORS_ALLOWED_ORIGINS", "http://localhost:3000").split(",") if o.strip()
+    ]
 
     DATABASE_URL = os.environ.get(
         "DATABASE_URL", "postgresql+psycopg2://vid2doc:vid2doc@postgres:5432/vid2doc"

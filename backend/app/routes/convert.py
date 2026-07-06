@@ -6,8 +6,8 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 
 from .. import jobs
-from ..auth import verify_api_key
 from ..config import settings
+from ..deps import get_current_user
 
 router = APIRouter()
 
@@ -21,8 +21,8 @@ def _probe_duration_seconds(path: Path) -> float:
     return float(result.stdout.strip())
 
 
-@router.post("/api/convert_to_doc", status_code=202, dependencies=[Depends(verify_api_key)])
-async def convert_to_doc(video: UploadFile = File(...)):
+@router.post("/api/convert_to_doc", status_code=202)
+async def convert_to_doc(video: UploadFile = File(...), current_user: dict = Depends(get_current_user)):
     ext = Path(video.filename or "").suffix.lower()
     if ext not in settings.ALLOWED_EXTENSIONS:
         raise HTTPException(
@@ -67,5 +67,5 @@ async def convert_to_doc(video: UploadFile = File(...)):
             detail=f"Video duration {duration:.0f}s exceeds max of {settings.MAX_DURATION_SECONDS}s",
         )
 
-    jobs.create_job(job_id, str(dest_path))
+    jobs.create_job(job_id, str(dest_path), user_id=current_user["id"], duration_seconds=duration)
     return {"job_id": job_id, "status": "queued"}

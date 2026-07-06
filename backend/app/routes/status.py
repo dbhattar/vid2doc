@@ -1,16 +1,16 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from .. import jobs
-from ..auth import verify_api_key
 from ..config import settings
+from ..deps import get_current_user
 
 router = APIRouter()
 
 
-@router.get("/api/get_status", dependencies=[Depends(verify_api_key)])
-def get_status(job_id: str, request: Request):
+@router.get("/api/get_status")
+def get_status(job_id: str, request: Request, current_user: dict = Depends(get_current_user)):
     job = jobs.get_job(job_id)
-    if not job:
+    if not job or job["user_id"] != current_user["id"]:
         raise HTTPException(status_code=404, detail="Job not found")
 
     response = {
