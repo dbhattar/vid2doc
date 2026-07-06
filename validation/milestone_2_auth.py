@@ -7,13 +7,14 @@ users, and 401 rejection paths. Run from the repo root:
     python validation/milestone_2_auth.py
 """
 
-from common import SAMPLE_VIDEO, auth_header, client, login_as, reset_test_user
+from common import SAMPLE_VIDEO, auth_header, client, grant_wallet_credit, login_as, reset_test_user
 
 reset_test_user("alice@example.com")
 reset_test_user("bob@example.com")
 
 alice = login_as("google-sub-alice", "alice@example.com", "Alice")
 alice_token = alice["access_token"]
+grant_wallet_credit("alice@example.com")  # pay-as-you-go: uploads charge the wallet
 print("Alice login OK:", alice["user"]["email"], alice["user"]["id"])
 
 bob = login_as("google-sub-bob", "bob@example.com", "Bob")

@@ -15,6 +15,14 @@ class Settings:
         o.strip() for o in os.environ.get("CORS_ALLOWED_ORIGINS", "http://localhost:3000").split(",") if o.strip()
     ]
 
+    # Stripe: wallet top-up checkout + webhooks (see app/stripe_client.py, app/billing.py).
+    # No fixed Price ids -- top-up amount is user-chosen, passed as Checkout
+    # line_item price_data at request time (see routes/billing.py).
+    STRIPE_SECRET_KEY = os.environ.get("STRIPE_SECRET_KEY", "")
+    STRIPE_WEBHOOK_SECRET = os.environ.get("STRIPE_WEBHOOK_SECRET", "")
+    # Where Stripe Checkout redirects back to after a session.
+    FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3000")
+
     DATABASE_URL = os.environ.get(
         "DATABASE_URL", "postgresql+psycopg2://vid2doc:vid2doc@postgres:5432/vid2doc"
     )

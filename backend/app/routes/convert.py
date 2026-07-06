@@ -5,7 +5,7 @@ from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
 
-from .. import jobs
+from .. import billing, jobs
 from ..config import settings
 from ..deps import get_current_user
 
@@ -67,5 +67,22 @@ async def convert_to_doc(video: UploadFile = File(...), current_user: dict = Dep
             detail=f"Video duration {duration:.0f}s exceeds max of {settings.MAX_DURATION_SECONDS}s",
         )
 
-    jobs.create_job(job_id, str(dest_path), user_id=current_user["id"], duration_seconds=duration)
+    # Pay-as-you-go: $1/video-hour, charged up front. No plans/tiers -- the
+    # charge itself decides whether the upload is accepted, so it happens
+    # before the job row exists (see models.py's note on related_job_id).
+    try:
+        billed_cents = billing.charge_for_job(current_user["id"], job_id, duration)
+    except billing.InsufficientBalanceError as e:
+        shutil.rmtree(upload_dir, ignore_errors=True)
+        raise HTTPException(
+            status_code=402,
+            detail=(
+                f"Insufficient balance: this video costs ${e.required_cents / 100:.2f}, "
+                f"you have ${e.balance_cents / 100:.2f}. Add funds at /settings/billing."
+            ),
+        )
+
+    jobs.create_job(
+        job_id, str(dest_path), user_id=current_user["id"], duration_seconds=duration, billed_cents=billed_cents
+    )
     return {"job_id": job_id, "status": "queued"}

@@ -2,15 +2,18 @@
 
 `jobs` is the one pre-existing table (previously raw sqlite3, see git history of
 app/db.py) -- its columns here are a superset of the original: user_id,
-duration_seconds, billed_overage_cents, and deleted_at are new. user_id is
+duration_seconds, billed_cents, and deleted_at are new. user_id is
 nullable because Milestone 1 (this file) intentionally lands before auth does;
 it becomes application-required starting with the auth milestone.
+
+Pricing is pure pay-as-you-go ($1.00/video-hour, charged up front per job,
+wallet-funded) -- there are no subscription plans/tiers.
 """
 
 import uuid
 from datetime import datetime
 
-from sqlalchemy import BigInteger, Boolean, DateTime, Float, ForeignKey, String, Text, func
+from sqlalchemy import BigInteger, DateTime, Float, ForeignKey, String, Text, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
@@ -31,7 +34,6 @@ class User(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     api_keys: Mapped[list["ApiKey"]] = relationship(back_populates="user")
-    subscription: Mapped["Subscription | None"] = relationship(back_populates="user", uselist=False)
 
 
 class ApiKey(Base):
@@ -49,37 +51,21 @@ class ApiKey(Base):
     user: Mapped["User"] = relationship(back_populates="api_keys")
 
 
-class Subscription(Base):
-    __tablename__ = "subscriptions"
-
-    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
-    user_id: Mapped[uuid.UUID] = mapped_column(
-        UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, unique=True
-    )
-    plan: Mapped[str] = mapped_column(String, nullable=False)  # 'personal' | 'preferred'
-    status: Mapped[str] = mapped_column(String, nullable=False, default="active")  # active|past_due|canceled
-    stripe_subscription_id: Mapped[str | None] = mapped_column(String, unique=True, nullable=True)
-    current_period_start: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    current_period_end: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    cancel_at_period_end: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
-    )
-
-    user: Mapped["User"] = relationship(back_populates="subscription")
-
-
 class WalletLedgerEntry(Base):
     """Append-only. Balance for a user is always SUM(amount_cents) WHERE user_id=X,
-    never a stored/mutable counter -- see plan doc for the concurrency reasoning."""
+    never a stored/mutable counter -- see plan doc for the concurrency reasoning.
+    related_job_id is intentionally NOT a DB-level foreign key: a usage charge
+    is recorded before the job row exists (the charge decides whether the
+    upload is even accepted), so enforcing the FK would get the ordering
+    backwards. It's still always a real job id in practice."""
 
     __tablename__ = "wallet_ledger"
 
     id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
-    entry_type: Mapped[str] = mapped_column(String, nullable=False)  # topup|overage_charge|overage_refund
+    entry_type: Mapped[str] = mapped_column(String, nullable=False)  # topup|usage_charge|usage_refund
     amount_cents: Mapped[int] = mapped_column(BigInteger, nullable=False)  # signed: credit +, debit -
-    related_job_id: Mapped[str | None] = mapped_column(String, ForeignKey("jobs.id"), nullable=True)
+    related_job_id: Mapped[str | None] = mapped_column(String, nullable=True)
     stripe_payment_intent_id: Mapped[str | None] = mapped_column(String, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
@@ -96,7 +82,7 @@ class Job(Base):
     source_path: Mapped[str] = mapped_column(String, nullable=False)
     document_path: Mapped[str | None] = mapped_column(String, nullable=True)
     duration_seconds: Mapped[float | None] = mapped_column(Float, nullable=True)
-    billed_overage_cents: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    billed_cents: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

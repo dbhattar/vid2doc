@@ -8,7 +8,7 @@ from the repo root:
     python validation/milestone_3_api_keys.py
 """
 
-from common import SAMPLE_VIDEO, auth_header, client, login_as, reset_test_user
+from common import SAMPLE_VIDEO, auth_header, client, grant_wallet_credit, login_as, reset_test_user
 
 reset_test_user("alice-m3@example.com")
 reset_test_user("bob-m3@example.com")
@@ -17,6 +17,7 @@ alice = login_as("google-sub-alice-m3", "alice-m3@example.com", "Alice")
 bob = login_as("google-sub-bob-m3", "bob-m3@example.com", "Bob")
 alice_token = alice["access_token"]
 bob_token = bob["access_token"]
+grant_wallet_credit("alice-m3@example.com")  # pay-as-you-go: uploads charge the wallet
 
 # 1. Create a key for Alice via session token
 r = client.post("/api/keys", headers=auth_header(alice_token), json={"name": "CI pipeline"})

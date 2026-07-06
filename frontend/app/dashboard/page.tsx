@@ -28,6 +28,7 @@ export default function DashboardPage() {
   const [jobs, setJobs] = useState<Job[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
   const [uploadError, setUploadError] = useState<string | null>(null);
+  const [uploadBlockedByBilling, setUploadBlockedByBilling] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -81,6 +82,7 @@ export default function DashboardPage() {
 
     setUploading(true);
     setUploadError(null);
+    setUploadBlockedByBilling(false);
     try {
       const formData = new FormData();
       formData.append("video", file);
@@ -91,6 +93,7 @@ export default function DashboardPage() {
     } catch (err) {
       if (handleAuthError(err)) return;
       setUploadError(err instanceof ApiError ? err.message : "Upload failed.");
+      setUploadBlockedByBilling(err instanceof ApiError && err.status === 402);
     } finally {
       setUploading(false);
     }
@@ -101,6 +104,9 @@ export default function DashboardPage() {
       <div className="flex items-center justify-between">
         <h1 className="text-lg font-semibold text-zinc-900 dark:text-zinc-50">Dashboard</h1>
         <div className="flex items-center gap-4">
+          <Link href="/settings/billing" className="text-sm text-zinc-600 hover:underline dark:text-zinc-400">
+            Billing
+          </Link>
           <Link href="/settings/api-keys" className="text-sm text-zinc-600 hover:underline dark:text-zinc-400">
             API keys
           </Link>
@@ -142,7 +148,19 @@ export default function DashboardPage() {
             {uploading ? "Uploading..." : "Upload"}
           </button>
         </div>
-        {uploadError && <p className="mt-2 text-sm text-red-600">{uploadError}</p>}
+        {uploadError && (
+          <p className="mt-2 text-sm text-red-600">
+            {uploadError}
+            {uploadBlockedByBilling && (
+              <>
+                {" "}
+                <Link href="/settings/billing" className="underline">
+                  Manage billing
+                </Link>
+              </>
+            )}
+          </p>
+        )}
       </form>
 
       <div className="mt-8">

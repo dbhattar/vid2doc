@@ -7,10 +7,15 @@ start) against a real Postgres database. Not pytest tests: no fixtures/
 parametrization, just `assert` and `print` in a straight line, meant to be
 read top to bottom as a record of what was checked and why.
 
-The only thing mocked is the network call to Google's token-verification
-endpoint (`google.oauth2.id_token.verify_oauth2_token`) — everything else,
-including our own Google-verification code, JWT issuance, database writes,
-and real video uploads through the real pipeline entrypoint, runs for real.
+The only things mocked are actual third-party network calls: Google's
+token-verification endpoint (`google.oauth2.id_token.verify_oauth2_token`)
+and the specific Stripe SDK calls that would otherwise hit Stripe's real API
+(`stripe.Customer.create`, `stripe.checkout.Session.create`). Everything
+else — our own verification code, JWT issuance, database writes, webhook
+signature verification (via Stripe's own public HMAC scheme, see
+`sign_stripe_webhook_payload`), wallet balance/charge math, and real video
+uploads through the real pipeline entrypoint — runs for real, no live
+Stripe/Google account needed.
 
 ## Prerequisites
 
@@ -42,7 +47,7 @@ python validation/milestone_2_auth.py
 python validation/milestone_3_api_keys.py
 python validation/milestone_4_jobs_list.py
 python validation/milestone_4_document_bundle.py
-python validation/milestone_4_jobs_list.py
+python validation/milestone_5_billing.py
 ```
 
 Each prints one line per check and ends with `ALL MILESTONE N CHECKS
@@ -66,3 +71,11 @@ fields between two of your requests — that's correct behavior, not a bug, so
 avoid asserting exact equality across two separate reads of an in-flight
 job; compare structure/stable fields instead (see
 `milestone_4_jobs_list.py`'s shape check for the pattern).
+
+Pricing is pure pay-as-you-go ($1.00/video-hour, no plans/tiers) —
+`POST /api/convert_to_doc` 402s without enough wallet balance to cover the
+video (no free tier). Any script that uploads a video must call
+`grant_wallet_credit(email)` after `login_as` first (it inserts a `topup`
+ledger row directly, bypassing Stripe). To fake a Stripe webhook call, build
+the event JSON as bytes and sign it with `sign_stripe_webhook_payload` (see
+`milestone_5_billing.py`).

@@ -7,7 +7,7 @@ each list item has the same shape as GET /api/get_status for the same job
     python validation/milestone_4_jobs_list.py
 """
 
-from common import SAMPLE_VIDEO, auth_header, client, login_as, reset_test_user
+from common import SAMPLE_VIDEO, auth_header, client, grant_wallet_credit, login_as, reset_test_user
 
 reset_test_user("alice-m4@example.com")
 reset_test_user("bob-m4@example.com")
@@ -16,6 +16,10 @@ alice = login_as("google-sub-alice-m4", "alice-m4@example.com", "Alice")
 bob = login_as("google-sub-bob-m4", "bob-m4@example.com", "Bob")
 alice_token = alice["access_token"]
 bob_token = bob["access_token"]
+# Pay-as-you-go: uploads charge the wallet. Alice uploads 3 videos in this
+# script, so give her enough credit to cover them.
+grant_wallet_credit("alice-m4@example.com")
+grant_wallet_credit("bob-m4@example.com")
 
 
 def upload(token) -> str:

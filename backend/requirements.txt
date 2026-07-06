@@ -6,6 +6,7 @@ alembic==1.14.0
 psycopg2-binary==2.9.10
 google-auth==2.36.0
 pyjwt==2.10.1
+stripe==11.4.1
 opencv-python-headless==4.10.0.84
 pillow==11.0.0
 imagehash==4.3.1

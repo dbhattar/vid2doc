@@ -96,6 +96,8 @@ curl -X POST http://localhost:8000/api/convert_to_doc \
 - `400` — bad/missing file, unsupported extension, unreadable video, or
   duration exceeds `MAX_DURATION_SECONDS`
 - `401` — missing/invalid/expired token
+- `402` — insufficient wallet balance to cover this video's cost (see
+  Billing below) — no free tier exists
 - `413` — file exceeds `MAX_UPLOAD_BYTES`
 
 ### `GET /api/get_status?job_id=...`
@@ -104,17 +106,69 @@ curl -X POST http://localhost:8000/api/convert_to_doc \
 curl -H "Authorization: Bearer $TOKEN" "http://localhost:8000/api/get_status?job_id=$JOB_ID"
 ```
 
-- `200` — `{"job_id", "status", "progress_stage", "document_url"?, "document_docx_url"?, "document_pdf_url"?, "error"?}`
+- `200` — `{"job_id", "status", "progress_stage", "created_at", "duration_seconds", "document_url"?, "document_bundle_url"?, "document_docx_url"?, "document_pdf_url"?, "error"?}`
   - `status`: `queued` | `processing` | `done` | `failed`
-  - `document_url` (Markdown) present whenever `status == "done"`; `document_docx_url`/`document_pdf_url` present only if those best-effort exports actually rendered successfully
+  - `document_url` (Markdown) / `document_bundle_url` (zip of the Markdown + its `images/`) present whenever `status == "done"`; `document_docx_url`/`document_pdf_url` present only if those best-effort exports actually rendered successfully
   - `error` present only when `status == "failed"`
 - `404` — unknown job id, or a job id that belongs to a different user (ownership is never revealed)
+
+### `GET /api/jobs?limit=&offset=`
+
+Paginated list of the caller's own jobs, newest first. `{"jobs": [...], "total": N}`, each item shaped exactly like a `get_status` response.
+
+```bash
+curl -H "Authorization: Bearer $TOKEN" "http://localhost:8000/api/jobs?limit=20&offset=0"
+```
 
 ### `GET /api/documents/{job_id}/{file_path}`
 
 Serves the generated document in any of its rendered forms (`document.md`,
 `document.docx`, `document.pdf`) plus `images/xxxxx.jpg`. This is what the
 `document_*_url` fields above point to. Same ownership scoping as `get_status`.
+
+### `GET /api/documents/{job_id}/bundle.zip`
+
+Zips `document.md` together with its `images/` folder on the fly (Markdown
+alone references images by relative path, so it's not self-contained without
+them — DOCX/PDF don't have this problem since they embed images directly).
+This is what `document_bundle_url` points to.
+
+## Billing
+
+Pure pay-as-you-go — **$1.00 per video-hour**, charged proportionally to the
+exact video length (36 seconds = 1 cent), deducted from a prepaid wallet up
+front at upload time. No plans, no tiers, no subscriptions. See
+`app/billing.py`/`app/routes/billing.py`.
+
+The wallet balance is never a stored/mutable number — it's always
+`SUM(amount_cents)` over the append-only `wallet_ledger` table (`topup` /
+`usage_charge` / `usage_refund` entries), so it can't drift and every
+charge/refund has an audit trail. A failed job is refunded automatically
+(see `pipeline.py`'s except block). Documents aren't guaranteed to be
+retained past 7 days for anyone (see the retention job, once built).
+
+### `POST /api/billing/checkout/topup`
+
+```bash
+curl -X POST http://localhost:8000/api/billing/checkout/topup \
+  -H "Authorization: Bearer $TOKEN" -H "Content-Type: application/json" \
+  -d '{"amount_cents": 2000}'
+```
+
+- `200` — `{"url": "https://checkout.stripe.com/..."}` — redirect the browser here
+- `amount_cents` must be between 500 ($5) and 100000 ($1000)
+
+### `GET /api/billing/wallet`
+
+- `200` — `{"balance_cents": N}`
+
+### `POST /api/billing/webhook`
+
+Stripe calls this directly (signature-verified via `STRIPE_WEBHOOK_SECRET`,
+not `Authorization`). Handles `checkout.session.completed` (mode=payment)
+by crediting the wallet. Idempotent — replayed/retried events are detected
+via `processed_webhook_events` and skipped. For local dev:
+`stripe listen --forward-to localhost:8000/api/billing/webhook`.
 
 ### `GET /health`
 
@@ -146,6 +200,9 @@ docker compose up --build
 | `MAX_UPLOAD_BYTES`, `MAX_DURATION_SECONDS` | Upload guardrails (defaults: 2GB, 90 min) |
 | `POSTGRES_PASSWORD` | Password for the self-hosted `postgres` compose service |
 | `DATABASE_URL` | SQLAlchemy connection string for `api`/`worker`, e.g. `postgresql+psycopg2://vid2doc:$POSTGRES_PASSWORD@postgres:5432/vid2doc` — host must match the `postgres` service name when running under compose |
+| `STRIPE_SECRET_KEY` | Stripe API secret key (test-mode for dev) — no Price ids needed, top-up amount is chosen at checkout time |
+| `STRIPE_WEBHOOK_SECRET` | Verifies `POST /api/billing/webhook` signatures — from `stripe listen` locally, or the dashboard's webhook config in prod |
+| `FRONTEND_URL` | Where Stripe Checkout redirects back to after a session |
 
 To apply schema changes without restarting a container: `docker compose run --rm api alembic upgrade head` (this also runs automatically on every container boot).
 

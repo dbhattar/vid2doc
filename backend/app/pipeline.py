@@ -1,7 +1,7 @@
 import os
 from pathlib import Path
 
-from . import jobs
+from . import billing, jobs
 from .config import settings
 from .stages import assemble, audio, classify, compose, frames, transcribe
 
@@ -92,3 +92,5 @@ def run_job(job: dict) -> None:
         jobs.update_job(job_id, status="done", progress_stage="done", document_path=str(doc_path))
     except Exception as e:
         jobs.update_job(job_id, status="failed", progress_stage=None, error_message=str(e))
+        if job.get("user_id") and job.get("billed_cents"):
+            billing.refund_job_charge(job["user_id"], job_id, job["billed_cents"])

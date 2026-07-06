@@ -504,18 +504,9 @@ body {
   margin: 0 auto 48px;
 }
 
-.pricing-grid {
-  display: grid;
-  grid-template-columns: repeat(2, 1fr);
-  gap: 24px;
-  max-width: 720px;
-  margin: 0 auto;
-}
-
-@media (max-width: 640px) {
-  .pricing-grid {
-    grid-template-columns: 1fr;
-  }
+.pricing-single {
+  display: flex;
+  justify-content: center;
 }
 
 .pricing-card {
@@ -528,23 +519,19 @@ body {
   text-align: left;
 }
 
+.pricing-single .pricing-card {
+  width: 100%;
+  max-width: 420px;
+  text-align: center;
+}
+
+.pricing-single .pricing-features {
+  text-align: left;
+}
+
 .pricing-card.featured {
   border-color: var(--accent-dark);
   box-shadow: 0 10px 30px rgba(226, 150, 47, 0.22);
-}
-
-.pricing-badge {
-  position: absolute;
-  top: -13px;
-  right: 24px;
-  font-size: 0.7rem;
-  font-weight: 700;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  color: #fff;
-  background: var(--navy);
-  padding: 4px 10px;
-  border-radius: 999px;
 }
 
 .pricing-card h3 {
@@ -596,8 +583,7 @@ body {
   font-weight: 700;
 }
 
-.pricing-card .btn-primary,
-.pricing-card .btn-secondary {
+.pricing-card .btn-primary {
   display: block;
   text-align: center;
   text-decoration: none;
@@ -607,17 +593,6 @@ body {
   font-weight: 600;
   font-size: 0.95rem;
   box-sizing: border-box;
-}
-
-.pricing-card .btn-secondary {
-  background: var(--accent-soft);
-  color: var(--navy);
-  border: none;
-  transition: background 0.15s ease;
-}
-
-.pricing-card .btn-secondary:hover {
-  background: #f5dcab;
 }
 
 /* Footer */

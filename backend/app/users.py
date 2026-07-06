@@ -50,3 +50,23 @@ def get_user_by_id(user_id: str | uuid.UUID) -> dict | None:
         return _user_to_dict(user) if user else None
     finally:
         session.close()
+
+
+def get_user_by_stripe_customer_id(stripe_customer_id: str) -> dict | None:
+    session = get_session()
+    try:
+        user = session.query(User).filter_by(stripe_customer_id=stripe_customer_id).one_or_none()
+        return _user_to_dict(user) if user else None
+    finally:
+        session.close()
+
+
+def set_stripe_customer_id(user_id: str | uuid.UUID, stripe_customer_id: str) -> None:
+    session = get_session()
+    try:
+        user = session.get(User, user_id)
+        if user:
+            user.stripe_customer_id = stripe_customer_id
+            session.commit()
+    finally:
+        session.close()

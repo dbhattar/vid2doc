@@ -15,7 +15,7 @@
   </script>
 
   <title>Framewrite — Turn any video into a searchable document</title>
-  <meta name="description" content="Framewrite automatically transcribes, diarizes, and formats your videos into a searchable document with the right images in the right places. Plans start at $10/month." />
+  <meta name="description" content="Framewrite automatically transcribes, diarizes, and formats your videos into a searchable document with the right images in the right places. Pay-as-you-go: $1 per hour of video, no subscription." />
   <link rel="canonical" href="https://framewrite.cc/" />
   <link rel="icon" href="images/framewrite_icon.png" type="image/png" />
   <link rel="stylesheet" href="styles.css" />
@@ -24,12 +24,12 @@
   <meta property="og:site_name" content="Framewrite" />
   <meta property="og:url" content="https://framewrite.cc/" />
   <meta property="og:title" content="Framewrite — Turn any video into a searchable document" />
-  <meta property="og:description" content="Upload a video and get back a clean, searchable document — transcript, speaker labels, and the right images in the right places. Plans start at $10/month." />
+  <meta property="og:description" content="Upload a video and get back a clean, searchable document — transcript, speaker labels, and the right images in the right places. Pay-as-you-go: $1 per hour of video, no subscription." />
   <meta property="og:image" content="https://framewrite.cc/images/framewrite_icon.png" />
 
   <meta name="twitter:card" content="summary" />
   <meta name="twitter:title" content="Framewrite — Turn any video into a searchable document" />
-  <meta name="twitter:description" content="Upload a video and get back a clean, searchable document — transcript, speaker labels, and the right images in the right places. Plans start at $10/month." />
+  <meta name="twitter:description" content="Upload a video and get back a clean, searchable document — transcript, speaker labels, and the right images in the right places. Pay-as-you-go: $1 per hour of video, no subscription." />
   <meta name="twitter:image" content="https://framewrite.cc/images/framewrite_icon.png" />
 
   <script type="application/ld+json">
@@ -41,32 +41,17 @@
     "description": "Framewrite automatically transcribes, diarizes, and formats your videos into a searchable document with the right images in the right places.",
     "applicationCategory": "BusinessApplication",
     "operatingSystem": "Web",
-    "offers": [
-      {
-        "@type": "Offer",
-        "name": "Personal",
-        "price": "10",
+    "offers": {
+      "@type": "Offer",
+      "price": "1.00",
+      "priceCurrency": "USD",
+      "priceSpecification": {
+        "@type": "UnitPriceSpecification",
+        "price": "1.00",
         "priceCurrency": "USD",
-        "priceSpecification": {
-          "@type": "UnitPriceSpecification",
-          "price": "10",
-          "priceCurrency": "USD",
-          "billingDuration": "P1M"
-        }
-      },
-      {
-        "@type": "Offer",
-        "name": "Preferred",
-        "price": "20",
-        "priceCurrency": "USD",
-        "priceSpecification": {
-          "@type": "UnitPriceSpecification",
-          "price": "20",
-          "priceCurrency": "USD",
-          "billingDuration": "P1M"
-        }
+        "unitText": "hour of video"
       }
-    ]
+    }
   }
   </script>
 </head>
@@ -95,7 +80,7 @@
         <p class="hero-subhead">
           Stop scrubbing through hours of footage to find one moment. Upload a video and Framewrite
           hands you back a clean, searchable document — full transcript, speaker labels, and the
-          right images dropped in at the right spot. Plans start at just $10/month.
+          right images dropped in at the right spot. Pay-as-you-go: just $1 per hour of video.
         </p>
         <div class="hero-cta-row">
           <a href="#signup" class="btn-primary btn-hero">Get started</a>
@@ -186,34 +171,20 @@
 
     <section class="pricing" id="pricing">
       <div class="container">
-        <h2>Simple pricing, no surprises</h2>
+        <h2>Simple, pay-as-you-go pricing</h2>
         <p class="pricing-intro">
-          Pick the plan that matches how much video you process each month. Upgrade, downgrade,
-          or cancel whenever you like.
+          No subscription, no monthly commitment. Add funds to your account and pay only for the
+          video you actually convert.
         </p>
 
-        <div class="pricing-grid">
-          <div class="pricing-card">
-            <h3>Personal</h3>
-            <p class="price"><span class="price-amount">$10</span><span class="price-period">/month</span></p>
-            <p class="pricing-tagline">For the occasional lecture, meeting, or video you need turned into notes.</p>
-            <ul class="pricing-features">
-              <li>3 hours of video per month</li>
-              <li>Export to Markdown, PDF, and Word</li>
-              <li>Documents retained for 7 days</li>
-            </ul>
-            <a href="#signup" class="btn-secondary">Get started</a>
-          </div>
-
+        <div class="pricing-single">
           <div class="pricing-card featured">
-            <span class="pricing-badge">Most popular</span>
-            <h3>Preferred</h3>
-            <p class="price"><span class="price-amount">$20</span><span class="price-period">/month</span></p>
-            <p class="pricing-tagline">For regular use — courses, podcasts, recurring meetings — with nothing to lose.</p>
+            <p class="price"><span class="price-amount">$1</span><span class="price-period">/ hour of video</span></p>
+            <p class="pricing-tagline">Flat rate, billed proportionally to the exact length of what you upload.</p>
             <ul class="pricing-features">
-              <li>10 hours of video per month</li>
               <li>Export to Markdown, PDF, and Word</li>
-              <li>Documents retained forever</li>
+              <li>No subscription, no monthly minimum</li>
+              <li>Documents aren't guaranteed past 7 days — download what you need</li>
             </ul>
             <a href="#signup" class="btn-primary">Get started</a>
           </div>

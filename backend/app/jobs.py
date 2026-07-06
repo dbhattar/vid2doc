@@ -20,7 +20,7 @@ def _job_to_dict(job: Job) -> dict:
         "source_path": job.source_path,
         "document_path": job.document_path,
         "duration_seconds": job.duration_seconds,
-        "billed_overage_cents": job.billed_overage_cents,
+        "billed_cents": job.billed_cents,
         "error_message": job.error_message,
         "deleted_at": job.deleted_at,
         "created_at": job.created_at,
@@ -33,6 +33,7 @@ def create_job(
     source_path: str,
     user_id: str | uuid.UUID | None = None,
     duration_seconds: float | None = None,
+    billed_cents: int = 0,
 ) -> None:
     session = get_session()
     try:
@@ -43,6 +44,7 @@ def create_job(
                 status="queued",
                 source_path=source_path,
                 duration_seconds=duration_seconds,
+                billed_cents=billed_cents,
             )
         )
         session.commit()
