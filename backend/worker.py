@@ -6,12 +6,10 @@ import time
 
 from app import jobs
 from app.config import settings
-from app.db import init_db
 from app.pipeline import run_job
 
 
 def main() -> None:
-    init_db()
     print("Worker started, polling for jobs...", flush=True)
     while True:
         job = jobs.claim_next_queued_job()

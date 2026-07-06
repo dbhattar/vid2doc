@@ -5,8 +5,11 @@ from pathlib import Path
 class Settings:
     API_KEY = os.environ.get("API_KEY", "dev-secret-key")
 
+    DATABASE_URL = os.environ.get(
+        "DATABASE_URL", "postgresql+psycopg2://vid2doc:vid2doc@postgres:5432/vid2doc"
+    )
+
     DATA_DIR = Path(os.environ.get("DATA_DIR", "/data"))
-    DB_PATH = str(DATA_DIR / "jobs.db")
     UPLOADS_DIR = DATA_DIR / "uploads"
     OUTPUT_DIR = DATA_DIR / "output"
 

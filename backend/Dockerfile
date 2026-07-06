@@ -15,7 +15,12 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir --extra-index-url https://download.pytorch.org/whl/cpu -r requirements.txt
 
 COPY . .
+RUN chmod +x docker-entrypoint.sh
 
 # One shared image for both services -- docker-compose overrides `command`
-# per service (api runs uvicorn, worker runs worker.py).
+# per service (api runs uvicorn, worker runs worker.py). The entrypoint runs
+# pending Alembic migrations before either command starts, so both
+# containers self-migrate on boot without a separate deploy step -- safe
+# since `alembic upgrade head` is a no-op once the schema is current.
+ENTRYPOINT ["./docker-entrypoint.sh"]
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]

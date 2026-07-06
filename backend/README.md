@@ -9,19 +9,22 @@ validated in `../local_test/`. Two containers, one shared codebase:
   queued job. Kept separate from `api` so a long-running video never blocks
   HTTP request handling.
 
-State is intentionally self-contained for v1 — no external database or
-object storage to provision:
-- **SQLite** (`data/jobs.db`) for job records, shared by both containers via
-  a mounted volume. A single atomic `UPDATE ... WHERE status='queued'`
-  claims each job, so it's safe to run multiple worker replicas without a
-  Postgres-style `SKIP LOCKED`.
+State is still self-contained on a single VPS — no third-party database or
+object storage provider to provision:
+- **Postgres**, self-hosted as a third `postgres` service in
+  `docker-compose.yml` (own volume, not exposed beyond `127.0.0.1` on the
+  host). Schema is managed by Alembic (`alembic/`); both the `api` and
+  `worker` containers run `alembic upgrade head` on boot via
+  `docker-entrypoint.sh` before starting, so the schema is always current
+  without a separate deploy step. `claim_next_queued_job()` uses
+  `SELECT ... FOR UPDATE SKIP LOCKED`, so multiple worker replicas can safely
+  claim jobs without racing each other.
 - **Local disk** (`data/uploads/`, `data/output/`) for uploaded videos and
-  generated documents, also on the shared volume.
+  generated documents, on the shared volume.
 
-This trades durability/scalability for "runs anywhere with just Docker" —
-the natural next step (in the original plan) is swapping SQLite for Postgres
-and local disk for object storage (R2/S3) once this needs to survive a
-VPS being rebuilt or scale past one host.
+This still trades object-storage durability/scalability for "runs anywhere
+with just Docker" — swapping local disk for R2/S3 remains a possible future
+step if this needs to survive a VPS being rebuilt or scale past one host.
 
 ## Pipeline
 
@@ -112,6 +115,10 @@ docker compose up --build
 | `TRANSCRIPTION_ENGINE` | `auto` (default) / `assemblyai` / `whisper-diarized` / `whisper` |
 | `WHISPER_MODEL` | `tiny`/`base`/`small`/`medium`/`large`, used by the whisper engines |
 | `MAX_UPLOAD_BYTES`, `MAX_DURATION_SECONDS` | Upload guardrails (defaults: 2GB, 90 min) |
+| `POSTGRES_PASSWORD` | Password for the self-hosted `postgres` compose service |
+| `DATABASE_URL` | SQLAlchemy connection string for `api`/`worker`, e.g. `postgresql+psycopg2://vid2doc:$POSTGRES_PASSWORD@postgres:5432/vid2doc` — host must match the `postgres` service name when running under compose |
+
+To apply schema changes without restarting a container: `docker compose run --rm api alembic upgrade head` (this also runs automatically on every container boot).
 
 ## Deploying to a VPS
 
@@ -123,9 +130,9 @@ docker compose up --build
 5. Put a reverse proxy (Caddy/nginx/Traefik) in front of port 8000 for TLS —
    not included here, since it depends on your domain/certs setup.
 
-The `data/` directory (jobs.db + uploads + output) lives on the VPS's local
-disk via the compose volume mount — back it up like any other stateful
-service if you care about surviving a host rebuild.
+The `data/` directory (Postgres's own data dir + uploads + output) lives on
+the VPS's local disk via the compose volume mounts — back it up like any
+other stateful service if you care about surviving a host rebuild.
 
 ## What's not in v1
 
