@@ -37,3 +37,24 @@ export async function apiFetch<T>(path: string, options: RequestInit = {}): Prom
   if (response.status === 204) return undefined as T;
   return (await response.json()) as T;
 }
+
+/** Document download links (document_url etc.) point at an authenticated
+ * endpoint -- a plain `<a href>` click can't attach an Authorization header,
+ * so downloads go through this instead: fetch as a blob, then trigger the
+ * browser's save dialog via a throwaway object URL. `url` is the absolute
+ * URL the backend already returned (not a path -- do not prepend API_BASE_URL). */
+export async function downloadAuthenticated(url: string, filename: string): Promise<void> {
+  const token = getToken();
+  const response = await fetch(url, {
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+  });
+  if (!response.ok) throw new ApiError(response.status, response.statusText);
+
+  const blob = await response.blob();
+  const objectUrl = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = objectUrl;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(objectUrl);
+}

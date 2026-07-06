@@ -92,3 +92,27 @@ def update_job(job_id: str, **fields) -> None:
         session.commit()
     finally:
         session.close()
+
+
+def list_jobs_for_user(user_id: str | uuid.UUID, limit: int = 20, offset: int = 0) -> list[dict]:
+    session = get_session()
+    try:
+        rows = (
+            session.query(Job)
+            .filter_by(user_id=user_id)
+            .order_by(Job.created_at.desc())
+            .limit(limit)
+            .offset(offset)
+            .all()
+        )
+        return [_job_to_dict(j) for j in rows]
+    finally:
+        session.close()
+
+
+def count_jobs_for_user(user_id: str | uuid.UUID) -> int:
+    session = get_session()
+    try:
+        return session.query(Job).filter_by(user_id=user_id).count()
+    finally:
+        session.close()

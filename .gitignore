@@ -21,3 +21,4 @@ backend/**/__pycache__/
 validation/venv/
 validation/.venv/
 validation/__pycache__/
+.venv-validation/
