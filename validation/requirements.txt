@@ -1,0 +1,13 @@
+# Deliberately a small subset of backend/requirements.txt -- just enough to
+# import app.main and drive it via FastAPI's TestClient, without the heavy
+# ML pipeline deps (torch/whisper/pyannote) these scripts never exercise.
+fastapi==0.115.6
+uvicorn[standard]==0.34.0
+python-multipart==0.0.20
+sqlalchemy==2.0.36
+alembic==1.14.0
+psycopg2-binary==2.9.10
+google-auth==2.36.0
+pyjwt==2.10.1
+requests
+httpx

@@ -16,3 +16,8 @@ local_test/*.mkv
 # backend service scratch
 backend/data/
 backend/**/__pycache__/
+
+# validation scripts scratch
+validation/venv/
+validation/.venv/
+validation/__pycache__/

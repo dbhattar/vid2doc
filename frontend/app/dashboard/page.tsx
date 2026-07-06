@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
@@ -65,6 +66,12 @@ export default function DashboardPage() {
       <div className="mt-8 rounded-xl border border-zinc-200 bg-white p-6 dark:border-zinc-800 dark:bg-zinc-950">
         <p className="text-sm text-zinc-500 dark:text-zinc-400">Signed in as</p>
         <p className="mt-1 text-base font-medium text-zinc-900 dark:text-zinc-50">{user.email}</p>
+      </div>
+
+      <div className="mt-4">
+        <Link href="/settings/api-keys" className="text-sm text-zinc-600 hover:underline dark:text-zinc-400">
+          Manage API keys →
+        </Link>
       </div>
     </div>
   );
