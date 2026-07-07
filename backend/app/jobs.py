@@ -118,3 +118,19 @@ def count_jobs_for_user(user_id: str | uuid.UUID) -> int:
         return session.query(Job).filter_by(user_id=user_id).count()
     finally:
         session.close()
+
+
+def list_jobs_eligible_for_retention(cutoff: datetime) -> list[dict]:
+    """`done` jobs created before `cutoff` that haven't already been cleaned
+    up. Retention applies to everyone -- there's no plan tier anymore that
+    gets unlimited retention."""
+    session = get_session()
+    try:
+        rows = (
+            session.query(Job)
+            .filter(Job.status == "done", Job.created_at < cutoff, Job.deleted_at.is_(None))
+            .all()
+        )
+        return [_job_to_dict(j) for j in rows]
+    finally:
+        session.close()

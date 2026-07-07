@@ -88,7 +88,13 @@ export default function JobDetailPage() {
             </p>
           )}
 
-          {job.status === "done" && (
+          {job.status === "done" && job.retention_expired && (
+            <p className="mt-4 rounded-md bg-zinc-100 p-3 text-sm text-zinc-600 dark:bg-zinc-900 dark:text-zinc-400">
+              This document was deleted per the 7-day retention policy and can no longer be downloaded.
+            </p>
+          )}
+
+          {job.status === "done" && !job.retention_expired && (
             <div className="mt-6 flex flex-wrap gap-2">
               {job.document_url && (
                 <button

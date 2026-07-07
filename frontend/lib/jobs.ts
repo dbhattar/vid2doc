@@ -10,6 +10,7 @@ export type Job = {
   document_bundle_url?: string;
   document_docx_url?: string;
   document_pdf_url?: string;
+  retention_expired?: boolean;
   error?: string;
 };
 

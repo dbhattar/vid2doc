@@ -48,6 +48,7 @@ python validation/milestone_3_api_keys.py
 python validation/milestone_4_jobs_list.py
 python validation/milestone_4_document_bundle.py
 python validation/milestone_5_billing.py
+python validation/milestone_7_retention.py
 ```
 
 Each prints one line per check and ends with `ALL MILESTONE N CHECKS

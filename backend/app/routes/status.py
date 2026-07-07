@@ -17,7 +17,11 @@ def build_job_response(job: dict, request: Request) -> dict:
         "created_at": job["created_at"],
         "duration_seconds": job["duration_seconds"],
     }
-    if job["status"] == "done":
+    if job["status"] == "done" and job["deleted_at"] is not None:
+        # Retention swept the files (see retention.py) -- still "done" in
+        # the sense that conversion succeeded, but nothing left to serve.
+        response["retention_expired"] = True
+    elif job["status"] == "done":
         base = f"{str(request.base_url).rstrip('/')}/api/documents/{job['id']}"
         doc_dir = settings.OUTPUT_DIR / job["id"] / "document"
         response["document_url"] = f"{base}/document.md"

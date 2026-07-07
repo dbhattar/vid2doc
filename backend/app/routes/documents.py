@@ -15,6 +15,8 @@ def _owned_done_doc_dir(job_id: str, current_user: dict):
     job = jobs.get_job(job_id)
     if not job or job["user_id"] != current_user["id"] or job["status"] != "done":
         raise HTTPException(status_code=404, detail="Document not found")
+    if job["deleted_at"] is not None:
+        raise HTTPException(status_code=404, detail="This document was deleted after 7 days per the retention policy")
     return (settings.OUTPUT_DIR / job_id / "document").resolve()
 
 

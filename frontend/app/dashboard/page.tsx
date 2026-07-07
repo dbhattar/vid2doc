@@ -182,7 +182,12 @@ export default function DashboardPage() {
                 </div>
                 <div className="flex items-center gap-3">
                   <StatusBadge job={job} />
-                  {job.status === "done" && (
+                  {job.status === "done" && job.retention_expired && (
+                    <span className="text-xs text-zinc-400" title="Documents aren't guaranteed past 7 days">
+                      Expired
+                    </span>
+                  )}
+                  {job.status === "done" && !job.retention_expired && (
                     <div className="flex items-center gap-2 text-sm text-zinc-600 dark:text-zinc-400">
                       {job.document_url && (
                         <button onClick={() => downloadAuthenticated(job.document_url!, `${job.job_id}.md`)} className="hover:underline">

@@ -106,9 +106,10 @@ curl -X POST http://localhost:8000/api/convert_to_doc \
 curl -H "Authorization: Bearer $TOKEN" "http://localhost:8000/api/get_status?job_id=$JOB_ID"
 ```
 
-- `200` — `{"job_id", "status", "progress_stage", "created_at", "duration_seconds", "document_url"?, "document_bundle_url"?, "document_docx_url"?, "document_pdf_url"?, "error"?}`
+- `200` — `{"job_id", "status", "progress_stage", "created_at", "duration_seconds", "document_url"?, "document_bundle_url"?, "document_docx_url"?, "document_pdf_url"?, "retention_expired"?, "error"?}`
   - `status`: `queued` | `processing` | `done` | `failed`
-  - `document_url` (Markdown) / `document_bundle_url` (zip of the Markdown + its `images/`) present whenever `status == "done"`; `document_docx_url`/`document_pdf_url` present only if those best-effort exports actually rendered successfully
+  - `document_url` (Markdown) / `document_bundle_url` (zip of the Markdown + its `images/`) present whenever `status == "done"` and the document hasn't been swept by retention; `document_docx_url`/`document_pdf_url` present only if those best-effort exports actually rendered successfully
+  - `retention_expired: true` instead of any `document_*_url` if the job succeeded but its files were deleted by the retention sweep (see Retention below)
   - `error` present only when `status == "failed"`
 - `404` — unknown job id, or a job id that belongs to a different user (ownership is never revealed)
 
@@ -145,7 +146,7 @@ The wallet balance is never a stored/mutable number — it's always
 `usage_charge` / `usage_refund` entries), so it can't drift and every
 charge/refund has an audit trail. A failed job is refunded automatically
 (see `pipeline.py`'s except block). Documents aren't guaranteed to be
-retained past 7 days for anyone (see the retention job, once built).
+retained past 7 days for anyone — see Retention below.
 
 ### `POST /api/billing/checkout/topup`
 
@@ -173,6 +174,24 @@ via `processed_webhook_events` and skipped. For local dev:
 ### `GET /health`
 
 No auth. Liveness check for whatever platform runs the container.
+
+## Retention
+
+`retention.py` is a one-shot script, not part of the API or worker process:
+for every `done` job older than 7 days with `deleted_at IS NULL`, it deletes
+that job's `data/uploads/{job_id}` and `data/output/{job_id}` directories
+from disk, then nulls `document_path` and sets `deleted_at` on the row (the
+row itself — id, `duration_seconds`, `user_id`, `billed_cents`, timestamps —
+is kept, since usage/billing history still needs it). Applies to every job
+regardless of who owns it; there's no plan tier with unlimited retention.
+
+Run it on a schedule via the VPS's own crontab — not folded into `worker.py`'s
+poll loop, since that loop synchronously blocks on a video's full processing
+time and shouldn't also carry cleanup latency:
+
+```cron
+0 3 * * * cd /path/to/vid2doc/backend && docker compose run --rm api python retention.py >> /var/log/framewrite-retention.log 2>&1
+```
 
 ## Local development
 
@@ -223,12 +242,8 @@ other stateful service if you care about surviving a host rebuild.
 
 ## What's not in v1
 
-- No per-user API keys yet (for programmatic callers that can't do a browser
-  Google OAuth flow) — only browser-issued session tokens work today. No
-  request-level rate limiting (the size/duration caps are the only
-  cost/abuse guardrail right now).
+- No request-level rate limiting beyond the size/duration upload caps — the
+  wallet balance check is the only real cost/abuse guardrail right now.
 - No job retry on worker crash mid-processing — a killed worker leaves a
   job stuck in `processing` with no automatic recovery. Fine for a
   single-VPS v1; add a staleness check + requeue before scaling traffic.
-- No cleanup of old uploads/output — disk usage grows unbounded. Add a
-  retention job before this runs unattended for a long time.
