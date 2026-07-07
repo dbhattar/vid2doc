@@ -1,9 +1,10 @@
 # Framewrite frontend
 
 Next.js (App Router) product frontend: login, submit conversions, track
-jobs, download documents, manage API keys, manage subscription/wallet, track
-usage. Separate from the static marketing site at the repo root — this is
-the actual signed-in application, talking to `../backend`'s API.
+jobs, download documents, manage API keys, and manage wallet billing
+(pay-as-you-go, $1/video-hour — no subscriptions). Separate from the static
+marketing site at the repo root — this is the actual signed-in application,
+talking to `../backend`'s API.
 
 ## Auth
 

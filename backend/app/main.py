@@ -4,7 +4,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from .config import settings
 from .routes import auth, billing, convert, documents, health, jobs, keys, status
 
-app = FastAPI(title="vid2doc API")
+app = FastAPI(title="Framewrite API")
 
 app.add_middleware(
     CORSMiddleware,

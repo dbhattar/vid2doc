@@ -1,4 +1,4 @@
-# vid2doc backend (v1)
+# Framewrite backend (v1)
 
 A minimal API + worker service that wraps the video-to-document pipeline
 validated in `../local_test/`. Two containers, one shared codebase:
@@ -222,19 +222,49 @@ docker compose up --build
 | `STRIPE_SECRET_KEY` | Stripe API secret key (test-mode for dev) — no Price ids needed, top-up amount is chosen at checkout time |
 | `STRIPE_WEBHOOK_SECRET` | Verifies `POST /api/billing/webhook` signatures — from `stripe listen` locally, or the dashboard's webhook config in prod |
 | `FRONTEND_URL` | Where Stripe Checkout redirects back to after a session |
+| `NEXT_PUBLIC_API_BASE_URL` | Frontend build arg (not read by the backend itself) — public URL the browser uses to reach this API |
+| `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | Frontend build arg — same value as `GOOGLE_CLIENT_ID` above |
 
 To apply schema changes without restarting a container: `docker compose run --rm api alembic upgrade head` (this also runs automatically on every container boot).
 
 ## Deploying to a VPS
 
-1. Copy this `backend/` directory to the VPS (or clone the repo there).
+The `frontend` service's build context is `../frontend` (see
+`docker-compose.yml`), so **the whole repo needs to be on the VPS, not just
+`backend/`** — this now deploys the full stack (Postgres, API, worker,
+frontend) from one `docker compose up`, not just the API.
+
+1. Clone the repo onto the VPS (not just `backend/`).
 2. Install Docker + the Compose plugin on the VPS.
-3. `cp .env.example .env` and fill in real secrets, including a real
-   `JWT_SECRET` (the default dev value must not be used in production) and
-   your production `GOOGLE_CLIENT_ID`.
-4. `docker compose up -d --build`
-5. Put a reverse proxy (Caddy/nginx/Traefik) in front of port 8000 for TLS —
-   not included here, since it depends on your domain/certs setup.
+3. `cd backend && cp .env.example .env` and fill in real values for
+   everything in the table above, in particular:
+   - A real `JWT_SECRET` (`openssl rand -hex 32`) — the dev default must
+     never be used in production.
+   - `CORS_ALLOWED_ORIGINS` — your real frontend origin (e.g.
+     `https://app.framewrite.cc`), not `http://localhost:3000`.
+   - `NEXT_PUBLIC_API_BASE_URL` — your real public API origin (e.g.
+     `https://api.framewrite.cc`), not `http://localhost:8000`. This is a
+     Docker **build** arg — changing it later requires rebuilding the
+     `frontend` image, not just restarting the container.
+   - `FRONTEND_URL` — your real frontend origin, used for Stripe redirect URLs.
+   - `STRIPE_SECRET_KEY` — a **live-mode** key when you're ready to accept
+     real payments (test-mode keys/cards work fine before that).
+4. Add the production frontend origin to the Google Cloud OAuth client's
+   Authorized JavaScript origins (Console → APIs & Services → Credentials) —
+   `GOOGLE_CLIENT_ID` alone isn't enough; Google also checks the origin the
+   sign-in request came from.
+5. Register a production webhook endpoint in the Stripe Dashboard
+   (Developers → Webhooks → Add endpoint) pointing at
+   `https://<your-api-domain>/api/billing/webhook`, and put the signing
+   secret it gives you into `STRIPE_WEBHOOK_SECRET`. (Locally this is
+   `stripe listen` instead — see Billing above. Test mode and live mode each
+   need their own webhook endpoint registered separately.)
+6. `docker compose up -d --build`
+7. Put a reverse proxy (Caddy/nginx/Traefik) in front of it for TLS, routing
+   your frontend domain to the `frontend` container (port 3000) and your API
+   domain to the `api` container (port 8000) — not included here, since it
+   depends on your domain/certs setup. Stripe and the browser both require
+   real HTTPS; plain HTTP won't work for either.
 
 The `data/` directory (Postgres's own data dir + uploads + output) lives on
 the VPS's local disk via the compose volume mounts — back it up like any

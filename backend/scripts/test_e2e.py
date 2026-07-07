@@ -1,10 +1,13 @@
 #!/usr/bin/env python3
-"""End-to-end test against a running vid2doc API: download a YouTube video,
-submit it, poll until done, and save the resulting document locally.
+"""End-to-end test against a running Framewrite API: download a YouTube
+video, submit it, poll until done, and save the resulting document locally.
 
 Usage:
-    python scripts/test_e2e.py "https://youtu.be/XXXX"
-    python scripts/test_e2e.py "https://youtu.be/XXXX" --api-url http://my-vps:8000
+    python scripts/test_e2e.py "https://youtu.be/XXXX" --api-key vd2_...
+    python scripts/test_e2e.py "https://youtu.be/XXXX" --api-key vd2_... --api-url http://my-vps:8000
+
+Generate an API key from the frontend's Settings -> API keys page (there's
+no shared/global key anymore -- every key is tied to a specific user).
 
 Exercises the real HTTP API (auth, upload validation, job polling, document
 fetch) against whatever LLM_PROVIDER/TRANSCRIPTION_ENGINE the running
@@ -19,18 +22,6 @@ import subprocess
 import sys
 import time
 from pathlib import Path
-
-BACKEND_DIR = Path(__file__).resolve().parent.parent
-
-
-def load_env_api_key() -> str | None:
-    env_path = BACKEND_DIR / ".env"
-    if not env_path.exists():
-        return None
-    for line in env_path.read_text().splitlines():
-        if line.strip().startswith("API_KEY="):
-            return line.split("=", 1)[1].strip()
-    return None
 
 
 def download_video(url: str, dest: Path, max_height: int) -> Path:
@@ -110,16 +101,13 @@ def main() -> None:
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("youtube_url")
     parser.add_argument("--api-url", default="http://localhost:8000")
-    parser.add_argument("--api-key", default=None, help="Defaults to API_KEY from backend/.env")
+    parser.add_argument("--api-key", required=True, help="Per-user API key, from Settings -> API keys in the frontend")
     parser.add_argument("--output-dir", type=Path, default=Path("e2e_output"))
     parser.add_argument("--max-height", type=int, default=480)
     parser.add_argument("--poll-interval", type=float, default=5.0)
     parser.add_argument("--timeout", type=float, default=1800.0, help="Max seconds to wait for the job to finish")
     args = parser.parse_args()
-
-    api_key = args.api_key or load_env_api_key()
-    if not api_key:
-        sys.exit("No API key found -- pass --api-key or set API_KEY in backend/.env")
+    api_key = args.api_key
 
     args.output_dir.mkdir(parents=True, exist_ok=True)
     video_path = download_video(args.youtube_url, args.output_dir / "source.mp4", args.max_height)
