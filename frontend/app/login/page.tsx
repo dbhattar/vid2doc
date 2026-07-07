@@ -98,7 +98,7 @@ export default function LoginPage() {
             className="mx-auto rounded-xl lg:hidden"
             priority
           />
-          <h2 className="mt-4 mb-1 text-2xl font-bold tracking-tight text-brand-navy lg:mt-0 dark:text-foreground">
+          <h2 className="mt-4 mb-1 text-2xl font-bold tracking-tight text-brand-navy lg:mt-0">
             Sign in to Framewrite
           </h2>
           <p className="mb-8 text-sm text-muted">Convert videos, manage your jobs, and track usage.</p>

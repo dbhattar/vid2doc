@@ -37,17 +37,8 @@
   --font-mono: var(--font-geist-mono);
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0b1220;
-    --foreground: #eef1f5;
-    --surface: #101a2e;
-    --muted: #8f9bb3;
-    --brand-navy-soft: #16213a;
-    --brand-border: #223252;
-    --shadow-soft: 0 10px 30px rgba(0, 0, 0, 0.35);
-  }
-}
+/* No dark-mode variant by design -- this app always renders the light
+   palette above, matching the marketing site, regardless of OS theme. */
 
 body {
   background: var(--background);
