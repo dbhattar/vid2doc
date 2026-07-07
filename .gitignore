@@ -22,3 +22,5 @@ validation/venv/
 validation/.venv/
 validation/__pycache__/
 .venv-validation/
+
+deploy/__pycache__/

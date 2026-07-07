@@ -28,6 +28,9 @@ This repo contains the whole product, not just one piece of it:
 - **`restart-containers.sh`** — dev helper: frees up host ports, rebuilds,
   and restarts the full Docker stack. Pass `--dev` to also start the Stripe
   CLI webhook listener.
+- **`deploy/`** — Fabric tasks that provision and deploy the product
+  (backend + frontend) onto a VPS: nginx, TLS, Docker Compose. See
+  `deploy/README.md`.
 - **`local_test/`** — standalone prototype scripts that validated each
   pipeline stage (transcription, frame extraction, vision classification,
   composition) against a real video before any of it was wired into
@@ -59,7 +62,9 @@ python3 -m http.server 8080
 ## Deployment
 
 - Marketing site → Netlify, directly from this repo's root (`netlify.toml`).
-- Product (backend + frontend) → a single VPS via Docker Compose. See
-  `backend/README.md`'s "Deploying to a VPS" section for the full checklist
-  (Postgres, Google OAuth origins, Stripe webhook registration, TLS/reverse
-  proxy, etc.).
+- Product (backend + frontend) → a single VPS via Docker Compose, automated
+  with Fabric from `deploy/` (`bootstrap` → `setup-tls` → `deploy`). See
+  `deploy/README.md` for the tasks and `backend/README.md`'s "Deploying to a
+  VPS" section for the full conceptual checklist (Postgres, Google OAuth
+  origins, Stripe webhook registration, TLS/reverse proxy, etc.) that the
+  Fabric tasks automate.
