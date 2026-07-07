@@ -1,6 +1,7 @@
 "use client";
 
 import { GoogleLogin, GoogleOAuthProvider } from "@react-oauth/google";
+import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
@@ -37,12 +38,13 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="flex flex-1 items-center justify-center bg-zinc-50 dark:bg-black">
-      <div className="w-full max-w-sm rounded-2xl border border-zinc-200 bg-white p-8 text-center shadow-sm dark:border-zinc-800 dark:bg-zinc-950">
-        <h1 className="mb-2 text-xl font-semibold text-zinc-900 dark:text-zinc-50">Sign in to Framewrite</h1>
-        <p className="mb-6 text-sm text-zinc-500 dark:text-zinc-400">
-          Convert videos, manage your jobs, and track usage.
-        </p>
+    <div className="flex flex-1 items-center justify-center bg-linear-to-b from-brand-navy-soft to-background px-6 py-16">
+      <div className="w-full max-w-sm rounded-2xl border border-brand-border bg-surface p-8 text-center shadow-soft">
+        <Image src="/logo-icon.png" alt="" width={48} height={48} className="mx-auto rounded-xl" priority />
+        <h1 className="mt-4 mb-1 text-xl font-bold tracking-tight text-brand-navy dark:text-foreground">
+          Sign in to Framewrite
+        </h1>
+        <p className="mb-6 text-sm text-muted">Convert videos, manage your jobs, and track usage.</p>
 
         {GOOGLE_CLIENT_ID ? (
           <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>

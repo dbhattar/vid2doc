@@ -26,15 +26,24 @@ export function getToken(): string | null {
   return window.localStorage.getItem(TOKEN_KEY);
 }
 
+// Cached by raw string so repeated calls return the same object reference
+// when localStorage hasn't actually changed -- required for safe use as a
+// useSyncExternalStore snapshot, which re-renders forever if the snapshot
+// function returns a new object every time it's called.
+let cachedRaw: string | null = null;
+let cachedUser: CurrentUser | null = null;
+
 export function getStoredUser(): CurrentUser | null {
   if (!canUseStorage()) return null;
   const raw = window.localStorage.getItem(USER_KEY);
-  if (!raw) return null;
+  if (raw === cachedRaw) return cachedUser;
+  cachedRaw = raw;
   try {
-    return JSON.parse(raw) as CurrentUser;
+    cachedUser = raw ? (JSON.parse(raw) as CurrentUser) : null;
   } catch {
-    return null;
+    cachedUser = null;
   }
+  return cachedUser;
 }
 
 export function clearSession(): void {
