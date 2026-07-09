@@ -66,6 +66,7 @@ def run_job(job: dict) -> None:
             jobs.update_job(job_id, progress_stage="composing_document")
             sections = compose.compose_document(segments, images_meta + tables_meta)
             title = compose.generate_title(sections)
+            jobs.update_job(job_id, title=title)
 
         if not sections:
             sections = _fallback_sections(segments)

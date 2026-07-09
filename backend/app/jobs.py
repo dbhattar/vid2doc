@@ -17,6 +17,7 @@ def _job_to_dict(job: Job) -> dict:
         "user_id": str(job.user_id) if job.user_id else None,
         "status": job.status,
         "progress_stage": job.progress_stage,
+        "title": job.title,
         "source_path": job.source_path,
         "document_path": job.document_path,
         "duration_seconds": job.duration_seconds,
@@ -34,6 +35,7 @@ def create_job(
     user_id: str | uuid.UUID | None = None,
     duration_seconds: float | None = None,
     billed_cents: int = 0,
+    title: str | None = None,
 ) -> None:
     session = get_session()
     try:
@@ -45,6 +47,7 @@ def create_job(
                 source_path=source_path,
                 duration_seconds=duration_seconds,
                 billed_cents=billed_cents,
+                title=title,
             )
         )
         session.commit()
@@ -96,26 +99,27 @@ def update_job(job_id: str, **fields) -> None:
         session.close()
 
 
-def list_jobs_for_user(user_id: str | uuid.UUID, limit: int = 20, offset: int = 0) -> list[dict]:
+def list_jobs_for_user(
+    user_id: str | uuid.UUID, limit: int = 20, offset: int = 0, status: str | None = None
+) -> list[dict]:
     session = get_session()
     try:
-        rows = (
-            session.query(Job)
-            .filter_by(user_id=user_id)
-            .order_by(Job.created_at.desc())
-            .limit(limit)
-            .offset(offset)
-            .all()
-        )
+        query = session.query(Job).filter_by(user_id=user_id)
+        if status:
+            query = query.filter_by(status=status)
+        rows = query.order_by(Job.created_at.desc()).limit(limit).offset(offset).all()
         return [_job_to_dict(j) for j in rows]
     finally:
         session.close()
 
 
-def count_jobs_for_user(user_id: str | uuid.UUID) -> int:
+def count_jobs_for_user(user_id: str | uuid.UUID, status: str | None = None) -> int:
     session = get_session()
     try:
-        return session.query(Job).filter_by(user_id=user_id).count()
+        query = session.query(Job).filter_by(user_id=user_id)
+        if status:
+            query = query.filter_by(status=status)
+        return query.count()
     finally:
         session.close()
 

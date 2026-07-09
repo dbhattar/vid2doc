@@ -79,6 +79,10 @@ class Job(Base):
     )
     status: Mapped[str] = mapped_column(String, nullable=False, default="queued")  # queued|processing|done|failed
     progress_stage: Mapped[str | None] = mapped_column(String, nullable=True)
+    # Set from the uploaded filename at submission time, then overwritten with
+    # an LLM-generated title once compose_document runs (see pipeline.py) --
+    # whichever is freshest is what list/detail views show.
+    title: Mapped[str | None] = mapped_column(String, nullable=True)
     source_path: Mapped[str] = mapped_column(String, nullable=False)
     document_path: Mapped[str | None] = mapped_column(String, nullable=True)
     duration_seconds: Mapped[float | None] = mapped_column(Float, nullable=True)

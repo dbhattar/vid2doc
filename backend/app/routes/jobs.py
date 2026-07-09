@@ -15,10 +15,11 @@ def list_jobs(
     request: Request,
     limit: int = Query(default=20, ge=1, le=100),
     offset: int = Query(default=0, ge=0),
+    status: str | None = Query(default=None, description="Filter to one status, e.g. status=done"),
     current_user: dict = Depends(get_current_user),
 ):
-    job_list = jobs.list_jobs_for_user(current_user["id"], limit=limit, offset=offset)
-    total = jobs.count_jobs_for_user(current_user["id"])
+    job_list = jobs.list_jobs_for_user(current_user["id"], limit=limit, offset=offset, status=status)
+    total = jobs.count_jobs_for_user(current_user["id"], status=status)
     return {"jobs": [build_job_response(job, request) for job in job_list], "total": total}
 
 
@@ -59,5 +60,6 @@ def retry_job(job_id: str, request: Request, current_user: dict = Depends(get_cu
         user_id=current_user["id"],
         duration_seconds=job["duration_seconds"],
         billed_cents=billed_cents,
+        title=job["title"],
     )
     return build_job_response(jobs.get_job(new_job_id), request)

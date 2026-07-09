@@ -4,6 +4,7 @@ export type Job = {
   job_id: string;
   status: JobStatus;
   progress_stage: string | null;
+  title: string | null;
   created_at: string;
   duration_seconds: number | null;
   document_url?: string;
@@ -18,6 +19,13 @@ export const ACTIVE_JOB_STATUSES = new Set<JobStatus>(["queued", "processing"]);
 
 export function isActiveJob(job: Job): boolean {
   return ACTIVE_JOB_STATUSES.has(job.status);
+}
+
+/** Jobs created before the title feature (or where filename/LLM titling
+ * both came up empty) have no title -- fall back to the timestamp so every
+ * row still shows something meaningful. */
+export function displayTitle(job: Job): string {
+  return job.title?.trim() || new Date(job.created_at).toLocaleString();
 }
 
 export function formatDuration(seconds: number | null): string {

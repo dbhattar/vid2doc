@@ -6,7 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import { apiFetch, ApiError, downloadAuthenticated } from "@/lib/api";
 import { clearSession } from "@/lib/auth";
-import { formatDuration, isActiveJob, type Job } from "@/lib/jobs";
+import { displayTitle, formatDuration, isActiveJob, type Job } from "@/lib/jobs";
 
 const POLL_INTERVAL_MS = 3000;
 
@@ -64,11 +64,20 @@ export default function JobDetailPage() {
 
   return (
     <div className="mx-auto w-full max-w-2xl px-6 py-10">
-      <Link href="/dashboard" className="text-sm text-muted hover:text-brand-amber-dark hover:underline">
-        ← Back to dashboard
-      </Link>
+      <div className="flex items-center gap-4">
+        <Link href="/dashboard" className="text-sm text-muted hover:text-brand-amber-dark hover:underline">
+          ← Back to dashboard
+        </Link>
+        {job && job.status === "done" && !job.retention_expired && (
+          <Link href="/documents" className="text-sm text-muted hover:text-brand-amber-dark hover:underline">
+            All documents →
+          </Link>
+        )}
+      </div>
 
-      <h1 className="mt-4 text-2xl font-bold tracking-tight text-brand-navy">Job detail</h1>
+      <h1 className="mt-4 truncate text-2xl font-bold tracking-tight text-brand-navy">
+        {job ? displayTitle(job) : "Job detail"}
+      </h1>
 
       {error && <p className="mt-4 text-sm text-red-600">{error}</p>}
 

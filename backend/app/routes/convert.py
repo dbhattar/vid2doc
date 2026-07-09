@@ -1,3 +1,4 @@
+import re
 import shutil
 import subprocess
 import uuid
@@ -19,6 +20,17 @@ def _probe_duration_seconds(path: Path) -> float:
         text=True,
     )
     return float(result.stdout.strip())
+
+
+def _title_from_filename(filename: str) -> str:
+    """Immediate placeholder title, shown until (and unless) pipeline.py
+    overwrites it with an LLM-generated one once the video's actually been
+    transcribed. Preserves the filename's original casing (e.g. "AP_Chem" ->
+    "AP Chem") rather than title-casing, which would mangle acronyms."""
+    stem = Path(filename).stem
+    cleaned = re.sub(r"[_\-]+", " ", stem)
+    cleaned = re.sub(r"\s+", " ", cleaned).strip()
+    return cleaned[:200] if cleaned else "Untitled video"
 
 
 @router.post("/api/convert_to_doc", status_code=202)
@@ -83,6 +95,11 @@ async def convert_to_doc(video: UploadFile = File(...), current_user: dict = Dep
         )
 
     jobs.create_job(
-        job_id, str(dest_path), user_id=current_user["id"], duration_seconds=duration, billed_cents=billed_cents
+        job_id,
+        str(dest_path),
+        user_id=current_user["id"],
+        duration_seconds=duration,
+        billed_cents=billed_cents,
+        title=_title_from_filename(video.filename or ""),
     )
     return {"job_id": job_id, "status": "queued"}

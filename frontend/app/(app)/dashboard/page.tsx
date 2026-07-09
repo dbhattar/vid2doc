@@ -6,7 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import { apiFetch, ApiError, downloadAuthenticated } from "@/lib/api";
 import { clearSession } from "@/lib/auth";
-import { formatDuration, isActiveJob, type Job } from "@/lib/jobs";
+import { displayTitle, formatDuration, isActiveJob, type Job } from "@/lib/jobs";
 
 const POLL_INTERVAL_MS = 4000;
 const ACCEPTED_EXTENSIONS = ".mp4,.mov,.mkv,.webm,.avi,.m4v";
@@ -164,14 +164,16 @@ export default function DashboardPage() {
           <ul className="mt-3 divide-y divide-brand-border overflow-hidden rounded-2xl border border-brand-border bg-surface shadow-soft">
             {jobs.map((job) => (
               <li key={job.job_id} className="flex items-center justify-between px-4 py-3">
-                <div>
+                <div className="min-w-0">
                   <Link
                     href={`/dashboard/jobs/${job.job_id}`}
-                    className="text-sm font-medium text-foreground hover:text-brand-amber-dark hover:underline"
+                    className="block truncate text-sm font-medium text-foreground hover:text-brand-amber-dark hover:underline"
                   >
-                    {new Date(job.created_at).toLocaleString()}
+                    {displayTitle(job)}
                   </Link>
-                  <p className="text-xs text-muted">{formatDuration(job.duration_seconds)} video</p>
+                  <p className="text-xs text-muted">
+                    {new Date(job.created_at).toLocaleDateString()} &middot; {formatDuration(job.duration_seconds)}
+                  </p>
                   {job.status === "failed" && job.error && (
                     <p className="mt-0.5 max-w-sm truncate text-xs text-red-600" title={job.error}>
                       {job.error}

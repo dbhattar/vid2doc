@@ -4,12 +4,13 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-import { BillingIcon, ChevronIcon, DashboardIcon, KeyIcon } from "@/components/icons";
+import { BillingIcon, ChevronIcon, DashboardIcon, DocumentIcon, KeyIcon } from "@/components/icons";
 import UserMenu from "@/components/UserMenu";
 import type { CurrentUser } from "@/lib/auth";
 
 const NAV_LINKS = [
   { href: "/dashboard", label: "Dashboard", Icon: DashboardIcon },
+  { href: "/documents", label: "Documents", Icon: DocumentIcon },
   { href: "/settings/api-keys", label: "API keys", Icon: KeyIcon },
   { href: "/settings/billing", label: "Billing", Icon: BillingIcon },
 ];
