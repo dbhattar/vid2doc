@@ -30,6 +30,8 @@ export default function DashboardPage() {
   const [uploadBlockedByBilling, setUploadBlockedByBilling] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
+  const [retryingJobId, setRetryingJobId] = useState<string | null>(null);
+  const [retryError, setRetryError] = useState<string | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const handleAuthError = useCallback(
@@ -88,6 +90,20 @@ export default function DashboardPage() {
     }
   }
 
+  async function handleRetry(jobId: string) {
+    setRetryingJobId(jobId);
+    setRetryError(null);
+    try {
+      await apiFetch(`/api/jobs/${jobId}/retry`, { method: "POST" });
+      loadJobs();
+    } catch (err) {
+      if (handleAuthError(err)) return;
+      setRetryError(err instanceof ApiError ? err.message : "Retry failed.");
+    } finally {
+      setRetryingJobId(null);
+    }
+  }
+
   return (
     <div className="mx-auto w-full max-w-3xl px-6 py-10">
       <h1 className="text-2xl font-bold tracking-tight text-brand-navy">Dashboard</h1>
@@ -137,6 +153,7 @@ export default function DashboardPage() {
       <div className="mt-10">
         <h2 className="text-sm font-semibold text-foreground">Your jobs</h2>
         {loadError && <p className="mt-2 text-sm text-red-600">{loadError}</p>}
+        {retryError && <p className="mt-2 text-sm text-red-600">{retryError}</p>}
         {jobs === null ? (
           <p className="mt-3 text-sm text-muted">Loading...</p>
         ) : jobs.length === 0 ? (
@@ -155,9 +172,23 @@ export default function DashboardPage() {
                     {new Date(job.created_at).toLocaleString()}
                   </Link>
                   <p className="text-xs text-muted">{formatDuration(job.duration_seconds)} video</p>
+                  {job.status === "failed" && job.error && (
+                    <p className="mt-0.5 max-w-sm truncate text-xs text-red-600" title={job.error}>
+                      {job.error}
+                    </p>
+                  )}
                 </div>
                 <div className="flex items-center gap-3">
                   <StatusBadge job={job} />
+                  {job.status === "failed" && (
+                    <button
+                      onClick={() => handleRetry(job.job_id)}
+                      disabled={retryingJobId === job.job_id}
+                      className="text-sm text-brand-navy hover:text-brand-amber-dark hover:underline disabled:cursor-default disabled:opacity-50"
+                    >
+                      {retryingJobId === job.job_id ? "Retrying..." : "Retry"}
+                    </button>
+                  )}
                   {job.status === "done" && job.retention_expired && (
                     <span className="text-xs text-muted" title="Documents aren't guaranteed past 7 days">
                       Expired

@@ -18,10 +18,15 @@ from ..exceptions import PipelineError
 BATCH_SIZE = 8
 MAX_LONG_EDGE = 1568
 
-SYSTEM_PROMPT = """You are classifying video frames for inclusion in a document generated from a video transcript.
+SYSTEM_PROMPT = """You are classifying video frames for inclusion in a document generated from a video transcript. The transcript already has everything anyone said, so a frame only earns a spot if its visual adds information the transcript doesn't -- a diagram, chart, table, code, whiteboard, or a slide with real structured content.
 
-For each frame, decide:
-- "filler" if it's just a person's face/webcam view, a blank/transition frame, or a near-duplicate of content already covered -- these are dropped from the document.
+Classify a frame as "filler" (dropped from the document) if ANY of these apply:
+- The main subject is a person -- a presenter, speaker, or webcam view -- even while gesturing, standing next to a whiteboard, or only partially in frame. Only classify as non-filler if the frame's main subject is the informational content itself, not a person showing or discussing it.
+- It's a dense wall of unstructured text (e.g. a paragraph or article being read on screen) rather than a genuine structured slide, code block, diagram, or table -- this doesn't add anything the transcript doesn't already say.
+- It's unrelated to what's being discussed at that point in the video -- background/decorative footage, B-roll, or a cutaway.
+- It's a blank/transition frame, or a near-duplicate of content already covered.
+
+For everything else, decide:
 - "table" if it shows tabular data with rows/columns -- also extract the table's headers and rows as structured data, best effort from what's visible.
 - Otherwise pick the content type that best fits: slide, diagram, whiteboard, code, photo, or chart.
 

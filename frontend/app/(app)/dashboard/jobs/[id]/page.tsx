@@ -15,6 +15,8 @@ export default function JobDetailPage() {
   const params = useParams<{ id: string }>();
   const [job, setJob] = useState<Job | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [retrying, setRetrying] = useState(false);
+  const [retryError, setRetryError] = useState<string | null>(null);
 
   const loadJob = useCallback(() => {
     apiFetch<Job>(`/api/get_status?job_id=${params.id}`)
@@ -42,6 +44,23 @@ export default function JobDetailPage() {
     const id = setInterval(loadJob, POLL_INTERVAL_MS);
     return () => clearInterval(id);
   }, [job, loadJob]);
+
+  async function handleRetry() {
+    setRetrying(true);
+    setRetryError(null);
+    try {
+      const retried = await apiFetch<Job>(`/api/jobs/${params.id}/retry`, { method: "POST" });
+      router.push(`/dashboard/jobs/${retried.job_id}`);
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) {
+        clearSession();
+        router.replace("/login");
+        return;
+      }
+      setRetryError(err instanceof ApiError ? err.message : "Retry failed.");
+      setRetrying(false);
+    }
+  }
 
   return (
     <div className="mx-auto w-full max-w-2xl px-6 py-10">
@@ -82,6 +101,19 @@ export default function JobDetailPage() {
             <p className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">
               {job.error}
             </p>
+          )}
+
+          {job.status === "failed" && (
+            <div className="mt-4">
+              <button
+                onClick={handleRetry}
+                disabled={retrying}
+                className="rounded-lg bg-brand-navy px-3 py-1.5 text-sm font-semibold text-white transition-colors hover:bg-brand-navy-hover disabled:cursor-default disabled:opacity-50"
+              >
+                {retrying ? "Retrying..." : "Retry"}
+              </button>
+              {retryError && <p className="mt-2 text-sm text-red-600">{retryError}</p>}
+            </div>
           )}
 
           {job.status === "done" && job.retention_expired && (
