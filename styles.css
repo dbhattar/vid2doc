@@ -512,6 +512,38 @@ body {
   font-size: 0.95rem;
 }
 
+.feature-card-wide {
+  grid-column: 1 / -1;
+  display: flex;
+  align-items: flex-start;
+  gap: 20px;
+}
+
+.feature-card-wide .feature-icon {
+  flex-shrink: 0;
+  margin-bottom: 0;
+}
+
+@media (max-width: 720px) {
+  .feature-card-wide {
+    flex-direction: column;
+  }
+}
+
+.feature-badge {
+  display: inline-block;
+  font-size: 0.68rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  color: var(--navy);
+  background: var(--accent-soft);
+  padding: 3px 10px;
+  border-radius: 999px;
+  margin-left: 8px;
+  vertical-align: middle;
+}
+
 /* Footer */
 .site-footer {
   padding: 32px 0;
