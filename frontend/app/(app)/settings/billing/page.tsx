@@ -68,7 +68,8 @@ function BillingPageContent() {
     <div className="mx-auto w-full max-w-2xl px-6 py-10">
       <h1 className="text-2xl font-bold tracking-tight text-brand-navy">Billing</h1>
       <p className="mt-1 text-sm text-muted">
-        Pay-as-you-go: $1.00 per hour of video, charged only when you convert something.
+        Pay-as-you-go: $1.00 per hour of video, $0.40 per hour of audio-only transcription -- charged only when you
+        submit something.
       </p>
 
       {checkoutStatus === "success" && (

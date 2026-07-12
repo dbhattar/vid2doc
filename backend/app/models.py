@@ -79,6 +79,10 @@ class Job(Base):
     )
     status: Mapped[str] = mapped_column(String, nullable=False, default="queued")  # queued|processing|done|failed
     progress_stage: Mapped[str | None] = mapped_column(String, nullable=True)
+    # video: frame capture + composed document (routes/convert.py). audio:
+    # verbatim speaker-tagged transcript only, no frames/composition
+    # (routes/audio.py) -- see pipeline.py's is_audio_job branch.
+    job_type: Mapped[str] = mapped_column(String, nullable=False, default="video")
     # Set from the uploaded filename at submission time, then overwritten with
     # an LLM-generated title once compose_document runs (see pipeline.py) --
     # whichever is freshest is what list/detail views show.

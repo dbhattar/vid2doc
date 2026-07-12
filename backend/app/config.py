@@ -34,6 +34,9 @@ class Settings:
     MAX_UPLOAD_BYTES = int(os.environ.get("MAX_UPLOAD_BYTES", 2 * 1024 * 1024 * 1024))  # 2GB
     MAX_DURATION_SECONDS = int(os.environ.get("MAX_DURATION_SECONDS", 90 * 60))  # 90 min
     ALLOWED_EXTENSIONS = {".mp4", ".mov", ".mkv", ".webm", ".avi", ".m4v"}
+    # Audio-only transcript jobs (POST /api/transcribe_audio) -- verbatim,
+    # speaker-tagged transcript, no frame capture/document composition.
+    AUDIO_EXTENSIONS = {".mp3", ".wav", ".m4a", ".aac", ".flac", ".ogg", ".wma"}
 
     # auto: assemblyai if ASSEMBLYAI_API_KEY set, else whisper-diarized if HF_TOKEN set, else whisper
     TRANSCRIPTION_ENGINE = os.environ.get("TRANSCRIPTION_ENGINE", "auto")

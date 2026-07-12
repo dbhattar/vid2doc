@@ -11,6 +11,10 @@ from .stripe_client import stripe
 # $1.00/video-hour, charged proportionally to the exact video length --
 # 36 seconds of video costs exactly 1 cent. No plans/tiers.
 SECONDS_PER_CENT = 36
+# $0.40/hour for audio-only transcript jobs (job_type == "audio") -- these
+# skip the frame capture, vision-classification, and compose LLM calls that
+# make up most of a video job's cost, so they're priced lower to match.
+SECONDS_PER_CENT_AUDIO = 90
 
 
 class InsufficientBalanceError(Exception):
@@ -20,9 +24,10 @@ class InsufficientBalanceError(Exception):
         super().__init__(f"Insufficient balance: need {required_cents}c, have {balance_cents}c")
 
 
-def cost_for_duration_cents(duration_seconds: float) -> int:
+def cost_for_duration_cents(duration_seconds: float, job_type: str = "video") -> int:
     """Rounds up to the next cent -- never rounds in the platform's favor."""
-    return math.ceil(duration_seconds / SECONDS_PER_CENT)
+    rate = SECONDS_PER_CENT_AUDIO if job_type == "audio" else SECONDS_PER_CENT
+    return math.ceil(duration_seconds / rate)
 
 
 def get_wallet_balance_cents(user_id: str) -> int:
@@ -38,15 +43,15 @@ def get_wallet_balance_cents(user_id: str) -> int:
         session.close()
 
 
-def charge_for_job(user_id: str, job_id: str, duration_seconds: float) -> int:
-    """Deducts the cost of converting a video from the user's wallet, inside
-    a transaction that locks the user's own row as the per-user
-    serialization point -- two concurrent uploads from the same user
-    serialize on this lock, so neither can read a stale balance and
+def charge_for_job(user_id: str, job_id: str, duration_seconds: float, job_type: str = "video") -> int:
+    """Deducts the cost of converting a video (or transcribing audio) from the
+    user's wallet, inside a transaction that locks the user's own row as the
+    per-user serialization point -- two concurrent uploads from the same
+    user serialize on this lock, so neither can read a stale balance and
     double-spend it. Raises InsufficientBalanceError (charging nothing) if
     the balance is too low. Returns the amount charged, in cents. Called
     before the job row exists (see models.py's note on related_job_id)."""
-    cost_cents = cost_for_duration_cents(duration_seconds)
+    cost_cents = cost_for_duration_cents(duration_seconds, job_type)
     session = get_session()
     try:
         session.execute(select(User.id).where(User.id == user_id).with_for_update())

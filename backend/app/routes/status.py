@@ -14,6 +14,7 @@ def build_job_response(job: dict, request: Request) -> dict:
         "job_id": job["id"],
         "status": job["status"],
         "progress_stage": job["progress_stage"],
+        "job_type": job["job_type"],
         "title": job["title"],
         "created_at": job["created_at"],
         "duration_seconds": job["duration_seconds"],

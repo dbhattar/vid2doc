@@ -37,7 +37,7 @@ export default function DocumentsPage() {
         <p className="mt-4 text-sm text-muted">Loading...</p>
       ) : jobs.length === 0 ? (
         <p className="mt-4 rounded-2xl border border-dashed border-brand-border p-6 text-center text-sm text-muted">
-          No documents yet -- convert a video from the{" "}
+          No documents yet -- convert a video or audio file from the{" "}
           <Link href="/dashboard" className="underline hover:text-brand-amber-dark">
             dashboard
           </Link>{" "}
@@ -55,7 +55,8 @@ export default function DocumentsPage() {
                   {displayTitle(job)}
                 </Link>
                 <p className="text-xs text-muted">
-                  {new Date(job.created_at).toLocaleDateString()} &middot; {formatDuration(job.duration_seconds)}
+                  {new Date(job.created_at).toLocaleDateString()} &middot; {formatDuration(job.duration_seconds)}{" "}
+                  {job.job_type}
                 </p>
               </div>
 

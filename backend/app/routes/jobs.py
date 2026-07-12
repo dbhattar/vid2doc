@@ -36,20 +36,24 @@ def retry_job(job_id: str, request: Request, current_user: dict = Depends(get_cu
     if job["status"] != "failed":
         raise HTTPException(status_code=400, detail="Only failed jobs can be retried")
     if job["duration_seconds"] is None:
-        raise HTTPException(status_code=400, detail="Missing video duration -- please upload it again")
+        raise HTTPException(status_code=400, detail="Missing duration -- please upload it again")
 
     source_path = Path(job["source_path"])
     if not source_path.exists():
-        raise HTTPException(status_code=400, detail="Original video is no longer available -- please upload it again")
+        raise HTTPException(
+            status_code=400, detail=f"Original {job['job_type']} file is no longer available -- please upload it again"
+        )
 
     new_job_id = str(uuid.uuid4())
     try:
-        billed_cents = billing.charge_for_job(current_user["id"], new_job_id, job["duration_seconds"])
+        billed_cents = billing.charge_for_job(
+            current_user["id"], new_job_id, job["duration_seconds"], job_type=job["job_type"]
+        )
     except billing.InsufficientBalanceError as e:
         raise HTTPException(
             status_code=402,
             detail=(
-                f"Insufficient balance: this video costs ${e.required_cents / 100:.2f}, "
+                f"Insufficient balance: this costs ${e.required_cents / 100:.2f}, "
                 f"you have ${e.balance_cents / 100:.2f}. Add funds at /settings/billing."
             ),
         )
@@ -61,5 +65,6 @@ def retry_job(job_id: str, request: Request, current_user: dict = Depends(get_cu
         duration_seconds=job["duration_seconds"],
         billed_cents=billed_cents,
         title=job["title"],
+        job_type=job["job_type"],
     )
     return build_job_response(jobs.get_job(new_job_id), request)

@@ -35,9 +35,35 @@ def _fallback_sections(segments: list[dict]) -> list[dict]:
     }]
 
 
+def _format_timestamp(seconds: float) -> str:
+    minutes, secs = divmod(int(seconds), 60)
+    hours, minutes = divmod(minutes, 60)
+    return f"{hours}:{minutes:02d}:{secs:02d}" if hours else f"{minutes}:{secs:02d}"
+
+
+def _verbatim_transcript_sections(segments: list[dict]) -> list[dict]:
+    """Audio-transcript jobs (job_type == "audio") skip document composition
+    entirely -- this is just the diarized transcript, verbatim, one
+    paragraph per speaker turn with a timestamp. No LLM involved, so this
+    runs whether or not a compose LLM is configured."""
+    return [{
+        "heading": "Transcript",
+        "blocks": [
+            {
+                "type": "paragraph",
+                "text": f"**{s['speaker']}** ({_format_timestamp(s['start_ts'])}): {s['text']}",
+                "ref": 0,
+                "caption": "",
+            }
+            for s in segments
+        ],
+    }]
+
+
 def run_job(job: dict) -> None:
     job_id = job["id"]
     output_dir = settings.OUTPUT_DIR / job_id
+    is_audio_job = job.get("job_type") == "audio"
 
     try:
         jobs.update_job(job_id, progress_stage="extracting_audio")
@@ -48,28 +74,35 @@ def run_job(job: dict) -> None:
         transcript = transcribe.transcribe_diarize(audio_path, engine=engine, whisper_model=settings.WHISPER_MODEL)
         segments = transcript["segments"]
 
-        jobs.update_job(job_id, progress_stage="extracting_frames")
-        raw_frames = frames.extract_frames(Path(job["source_path"]), output_dir / "frames_raw")
-
-        jobs.update_job(job_id, progress_stage="filtering_frames")
-        candidates = frames.filter_frames(raw_frames)
-
         images_meta: list[dict] = []
         tables_meta: list[dict] = []
         sections: list[dict] = []
         title = "Video Transcript"
 
-        if _llm_available():
-            jobs.update_job(job_id, progress_stage="classifying_frames")
-            images_meta, tables_meta = classify.classify_frames(candidates)
+        if is_audio_job:
+            # No frame capture, no classification, no LLM composition -- just
+            # the verbatim, speaker-tagged transcript. Keep whatever title was
+            # already set from the uploaded filename (see routes/audio.py).
+            sections = _verbatim_transcript_sections(segments)
+            title = job.get("title") or "Audio Transcript"
+        else:
+            jobs.update_job(job_id, progress_stage="extracting_frames")
+            raw_frames = frames.extract_frames(Path(job["source_path"]), output_dir / "frames_raw")
 
-            jobs.update_job(job_id, progress_stage="composing_document")
-            sections = compose.compose_document(segments, images_meta + tables_meta)
-            title = compose.generate_title(sections)
-            jobs.update_job(job_id, title=title)
+            jobs.update_job(job_id, progress_stage="filtering_frames")
+            candidates = frames.filter_frames(raw_frames)
 
-        if not sections:
-            sections = _fallback_sections(segments)
+            if _llm_available():
+                jobs.update_job(job_id, progress_stage="classifying_frames")
+                images_meta, tables_meta = classify.classify_frames(candidates)
+
+                jobs.update_job(job_id, progress_stage="composing_document")
+                sections = compose.compose_document(segments, images_meta + tables_meta)
+                title = compose.generate_title(sections)
+                jobs.update_job(job_id, title=title)
+
+            if not sections:
+                sections = _fallback_sections(segments)
 
         jobs.update_job(job_id, progress_stage="rendering_document")
         doc_dir = output_dir / "document"

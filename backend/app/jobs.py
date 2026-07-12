@@ -17,6 +17,7 @@ def _job_to_dict(job: Job) -> dict:
         "user_id": str(job.user_id) if job.user_id else None,
         "status": job.status,
         "progress_stage": job.progress_stage,
+        "job_type": job.job_type,
         "title": job.title,
         "source_path": job.source_path,
         "document_path": job.document_path,
@@ -36,6 +37,7 @@ def create_job(
     duration_seconds: float | None = None,
     billed_cents: int = 0,
     title: str | None = None,
+    job_type: str = "video",
 ) -> None:
     session = get_session()
     try:
@@ -48,6 +50,7 @@ def create_job(
                 duration_seconds=duration_seconds,
                 billed_cents=billed_cents,
                 title=title,
+                job_type=job_type,
             )
         )
         session.commit()

@@ -101,7 +101,11 @@ export default function JobDetailPage() {
               <dd className="font-medium text-foreground">{new Date(job.created_at).toLocaleString()}</dd>
             </div>
             <div className="flex justify-between">
-              <dt className="text-muted">Video length</dt>
+              <dt className="text-muted">Type</dt>
+              <dd className="font-medium text-foreground capitalize">{job.job_type}</dd>
+            </div>
+            <div className="flex justify-between">
+              <dt className="text-muted">{job.job_type === "audio" ? "Audio length" : "Video length"}</dt>
               <dd className="font-medium text-foreground">{formatDuration(job.duration_seconds)}</dd>
             </div>
           </dl>
