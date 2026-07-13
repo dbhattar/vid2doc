@@ -8,6 +8,13 @@ from ..exceptions import PipelineError
 
 PYANNOTE_MODEL = "pyannote/speaker-diarization-3.1"
 
+# Baseten's ingress proxy rejects any request body over 100MB with a 413
+# before it ever reaches the model (https://docs.baseten.co/reference/inference-api/overview#request-size).
+# Checked against the base64-encoded payload specifically, since that's what
+# actually goes over the wire. Left with ~5% headroom below the documented
+# 100MB for the JSON envelope around it and any MB-vs-MiB ambiguity.
+BASETEN_MAX_REQUEST_BYTES = 95_000_000
+
 # Merge consecutive same-speaker fragments into readable paragraphs. Raw ASR
 # output (especially local Whisper) segments every few words, which reads as
 # a wall of one-line "speaker" attributions rather than flowing prose. A gap
@@ -162,6 +169,13 @@ def transcribe_baseten(audio_path: Path, model_size: str = "base") -> dict:
             capture_output=True,
         )
         audio_b64 = base64.standard_b64encode(Path(compressed.name).read_bytes()).decode()
+
+    if len(audio_b64) > BASETEN_MAX_REQUEST_BYTES:
+        raise PipelineError(
+            f"Audio is too large to send to Baseten even after compression "
+            f"({len(audio_b64) / 1e6:.0f}MB base64-encoded, Baseten's limit is 100MB) -- "
+            f"try a shorter clip, or use a different TRANSCRIPTION_ENGINE for this file."
+        )
 
     try:
         response = requests.post(
