@@ -38,7 +38,8 @@ class Settings:
     # speaker-tagged transcript, no frame capture/document composition.
     AUDIO_EXTENSIONS = {".mp3", ".wav", ".m4a", ".aac", ".flac", ".ogg", ".wma"}
 
-    # auto: assemblyai if ASSEMBLYAI_API_KEY set, else whisper-diarized if HF_TOKEN set, else whisper
+    # auto: assemblyai if ASSEMBLYAI_API_KEY set, else baseten if BASETEN_API_KEY
+    # set, else whisper-diarized if HF_TOKEN set, else whisper
     TRANSCRIPTION_ENGINE = os.environ.get("TRANSCRIPTION_ENGINE", "auto")
     WHISPER_MODEL = os.environ.get("WHISPER_MODEL", "base")
 

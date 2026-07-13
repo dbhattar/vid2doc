@@ -1,0 +1,47 @@
+# Truss config for the whisper+pyannote diarization model.
+#
+# NOTE: field names/nesting below are a best-effort sketch, not verified
+# against Baseten's current live schema -- confirm against `truss init`'s
+# generated scaffold or current docs before deploying (see README.md).
+
+model_name: transcribe-diarize
+python_version: py310
+requirements_file: requirements.txt
+
+# pyannote.audio 4.x decodes audio via torchcodec, which dynamically links
+# against FFmpeg's shared libraries at runtime -- without this, load()
+# prints "torchcodec is not installed correctly... FFmpeg is not properly
+# installed" and audio decoding fails. Same reason backend/Dockerfile
+# installs ffmpeg for the local CPU path. Confirm `system_packages` is still
+# the correct config.yaml key for apt-installed system deps against current
+# Truss docs -- unverified, like the rest of this file.
+system_packages:
+  - ffmpeg
+
+resources:
+  accelerator: T4  # mid-tier GPU covering both whisper "base"/"small" and
+                        # pyannote 3.1's combined resident memory -- step up
+                        # only if you move to whisper "medium"/"large" later.
+                        # Confirm exact valid GPU-type strings against current
+                        # Baseten docs.
+  use_gpu: true
+
+secrets:
+  hf_token: null        # set the real value via the Baseten workspace secrets
+                         # UI/CLI -- never commit it here. Same HF_TOKEN
+                         # requirement as the local CPU path: accept
+                         # pyannote/speaker-diarization-3.1's (and its
+                         # pyannote/segmentation-3.0 dependency's) gated
+                         # model terms on huggingface.co under this token's
+                         # account first, or load() will fail.
+
+runtime:
+  predict_concurrency: 1   # both models are stateful -- don't allow concurrent
+                            # in-flight requests sharing one loaded instance
+                            # until thread-safety is confirmed. Raise later if
+                            # you need higher throughput per replica.
+
+# Scale-to-zero vs always-warm is a cost/latency tradeoff to set here once
+# you've decided (see README.md) -- e.g. a `scaling` or `autoscaling` block
+# with min/max replicas and (if Baseten exposes it) an idle-timeout before
+# scale-down. Confirm current config keys before setting.

@@ -1,0 +1,12 @@
+# Same pins as backend/requirements.txt, for parity with the local CPU
+# reference implementation. Deliberately does NOT use backend/Dockerfile's
+# --extra-index-url CPU-torch-wheel trick -- this runs on Baseten's GPU
+# base image, which should resolve a CUDA-enabled torch build itself.
+openai-whisper==20250625
+pyannote.audio==4.0.7
+torch
+torchaudio
+# pyannote.audio 4.x's audio-decoding backend -- needs the ffmpeg system
+# package declared in config.yaml's system_packages to actually work at
+# runtime (its native extension links against FFmpeg's shared libraries).
+torchcodec

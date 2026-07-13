@@ -209,12 +209,13 @@ docker compose up --build
 | `JWT_SECRET` | Signs the app session token returned by `/api/auth/google` (default is dev-only — generate a real one for prod, e.g. `openssl rand -hex 32`) |
 | `CORS_ALLOWED_ORIGINS` | Comma-separated browser origins allowed to call this API (default `http://localhost:3000`) — add the production frontend origin here once deployed |
 | `ASSEMBLYAI_API_KEY` | Real hosted diarization |
-| `HF_TOKEN` | Local diarization fallback (Whisper + pyannote) if no AssemblyAI key |
+| `BASETEN_API_KEY`, `BASETEN_MODEL_URL` | GPU-hosted Whisper + pyannote via a custom Truss deployment (see `baseten/transcribe-diarize/`) -- much faster than the local CPU fallback below |
+| `HF_TOKEN` | Local CPU diarization fallback (Whisper + pyannote) if no AssemblyAI/Baseten key |
 | `ANTHROPIC_API_KEY` | Frame classification + document composition via Claude (used when `LLM_PROVIDER=anthropic`, the default) |
 | `OPENAI_API_KEY` | Frame classification + document composition via OpenAI (used when `LLM_PROVIDER=openai`) |
 | `LLM_PROVIDER` | `anthropic` (default) or `openai`. Both stages are skipped entirely if the selected provider's key isn't set -- the document then falls back to the raw merged transcript under one heading, no images/topic organization |
 | `OPENAI_MODEL` | Default `gpt-5.4-mini` (vision + structured outputs, cost-efficient). Only used when `LLM_PROVIDER=openai` |
-| `TRANSCRIPTION_ENGINE` | `auto` (default) / `assemblyai` / `whisper-diarized` / `whisper` |
+| `TRANSCRIPTION_ENGINE` | `auto` (default) / `assemblyai` / `baseten` / `whisper-diarized` / `whisper` |
 | `WHISPER_MODEL` | `tiny`/`base`/`small`/`medium`/`large`, used by the whisper engines |
 | `MAX_UPLOAD_BYTES`, `MAX_DURATION_SECONDS` | Upload guardrails (defaults: 2GB, 90 min) |
 | `POSTGRES_PASSWORD` | Password for the self-hosted `postgres` compose service |

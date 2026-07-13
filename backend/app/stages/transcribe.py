@@ -1,5 +1,6 @@
-"""Transcribe (+ diarize) audio. Three engines -- see transcribe_diarize()."""
+"""Transcribe (+ diarize) audio. Four engines -- see transcribe_diarize()."""
 
+import base64
 import os
 from pathlib import Path
 
@@ -124,11 +125,72 @@ def transcribe_whisper_diarized(audio_path: Path, model_size: str = "base") -> d
     return {"segments": segments}
 
 
+def transcribe_baseten(audio_path: Path, model_size: str = "base") -> dict:
+    """GPU-hosted whisper+pyannote, via a custom Truss deployment (see
+    baseten/transcribe-diarize/) -- same diarization approach as
+    transcribe_whisper_diarized above, just running remotely on a GPU
+    instead of locally on CPU. Audio goes up as base64 in the request body,
+    matching the same pattern classify.py already uses for images sent to
+    Claude/OpenAI."""
+    import subprocess
+    import tempfile
+
+    import requests
+
+    api_key = os.environ.get("BASETEN_API_KEY")
+    model_url = os.environ.get("BASETEN_MODEL_URL")
+    if not api_key:
+        raise PipelineError("BASETEN_API_KEY is not set")
+    if not model_url:
+        raise PipelineError("BASETEN_MODEL_URL is not set")
+
+    # audio_path here is always the 16kHz/16-bit mono WAV that
+    # audio.extract_audio() produces upstream in pipeline.py -- uncompressed,
+    # so it's ~3.7x the size of a compressed format for the same duration
+    # (a 55-minute file is ~106MB raw, well past Baseten's 100MB request-body
+    # limit once base64'd). Re-compress before sending -- FLAC, not a lossy
+    # codec: pyannote's chunked audio reader asks for exact sample counts per
+    # time window (e.g. exactly 160000 samples for a 10s window at 16kHz),
+    # and lossy frame-based codecs like MP3 have encoder delay/padding that
+    # throws that off by a small number of samples, which pyannote treats as
+    # a hard error. FLAC is lossless (sample-accurate, no timing drift) and
+    # still meaningfully smaller than raw PCM for speech audio.
+    with tempfile.NamedTemporaryFile(suffix=".flac") as compressed:
+        subprocess.run(
+            ["ffmpeg", "-y", "-i", str(audio_path), "-ac", "1", "-c:a", "flac", compressed.name],
+            check=True,
+            capture_output=True,
+        )
+        audio_b64 = base64.standard_b64encode(Path(compressed.name).read_bytes()).decode()
+
+    try:
+        response = requests.post(
+            model_url,
+            headers={"Authorization": f"Api-Key {api_key}"},
+            json={"audio_b64": audio_b64, "model_size": model_size, "format": "flac"},
+            # Generous enough to absorb a cold start plus a long file --
+            # revisit once real cold/warm timings are observed in practice.
+            timeout=900,
+        )
+        response.raise_for_status()
+    except requests.exceptions.Timeout as e:
+        raise PipelineError("Baseten transcription request timed out") from e
+    except requests.exceptions.RequestException as e:
+        raise PipelineError(f"Baseten transcription failed: {e}") from e
+
+    data = response.json()
+    if "segments" not in data:
+        raise PipelineError(f"Baseten response missing 'segments': {data}")
+    return {"segments": data["segments"]}
+
+
 def transcribe_diarize(audio_path: Path, engine: str = "assemblyai", whisper_model: str = "base") -> dict:
     if engine == "whisper":
         result = transcribe_whisper_local(audio_path, whisper_model)
     elif engine == "whisper-diarized":
         result = transcribe_whisper_diarized(audio_path, whisper_model)
+    elif engine == "baseten":
+        result = transcribe_baseten(audio_path, whisper_model)
     else:
         result = transcribe_assemblyai(audio_path)
 

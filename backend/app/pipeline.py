@@ -12,6 +12,8 @@ def _resolve_engine() -> str:
         return engine
     if os.environ.get("ASSEMBLYAI_API_KEY"):
         return "assemblyai"
+    if os.environ.get("BASETEN_API_KEY"):
+        return "baseten"
     if os.environ.get("HF_TOKEN"):
         return "whisper-diarized"
     return "whisper"

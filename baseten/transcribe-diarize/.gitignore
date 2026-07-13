@@ -1,0 +1,4 @@
+# Truss build/deploy artifacts
+*.b10cache/
+.truss/
+model_cache/

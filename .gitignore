@@ -24,3 +24,7 @@ validation/__pycache__/
 .venv-validation/
 
 deploy/__pycache__/
+
+*.mp3
+
+**/__pycache__/
