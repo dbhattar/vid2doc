@@ -27,7 +27,13 @@ export default function RootLayout({
       lang="en"
       className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
     >
-      <body className="min-h-full flex flex-col">{children}</body>
+      {/* h-full, not min-h-full -- this must be capped at exactly the
+          viewport height, not just floored at it, or it grows with page
+          content and drags the (app) shell's sidebar along when scrolling.
+          The (app) layout's own overflow-hidden wrapper is what actually
+          contains the dashboard shell, but it can only do that if this
+          parent is height-bounded in the first place. */}
+      <body className="h-full flex flex-col">{children}</body>
     </html>
   );
 }

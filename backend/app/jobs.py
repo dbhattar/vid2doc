@@ -103,26 +103,47 @@ def update_job(job_id: str, **fields) -> None:
 
 
 def list_jobs_for_user(
-    user_id: str | uuid.UUID, limit: int = 20, offset: int = 0, status: str | None = None
+    user_id: str | uuid.UUID,
+    limit: int = 20,
+    offset: int = 0,
+    status: str | None = None,
+    job_type: str | None = None,
 ) -> list[dict]:
     session = get_session()
     try:
         query = session.query(Job).filter_by(user_id=user_id)
         if status:
             query = query.filter_by(status=status)
+        if job_type:
+            query = query.filter_by(job_type=job_type)
         rows = query.order_by(Job.created_at.desc()).limit(limit).offset(offset).all()
         return [_job_to_dict(j) for j in rows]
     finally:
         session.close()
 
 
-def count_jobs_for_user(user_id: str | uuid.UUID, status: str | None = None) -> int:
+def count_jobs_for_user(
+    user_id: str | uuid.UUID, status: str | None = None, job_type: str | None = None
+) -> int:
     session = get_session()
     try:
         query = session.query(Job).filter_by(user_id=user_id)
         if status:
             query = query.filter_by(status=status)
+        if job_type:
+            query = query.filter_by(job_type=job_type)
         return query.count()
+    finally:
+        session.close()
+
+
+def delete_job(job_id: str) -> None:
+    session = get_session()
+    try:
+        job = session.get(Job, job_id)
+        if job:
+            session.delete(job)
+            session.commit()
     finally:
         session.close()
 

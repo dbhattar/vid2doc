@@ -1,57 +1,78 @@
+import {
+  ChevronDown,
+  ChevronLeft,
+  CreditCard,
+  FileArchive,
+  FileCode,
+  FileText,
+  FileType2,
+  KeyRound,
+  LayoutDashboard,
+  Mic,
+  MessageSquare,
+  ScrollText,
+  Video,
+  Wallet,
+} from "lucide-react";
+
 type IconProps = { className?: string };
 
 export function DashboardIcon({ className }: IconProps) {
-  return (
-    <svg viewBox="0 0 20 20" fill="none" className={className} aria-hidden>
-      <rect x="2.5" y="2.5" width="6.5" height="6.5" rx="1.5" stroke="currentColor" strokeWidth="1.5" />
-      <rect x="11" y="2.5" width="6.5" height="6.5" rx="1.5" stroke="currentColor" strokeWidth="1.5" />
-      <rect x="2.5" y="11" width="6.5" height="6.5" rx="1.5" stroke="currentColor" strokeWidth="1.5" />
-      <rect x="11" y="11" width="6.5" height="6.5" rx="1.5" stroke="currentColor" strokeWidth="1.5" />
-    </svg>
-  );
+  return <LayoutDashboard className={className} aria-hidden />;
 }
 
 export function KeyIcon({ className }: IconProps) {
-  return (
-    <svg viewBox="0 0 20 20" fill="none" className={className} aria-hidden>
-      <circle cx="6.5" cy="13.5" r="3.5" stroke="currentColor" strokeWidth="1.5" />
-      <path d="M8.9 11.1 15.5 4.5M13 7l2 2M15.5 4.5l2 2-2.3 2.3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
+  return <KeyRound className={className} aria-hidden />;
 }
 
 export function DocumentIcon({ className }: IconProps) {
-  return (
-    <svg viewBox="0 0 20 20" fill="none" className={className} aria-hidden>
-      <path d="M5.5 2.5h6l3 3v12h-9z" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
-      <path d="M11.5 2.5v3h3" stroke="currentColor" strokeWidth="1.5" strokeLinejoin="round" />
-      <path d="M7 10h6M7 12.5h6M7 15h3.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-    </svg>
-  );
+  return <FileText className={className} aria-hidden />;
 }
 
 export function BillingIcon({ className }: IconProps) {
-  return (
-    <svg viewBox="0 0 20 20" fill="none" className={className} aria-hidden>
-      <rect x="2.5" y="4.5" width="15" height="11" rx="2" stroke="currentColor" strokeWidth="1.5" />
-      <path d="M2.5 8h15" stroke="currentColor" strokeWidth="1.5" />
-      <path d="M5.5 12h3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" />
-    </svg>
-  );
+  return <CreditCard className={className} aria-hidden />;
 }
 
 export function ChevronIcon({ className }: IconProps) {
-  return (
-    <svg viewBox="0 0 20 20" fill="none" className={className} aria-hidden>
-      <path d="M12.5 5 7.5 10l5 5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
+  return <ChevronLeft className={className} aria-hidden />;
 }
 
 export function ChevronDownIcon({ className }: IconProps) {
-  return (
-    <svg viewBox="0 0 20 20" fill="none" className={className} aria-hidden>
-      <path d="M5 7.5 10 12.5 15 7.5" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
-    </svg>
-  );
+  return <ChevronDown className={className} aria-hidden />;
+}
+
+export function WalletIcon({ className }: IconProps) {
+  return <Wallet className={className} aria-hidden />;
+}
+
+export function FeedbackIcon({ className }: IconProps) {
+  return <MessageSquare className={className} aria-hidden />;
+}
+
+export function VideoCameraIcon({ className }: IconProps) {
+  return <Video className={className} aria-hidden />;
+}
+
+export function MicrophoneIcon({ className }: IconProps) {
+  return <Mic className={className} aria-hidden />;
+}
+
+// File-type download icons -- distinct glyphs per format (no trademarked
+// app logos, lucide doesn't ship those) so each download button reads
+// differently even before the tooltip text loads.
+
+export function MarkdownFileIcon({ className }: IconProps) {
+  return <FileCode className={className} aria-hidden />;
+}
+
+export function ArchiveIcon({ className }: IconProps) {
+  return <FileArchive className={className} aria-hidden />;
+}
+
+export function WordFileIcon({ className }: IconProps) {
+  return <FileType2 className={className} aria-hidden />;
+}
+
+export function PdfFileIcon({ className }: IconProps) {
+  return <ScrollText className={className} aria-hidden />;
 }

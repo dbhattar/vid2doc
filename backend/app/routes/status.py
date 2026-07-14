@@ -17,7 +17,9 @@ def build_job_response(job: dict, request: Request) -> dict:
         "job_type": job["job_type"],
         "title": job["title"],
         "created_at": job["created_at"],
+        "updated_at": job["updated_at"],
         "duration_seconds": job["duration_seconds"],
+        "billed_cents": job["billed_cents"],
     }
     if job["status"] == "done" and job["deleted_at"] is not None:
         # Retention swept the files (see retention.py) -- still "done" in

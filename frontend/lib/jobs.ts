@@ -8,7 +8,9 @@ export type Job = {
   job_type: JobType;
   title: string | null;
   created_at: string;
+  updated_at: string;
   duration_seconds: number | null;
+  billed_cents: number;
   document_url?: string;
   document_bundle_url?: string;
   document_docx_url?: string;
@@ -50,6 +52,19 @@ export function displayTitle(job: Job): string {
 export function formatDuration(seconds: number | null): string {
   if (seconds == null) return "—";
   const totalMinutes = Math.round(seconds / 60);
+  const hours = Math.floor(totalMinutes / 60);
+  const minutes = totalMinutes % 60;
+  return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;
+}
+
+/** How long a finished job actually took, submission to completion --
+ * distinct from duration_seconds (the length of the video/audio itself).
+ * Only meaningful once a job has stopped changing (done/failed). */
+export function formatElapsed(job: Job): string {
+  const elapsedSeconds = (new Date(job.updated_at).getTime() - new Date(job.created_at).getTime()) / 1000;
+  if (!Number.isFinite(elapsedSeconds) || elapsedSeconds < 0) return "—";
+  if (elapsedSeconds < 60) return `${Math.round(elapsedSeconds)}s`;
+  const totalMinutes = Math.round(elapsedSeconds / 60);
   const hours = Math.floor(totalMinutes / 60);
   const minutes = totalMinutes % 60;
   return hours > 0 ? `${hours}h ${minutes}m` : `${minutes}m`;

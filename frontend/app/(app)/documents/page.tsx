@@ -2,96 +2,103 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
-import { apiFetch, ApiError, downloadAuthenticated } from "@/lib/api";
+import DocumentCard from "@/components/DocumentCard";
+import { MicrophoneIcon, VideoCameraIcon } from "@/components/icons";
+import Pagination from "@/components/Pagination";
+import { apiFetch, ApiError } from "@/lib/api";
 import { clearSession } from "@/lib/auth";
-import { displayTitle, formatDuration, type Job } from "@/lib/jobs";
+import type { Job, JobType } from "@/lib/jobs";
 
-export default function DocumentsPage() {
+const PAGE_SIZE = 9;
+
+function DocumentSection({ jobType, title, Icon }: { jobType: JobType; title: string; Icon: typeof VideoCameraIcon }) {
   const router = useRouter();
+  const [page, setPage] = useState(1);
   const [jobs, setJobs] = useState<Job[] | null>(null);
-  const [loadError, setLoadError] = useState<string | null>(null);
+  const [total, setTotal] = useState(0);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(
+    (p: number) => {
+      const offset = (p - 1) * PAGE_SIZE;
+      apiFetch<{ jobs: Job[]; total: number }>(
+        `/api/jobs?status=done&job_type=${jobType}&limit=${PAGE_SIZE}&offset=${offset}`,
+      )
+        .then((data) => {
+          setJobs(data.jobs);
+          setTotal(data.total);
+        })
+        .catch((err) => {
+          if (err instanceof ApiError && err.status === 401) {
+            clearSession();
+            router.replace("/login");
+            return;
+          }
+          setError(err instanceof ApiError ? err.message : `Failed to load ${title.toLowerCase()}.`);
+        });
+    },
+    [jobType, router, title],
+  );
 
   useEffect(() => {
-    apiFetch<{ jobs: Job[]; total: number }>("/api/jobs?status=done&limit=100")
-      .then((data) => setJobs(data.jobs))
-      .catch((err) => {
-        if (err instanceof ApiError && err.status === 401) {
-          clearSession();
-          router.replace("/login");
-          return;
-        }
-        setLoadError(err instanceof ApiError ? err.message : "Failed to load documents.");
-      });
-  }, [router]);
+    load(page);
+  }, [page, load]);
 
   return (
-    <div className="mx-auto w-full max-w-3xl px-6 py-10">
+    <div className="mt-10">
+      <div className="flex items-center gap-2.5">
+        <span
+          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
+            jobType === "audio" ? "bg-brand-navy-soft text-brand-navy" : "bg-brand-amber-soft text-brand-amber-dark"
+          }`}
+        >
+          <Icon className="h-4 w-4" />
+        </span>
+        <h2 className="text-sm font-semibold text-foreground">
+          {title} <span className="font-normal text-muted">({total})</span>
+        </h2>
+      </div>
+
+      {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
+
+      {jobs === null ? (
+        <p className="mt-3 text-sm text-muted">Loading...</p>
+      ) : jobs.length === 0 ? (
+        <p className="mt-3 rounded-2xl border border-dashed border-brand-border p-6 text-center text-sm text-muted">
+          No {title.toLowerCase()} yet.
+        </p>
+      ) : (
+        <>
+          <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {jobs.map((job) => (
+              <DocumentCard key={job.job_id} job={job} />
+            ))}
+          </div>
+          <Pagination page={page} pageSize={PAGE_SIZE} total={total} onPageChange={setPage} />
+        </>
+      )}
+    </div>
+  );
+}
+
+export default function DocumentsPage() {
+  return (
+    <div className="mx-auto w-full max-w-5xl px-6 py-10">
       <h1 className="text-2xl font-bold tracking-tight text-brand-navy">Documents</h1>
       <p className="mt-1 text-sm text-muted">Every document Framewrite has finished generating for you.</p>
 
-      {loadError && <p className="mt-4 text-sm text-red-600">{loadError}</p>}
+      <DocumentSection jobType="video" title="Video documents" Icon={VideoCameraIcon} />
+      <DocumentSection jobType="audio" title="Audio transcripts" Icon={MicrophoneIcon} />
 
-      {jobs === null ? (
-        <p className="mt-4 text-sm text-muted">Loading...</p>
-      ) : jobs.length === 0 ? (
-        <p className="mt-4 rounded-2xl border border-dashed border-brand-border p-6 text-center text-sm text-muted">
-          No documents yet -- convert a video or audio file from the{" "}
-          <Link href="/dashboard" className="underline hover:text-brand-amber-dark">
-            dashboard
-          </Link>{" "}
-          to get started.
-        </p>
-      ) : (
-        <ul className="mt-4 divide-y divide-brand-border overflow-hidden rounded-2xl border border-brand-border bg-surface shadow-soft">
-          {jobs.map((job) => (
-            <li key={job.job_id} className="flex items-center justify-between gap-4 px-4 py-3">
-              <div className="min-w-0">
-                <Link
-                  href={`/dashboard/jobs/${job.job_id}`}
-                  className="block truncate text-sm font-medium text-foreground hover:text-brand-amber-dark hover:underline"
-                >
-                  {displayTitle(job)}
-                </Link>
-                <p className="text-xs text-muted">
-                  {new Date(job.created_at).toLocaleDateString()} &middot; {formatDuration(job.duration_seconds)}{" "}
-                  {job.job_type}
-                </p>
-              </div>
-
-              {job.retention_expired ? (
-                <span className="shrink-0 text-xs text-muted" title="Documents aren't guaranteed past 7 days">
-                  Expired
-                </span>
-              ) : (
-                <div className="flex shrink-0 items-center gap-2 text-sm text-muted">
-                  {job.document_url && (
-                    <button onClick={() => downloadAuthenticated(job.document_url!, `${job.job_id}.md`)} className="hover:text-brand-amber-dark hover:underline">
-                      MD
-                    </button>
-                  )}
-                  {job.document_bundle_url && (
-                    <button onClick={() => downloadAuthenticated(job.document_bundle_url!, `${job.job_id}.zip`)} className="hover:text-brand-amber-dark hover:underline">
-                      MD+images
-                    </button>
-                  )}
-                  {job.document_docx_url && (
-                    <button onClick={() => downloadAuthenticated(job.document_docx_url!, `${job.job_id}.docx`)} className="hover:text-brand-amber-dark hover:underline">
-                      DOCX
-                    </button>
-                  )}
-                  {job.document_pdf_url && (
-                    <button onClick={() => downloadAuthenticated(job.document_pdf_url!, `${job.job_id}.pdf`)} className="hover:text-brand-amber-dark hover:underline">
-                      PDF
-                    </button>
-                  )}
-                </div>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
+      <p className="mt-10 text-center text-sm text-muted">
+        Nothing here yet? Convert a video or audio file from the{" "}
+        <Link href="/dashboard" className="underline hover:text-brand-amber-dark">
+          dashboard
+        </Link>
+        .
+      </p>
     </div>
   );
 }

@@ -4,9 +4,11 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
+import { ArchiveIcon, MarkdownFileIcon, MicrophoneIcon, PdfFileIcon, VideoCameraIcon, WordFileIcon } from "@/components/icons";
 import { apiFetch, ApiError, downloadAuthenticated } from "@/lib/api";
 import { clearSession } from "@/lib/auth";
-import { displayTitle, formatDuration, isActiveJob, type Job } from "@/lib/jobs";
+import { formatCents } from "@/lib/billing";
+import { displayTitle, formatDuration, formatElapsed, isActiveJob, type Job } from "@/lib/jobs";
 
 const POLL_INTERVAL_MS = 3000;
 
@@ -75,9 +77,21 @@ export default function JobDetailPage() {
         )}
       </div>
 
-      <h1 className="mt-4 truncate text-2xl font-bold tracking-tight text-brand-navy">
-        {job ? displayTitle(job) : "Job detail"}
-      </h1>
+      <div className="mt-4 flex items-center gap-2.5">
+        {job && (
+          <span
+            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
+              job.job_type === "audio" ? "bg-brand-navy-soft text-brand-navy" : "bg-brand-amber-soft text-brand-amber-dark"
+            }`}
+            title={job.job_type === "audio" ? "Audio transcript" : "Video document"}
+          >
+            {job.job_type === "audio" ? <MicrophoneIcon className="h-4 w-4" /> : <VideoCameraIcon className="h-4 w-4" />}
+          </span>
+        )}
+        <h1 className="truncate text-2xl font-bold tracking-tight text-brand-navy">
+          {job ? displayTitle(job) : "Job detail"}
+        </h1>
+      </div>
 
       {error && <p className="mt-4 text-sm text-red-600">{error}</p>}
 
@@ -107,6 +121,16 @@ export default function JobDetailPage() {
             <div className="flex justify-between">
               <dt className="text-muted">{job.job_type === "audio" ? "Audio length" : "Video length"}</dt>
               <dd className="font-medium text-foreground">{formatDuration(job.duration_seconds)}</dd>
+            </div>
+            {(job.status === "done" || job.status === "failed") && (
+              <div className="flex justify-between">
+                <dt className="text-muted">Took</dt>
+                <dd className="font-medium text-foreground">{formatElapsed(job)}</dd>
+              </div>
+            )}
+            <div className="flex justify-between">
+              <dt className="text-muted">Cost</dt>
+              <dd className="font-medium text-foreground">{formatCents(job.billed_cents)}</dd>
             </div>
           </dl>
 
@@ -140,32 +164,36 @@ export default function JobDetailPage() {
               {job.document_url && (
                 <button
                   onClick={() => downloadAuthenticated(job.document_url!, `${job.job_id}.md`)}
-                  className="rounded-lg bg-brand-navy px-3 py-1.5 text-sm font-semibold text-white transition-colors hover:bg-brand-navy-hover"
+                  className="flex items-center gap-2 rounded-lg bg-brand-navy px-3 py-1.5 text-sm font-semibold text-white transition-colors hover:bg-brand-navy-hover"
                 >
+                  <MarkdownFileIcon className="h-5 w-5" />
                   Download Markdown
                 </button>
               )}
               {job.document_bundle_url && (
                 <button
                   onClick={() => downloadAuthenticated(job.document_bundle_url!, `${job.job_id}.zip`)}
-                  className="rounded-lg border border-brand-border px-3 py-1.5 text-sm text-foreground transition-colors hover:bg-brand-navy-soft"
+                  className="flex items-center gap-2 rounded-lg border border-brand-border px-3 py-1.5 text-sm text-foreground transition-colors hover:bg-brand-navy-soft"
                 >
+                  <ArchiveIcon className="h-5 w-5" />
                   Download Markdown + images (.zip)
                 </button>
               )}
               {job.document_docx_url && (
                 <button
                   onClick={() => downloadAuthenticated(job.document_docx_url!, `${job.job_id}.docx`)}
-                  className="rounded-lg border border-brand-border px-3 py-1.5 text-sm text-foreground transition-colors hover:bg-brand-navy-soft"
+                  className="flex items-center gap-2 rounded-lg border border-brand-border px-3 py-1.5 text-sm text-foreground transition-colors hover:bg-brand-navy-soft"
                 >
+                  <WordFileIcon className="h-5 w-5" />
                   Download Word
                 </button>
               )}
               {job.document_pdf_url && (
                 <button
                   onClick={() => downloadAuthenticated(job.document_pdf_url!, `${job.job_id}.pdf`)}
-                  className="rounded-lg border border-brand-border px-3 py-1.5 text-sm text-foreground transition-colors hover:bg-brand-navy-soft"
+                  className="flex items-center gap-2 rounded-lg border border-brand-border px-3 py-1.5 text-sm text-foreground transition-colors hover:bg-brand-navy-soft"
                 >
+                  <PdfFileIcon className="h-5 w-5" />
                   Download PDF
                 </button>
               )}
