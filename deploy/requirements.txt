@@ -1,1 +1,9 @@
 fabric==3.2.2
+# fabric 3.2.2 was built against invoke's 2.x Executor API. invoke 3.x
+# changed Call.make_context()'s signature (adds a core_parse_result kwarg)
+# without a matching update in fabric's ConnectionCall subclass, so any
+# `fab` invocation fails with:
+#   TypeError: ConnectionCall.make_context() got an unexpected keyword
+#   argument 'core_parse_result'
+# Pin below invoke 3.0 until fabric ships a release compatible with it.
+invoke==2.2.1

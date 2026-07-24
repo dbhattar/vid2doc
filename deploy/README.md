@@ -6,8 +6,9 @@ the reverse proxy and Let's Encrypt for TLS. Two domains:
 `app.framewrite.cc` (frontend) and `api.framewrite.cc` (backend API).
 
 See `fabfile.py`'s module docstring for the exact command sequence
-(bootstrap → fill `.env` by hand → point DNS → `setup-tls` → `deploy`). This
-file covers the *why*; that one covers the *how to run it*.
+(create-deploy-user → bootstrap → fill `.env` by hand → point DNS →
+`setup-tls` → `deploy`). This file covers the *why*; that one covers the
+*how to run it*.
 
 ## Setup
 
@@ -27,6 +28,25 @@ Edit the constants at the top of `fabfile.py`:
   `NGINX_CONF` in `fabfile.py`). Switch to the HTTPS clone URL instead if
   the repo is public and you'd rather skip that.
 - `CERTBOT_EMAIL` — real email for Let's Encrypt expiry/renewal notices
+
+## Convenience wrapper: `run.sh`
+
+`fab -H user@IP -i ~/.ssh/key <task>` gets repetitive across a deploy
+session. `run.sh` reads the connection details from environment variables
+instead:
+
+```bash
+export VPS_IP=1.2.3.4        # set once per shell session
+
+SSH_USER=root ./run.sh create-deploy-user     # root, one-time only
+./run.sh bootstrap                            # everything else defaults to deploy
+./run.sh setup-tls
+./run.sh deploy
+./run.sh logs --service=worker --lines=200
+```
+
+`SSH_USER` defaults to `deploy`; `SSH_KEY` defaults to
+`~/.ssh/framewrite_vps` — override either as an env var if yours differ.
 
 ## Why `.env` is never scripted
 
@@ -49,6 +69,7 @@ them, no matter what.
 
 | Task | What it does |
 |---|---|
+| `create-deploy-user` | One-time, connected as **root**: creates `DEPLOY_USER` (default `deploy`), grants it passwordless sudo, copies root's `authorized_keys` so it can log in with the same key. Every other task below connects as `DEPLOY_USER`, not root. Idempotent. |
 | `bootstrap` | One-time: installs Docker/nginx/certbot, clones the repo, writes the (HTTP-only) nginx config. Idempotent — re-running it skips anything already done. |
 | `setup-tls` | Provisions Let's Encrypt certs for both domains via certbot's nginx plugin (also patches nginx to add HTTPS + redirect). Run once DNS for both domains resolves to the server. |
 | `deploy` | Pulls the latest commit, rebuilds changed images, restarts the stack. This is what you run for every subsequent deploy. |
