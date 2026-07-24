@@ -30,4 +30,10 @@ COPY --from=builder /app/.next/static ./.next/static
 
 EXPOSE 3000
 ENV PORT=3000
+# Docker auto-sets HOSTNAME to the container ID for every container, and
+# Next's standalone server.js does `process.env.HOSTNAME || '0.0.0.0'` --
+# without overriding it here, the server binds to that container-ID
+# hostname instead of all interfaces, so nothing outside the container
+# (including Docker's own port mapping) can reach it.
+ENV HOSTNAME=0.0.0.0
 CMD ["node", "server.js"]
