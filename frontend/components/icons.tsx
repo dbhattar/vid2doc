@@ -11,6 +11,8 @@ import {
   Mic,
   MessageSquare,
   ScrollText,
+  Shield,
+  Users,
   Video,
   Wallet,
 } from "lucide-react";
@@ -75,4 +77,12 @@ export function WordFileIcon({ className }: IconProps) {
 
 export function PdfFileIcon({ className }: IconProps) {
   return <ScrollText className={className} aria-hidden />;
+}
+
+export function ShieldIcon({ className }: IconProps) {
+  return <Shield className={className} aria-hidden />;
+}
+
+export function UsersIcon({ className }: IconProps) {
+  return <Users className={className} aria-hidden />;
 }

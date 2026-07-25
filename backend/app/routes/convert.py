@@ -26,7 +26,7 @@ async def convert_to_doc(video: UploadFile = File(...), current_user: dict = Dep
     upload_dir.mkdir(parents=True, exist_ok=True)
     dest_path = upload_dir / f"source{ext}"
 
-    duration = await save_upload(
+    duration, size_bytes = await save_upload(
         video, upload_dir, dest_path, settings.MAX_UPLOAD_BYTES, settings.MAX_DURATION_SECONDS, kind="video"
     )
 
@@ -50,6 +50,7 @@ async def convert_to_doc(video: UploadFile = File(...), current_user: dict = Dep
         str(dest_path),
         user_id=current_user["id"],
         duration_seconds=duration,
+        size_bytes=size_bytes,
         billed_cents=billed_cents,
         title=title_from_filename(video.filename or "", fallback="Untitled video"),
         job_type="video",

@@ -43,6 +43,22 @@ def get_wallet_balance_cents(user_id: str) -> int:
         session.close()
 
 
+def total_revenue_cents() -> int:
+    """Real money collected platform-wide -- sum of topup entries only, not
+    net wallet balance (which would undercount revenue by however much
+    users still have unspent sitting in their wallets)."""
+    session = get_session()
+    try:
+        total = session.execute(
+            select(func.coalesce(func.sum(WalletLedgerEntry.amount_cents), 0)).where(
+                WalletLedgerEntry.entry_type == "topup"
+            )
+        ).scalar()
+        return int(total or 0)
+    finally:
+        session.close()
+
+
 def charge_for_job(user_id: str, job_id: str, duration_seconds: float, job_type: str = "video") -> int:
     """Deducts the cost of converting a video (or transcribing audio) from the
     user's wallet, inside a transaction that locks the user's own row as the

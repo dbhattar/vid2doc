@@ -1,5 +1,5 @@
 import jwt
-from fastapi import Header, HTTPException
+from fastapi import Depends, Header, HTTPException
 
 from . import api_keys, tokens, users
 
@@ -40,3 +40,12 @@ def get_current_session_user(authorization: str | None = Header(default=None)) -
     """Session-token only -- for endpoints that must not be reachable with an
     API key, e.g. minting new API keys (no self-propagating keys)."""
     return _user_from_session_jwt(authorization)
+
+
+def get_current_admin_user(current_user: dict = Depends(get_current_session_user)) -> dict:
+    """Session-token only (same reasoning as get_current_session_user) plus
+    an is_admin check -- admin endpoints shouldn't be reachable via a leaked
+    API key any more than key-minting should."""
+    if not current_user.get("is_admin"):
+        raise HTTPException(status_code=403, detail="Admin access required")
+    return current_user

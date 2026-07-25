@@ -39,12 +39,11 @@ async def save_upload(
     max_upload_bytes: int,
     max_duration_seconds: int,
     kind: str,
-) -> float:
+) -> tuple[float, int]:
     """Streams `upload` to `dest_path`, enforcing a byte cap while writing
     and a duration cap after probing. On any validation failure, removes
-    `upload_dir` entirely and raises HTTPException. Returns the probed
-    duration in seconds on success. `kind` ("video"/"audio") only affects
-    error text."""
+    `upload_dir` entirely and raises HTTPException. Returns (duration_seconds,
+    size_bytes) on success. `kind` ("video"/"audio") only affects error text."""
     size = 0
     try:
         with open(dest_path, "wb") as f:
@@ -77,4 +76,4 @@ async def save_upload(
             detail=f"{kind.capitalize()} duration {duration:.0f}s exceeds max of {max_duration_seconds}s",
         )
 
-    return duration
+    return duration, size

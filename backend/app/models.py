@@ -13,7 +13,7 @@ wallet-funded) -- there are no subscription plans/tiers.
 import uuid
 from datetime import datetime
 
-from sqlalchemy import BigInteger, DateTime, Float, ForeignKey, String, Text, func
+from sqlalchemy import BigInteger, Boolean, DateTime, Float, ForeignKey, String, Text, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
@@ -31,6 +31,11 @@ class User(Base):
     display_name: Mapped[str | None] = mapped_column(String, nullable=True)
     avatar_url: Mapped[str | None] = mapped_column(String, nullable=True)
     stripe_customer_id: Mapped[str | None] = mapped_column(String, unique=True, nullable=True)
+    # Auto-granted on login to any email in ADMIN_EMAILS (see users.py), or
+    # toggled directly by an existing admin via the admin dashboard --
+    # ADMIN_EMAILS only ever grants, never revokes, so removing an email
+    # from that list doesn't silently demote someone still using the app.
+    is_admin: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     api_keys: Mapped[list["ApiKey"]] = relationship(back_populates="user")
@@ -90,6 +95,10 @@ class Job(Base):
     source_path: Mapped[str] = mapped_column(String, nullable=False)
     document_path: Mapped[str | None] = mapped_column(String, nullable=True)
     duration_seconds: Mapped[float | None] = mapped_column(Float, nullable=True)
+    # Uploaded file size in bytes, captured at upload time (media.py's
+    # save_upload already streams and counts this) -- nullable since jobs
+    # created before this column existed never recorded it.
+    source_size_bytes: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     billed_cents: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

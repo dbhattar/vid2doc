@@ -67,6 +67,7 @@ def retry_job(job_id: str, request: Request, current_user: dict = Depends(get_cu
         str(source_path),
         user_id=current_user["id"],
         duration_seconds=job["duration_seconds"],
+        size_bytes=job["source_size_bytes"],
         billed_cents=billed_cents,
         title=job["title"],
         job_type=job["job_type"],

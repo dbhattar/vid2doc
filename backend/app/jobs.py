@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 
 from .db import get_session
 from .models import Job
@@ -22,6 +22,7 @@ def _job_to_dict(job: Job) -> dict:
         "source_path": job.source_path,
         "document_path": job.document_path,
         "duration_seconds": job.duration_seconds,
+        "source_size_bytes": job.source_size_bytes,
         "billed_cents": job.billed_cents,
         "error_message": job.error_message,
         "deleted_at": job.deleted_at,
@@ -35,6 +36,7 @@ def create_job(
     source_path: str,
     user_id: str | uuid.UUID | None = None,
     duration_seconds: float | None = None,
+    size_bytes: int | None = None,
     billed_cents: int = 0,
     title: str | None = None,
     job_type: str = "video",
@@ -48,6 +50,7 @@ def create_job(
                 status="queued",
                 source_path=source_path,
                 duration_seconds=duration_seconds,
+                source_size_bytes=size_bytes,
                 billed_cents=billed_cents,
                 title=title,
                 job_type=job_type,
@@ -160,5 +163,25 @@ def list_jobs_eligible_for_retention(cutoff: datetime) -> list[dict]:
             .all()
         )
         return [_job_to_dict(j) for j in rows]
+    finally:
+        session.close()
+
+
+def count_jobs_by_type() -> dict:
+    """{"video": N, "audio": N} across every job regardless of status --
+    for the admin dashboard's "videos/audio processed" count."""
+    session = get_session()
+    try:
+        rows = session.query(Job.job_type, func.count(Job.id)).group_by(Job.job_type).all()
+        return {job_type: count for job_type, count in rows}
+    finally:
+        session.close()
+
+
+def total_source_size_bytes() -> int:
+    session = get_session()
+    try:
+        total = session.query(func.coalesce(func.sum(Job.source_size_bytes), 0)).scalar()
+        return int(total or 0)
     finally:
         session.close()

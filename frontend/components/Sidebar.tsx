@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-import { BillingIcon, ChevronIcon, DashboardIcon, DocumentIcon, KeyIcon, WalletIcon } from "@/components/icons";
+import { BillingIcon, ChevronIcon, DashboardIcon, DocumentIcon, KeyIcon, ShieldIcon, WalletIcon } from "@/components/icons";
 import UserMenu from "@/components/UserMenu";
 import type { CurrentUser } from "@/lib/auth";
 import { formatCents } from "@/lib/billing";
@@ -15,6 +15,8 @@ const NAV_LINKS = [
   { href: "/settings/api-keys", label: "API keys", Icon: KeyIcon },
   { href: "/settings/billing", label: "Billing", Icon: BillingIcon },
 ];
+
+const ADMIN_NAV_LINK = { href: "/admin", label: "Admin", Icon: ShieldIcon };
 
 export default function Sidebar({
   collapsed,
@@ -28,6 +30,7 @@ export default function Sidebar({
   balanceCents: number | null;
 }) {
   const pathname = usePathname();
+  const navLinks = user?.is_admin ? [...NAV_LINKS, ADMIN_NAV_LINK] : NAV_LINKS;
 
   return (
     <aside
@@ -53,7 +56,7 @@ export default function Sidebar({
           actually shrink/scroll on its own overflow without it. */}
       <nav className="min-h-0 flex-1 overflow-y-auto px-3 py-2">
         <div className="flex flex-col gap-1">
-          {NAV_LINKS.map(({ href, label, Icon }) => {
+          {navLinks.map(({ href, label, Icon }) => {
             const active = pathname === href || pathname?.startsWith(`${href}/`);
             return (
               <Link

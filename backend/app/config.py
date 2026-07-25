@@ -15,6 +15,15 @@ class Settings:
         o.strip() for o in os.environ.get("CORS_ALLOWED_ORIGINS", "http://localhost:3000").split(",") if o.strip()
     ]
 
+    # Emails (comma-separated, case-insensitive) auto-granted admin on every
+    # login (see users.get_or_create_user_by_google) -- a durable allowlist,
+    # not a one-time bootstrap: removing an email here doesn't demote anyone
+    # already admin, it just stops future auto-grants for it. Anyone else
+    # becomes admin only via the admin dashboard's toggle.
+    ADMIN_EMAILS = {
+        e.strip().lower() for e in os.environ.get("ADMIN_EMAILS", "").split(",") if e.strip()
+    }
+
     # Stripe: wallet top-up checkout + webhooks (see app/stripe_client.py, app/billing.py).
     # No fixed Price ids -- top-up amount is user-chosen, passed as Checkout
     # line_item price_data at request time (see routes/billing.py).

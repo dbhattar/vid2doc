@@ -30,7 +30,7 @@ async def transcribe_audio(audio: UploadFile = File(...), current_user: dict = D
     upload_dir.mkdir(parents=True, exist_ok=True)
     dest_path = upload_dir / f"source{ext}"
 
-    duration = await save_upload(
+    duration, size_bytes = await save_upload(
         audio, upload_dir, dest_path, settings.MAX_UPLOAD_BYTES, settings.MAX_DURATION_SECONDS, kind="audio"
     )
 
@@ -51,6 +51,7 @@ async def transcribe_audio(audio: UploadFile = File(...), current_user: dict = D
         str(dest_path),
         user_id=current_user["id"],
         duration_seconds=duration,
+        size_bytes=size_bytes,
         billed_cents=billed_cents,
         title=title_from_filename(audio.filename or "", fallback="Untitled audio"),
         job_type="audio",

@@ -4,6 +4,7 @@ export type CurrentUser = {
   display_name: string | null;
   avatar_url: string | null;
   stripe_customer_id: string | null;
+  is_admin: boolean;
   created_at: string;
 };
 
