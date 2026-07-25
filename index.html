@@ -47,17 +47,32 @@
     "description": "Framewrite automatically transcribes, diarizes, and formats your videos into a searchable document with the right images in the right places.",
     "applicationCategory": "BusinessApplication",
     "operatingSystem": "Web",
-    "offers": {
-      "@type": "Offer",
-      "price": "1.00",
-      "priceCurrency": "USD",
-      "priceSpecification": {
-        "@type": "UnitPriceSpecification",
+    "offers": [
+      {
+        "@type": "Offer",
+        "name": "Video",
         "price": "1.00",
         "priceCurrency": "USD",
-        "unitText": "hour of video"
+        "priceSpecification": {
+          "@type": "UnitPriceSpecification",
+          "price": "1.00",
+          "priceCurrency": "USD",
+          "unitText": "hour of video"
+        }
+      },
+      {
+        "@type": "Offer",
+        "name": "Audio",
+        "price": "0.40",
+        "priceCurrency": "USD",
+        "priceSpecification": {
+          "@type": "UnitPriceSpecification",
+          "price": "0.40",
+          "priceCurrency": "USD",
+          "unitText": "hour of audio"
+        }
       }
-    }
+    ]
   }
   </script>
 </head>
@@ -72,6 +87,7 @@
       <nav class="site-nav">
         <a href="#demo">Demo</a>
         <a href="#features">Features</a>
+        <a href="#pricing">Pricing</a>
         <a href="https://app.framewrite.cc/login">Log in</a>
         <a href="https://app.framewrite.cc/login" class="btn-nav">Get started</a>
       </nav>
@@ -183,6 +199,33 @@
                 each speaker labeled, nothing else added. Priced lower than video, same pay-as-you-go model.
               </p>
             </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <section class="pricing" id="pricing">
+      <div class="container">
+        <h2>Simple, pay-as-you-go pricing</h2>
+        <p class="pricing-intro">
+          No subscriptions, no plans. Billed exactly proportional to length — pay only for what you convert.
+        </p>
+
+        <div class="pricing-grid">
+          <div class="pricing-card">
+            <span class="pricing-label">Video</span>
+            <p class="pricing-amount">$1.00<span>/hour</span></p>
+            <p class="pricing-desc">
+              Full pipeline — diarized transcript, speaker labels, and the right slides/diagrams pulled
+              into a formatted document.
+            </p>
+          </div>
+          <div class="pricing-card">
+            <span class="pricing-label">Audio</span>
+            <p class="pricing-amount">$0.40<span>/hour</span></p>
+            <p class="pricing-desc">
+              Verbatim, speaker-tagged transcript only — no document composition, priced lower to match.
+            </p>
           </div>
         </div>
       </div>
