@@ -163,11 +163,18 @@ def transcribe_baseten(audio_path: Path, model_size: str = "base") -> dict:
     # a hard error. FLAC is lossless (sample-accurate, no timing drift) and
     # still meaningfully smaller than raw PCM for speech audio.
     with tempfile.NamedTemporaryFile(suffix=".flac") as compressed:
-        subprocess.run(
-            ["ffmpeg", "-y", "-i", str(audio_path), "-ac", "1", "-c:a", "flac", compressed.name],
-            check=True,
-            capture_output=True,
-        )
+        try:
+            subprocess.run(
+                ["ffmpeg", "-y", "-i", str(audio_path), "-ac", "1", "-c:a", "flac", compressed.name],
+                check=True,
+                capture_output=True,
+            )
+        except subprocess.CalledProcessError as e:
+            # check=True's own str(e) is just "exit status N" -- the useful
+            # part (why ffmpeg actually failed) is in stderr, captured but
+            # otherwise discarded. Surface it so it lands in the job's
+            # error_message instead of a dead end.
+            raise PipelineError(f"ffmpeg FLAC compression failed: {e.stderr.decode(errors='replace')}") from e
         audio_b64 = base64.standard_b64encode(Path(compressed.name).read_bytes()).decode()
 
     if len(audio_b64) > BASETEN_MAX_REQUEST_BYTES:

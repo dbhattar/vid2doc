@@ -20,6 +20,8 @@ import pytesseract
 from PIL import Image
 from skimage.metrics import structural_similarity as ssim
 
+from ..exceptions import PipelineError
+
 FRAME_TS_RE = re.compile(r"frame_t([\d.]+)\.jpg")
 
 DEDUP_HAMMING_THRESHOLD = 5
@@ -33,17 +35,24 @@ COMPARE_SIZE = (320, 180)
 def extract_frames(video_path: Path, output_dir: Path, interval_seconds: float = 2.0) -> list[Path]:
     output_dir.mkdir(parents=True, exist_ok=True)
     fps = 1 / interval_seconds
-    subprocess.run(
-        [
-            "ffmpeg", "-y",
-            "-i", str(video_path),
-            "-vf", f"fps={fps}",
-            "-qscale:v", "2",
-            str(output_dir / "frame_%06d.jpg"),
-        ],
-        check=True,
-        capture_output=True,
-    )
+    try:
+        subprocess.run(
+            [
+                "ffmpeg", "-y",
+                "-i", str(video_path),
+                "-vf", f"fps={fps}",
+                "-qscale:v", "2",
+                str(output_dir / "frame_%06d.jpg"),
+            ],
+            check=True,
+            capture_output=True,
+        )
+    except subprocess.CalledProcessError as e:
+        # check=True's own str(e) is just "exit status N" -- the useful part
+        # (why ffmpeg actually failed) is in stderr, captured but otherwise
+        # discarded. Surface it so it lands in the job's error_message
+        # instead of a dead end.
+        raise PipelineError(f"ffmpeg frame extraction failed: {e.stderr.decode(errors='replace')}") from e
     frames = sorted(output_dir.glob("frame_*.jpg"))
 
     renamed = []
