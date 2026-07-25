@@ -73,7 +73,7 @@ them, no matter what.
 | `bootstrap` | One-time: installs Docker/nginx/certbot, clones the repo, writes the (HTTP-only) nginx config. Idempotent — re-running it skips anything already done. |
 | `setup-tls` | Provisions Let's Encrypt certs for both domains via certbot's nginx plugin (also patches nginx to add HTTPS + redirect). Run once DNS for both domains resolves to the server. |
 | `deploy` | Pulls the latest commit, rebuilds changed images, restarts the stack. This is what you run for every subsequent deploy. |
-| `restart` | Restarts without rebuilding — e.g. after hand-editing `.env` (env vars are only re-read on container start). |
+| `restart` | Recreates containers without rebuilding images — e.g. after hand-editing `.env`. Runs `docker compose up -d`, not `docker compose restart`: the latter never re-reads `.env`/`env_file` at all, since that's only evaluated on container creation. |
 | `logs` | Tails one service's logs: `fab ... logs --service=worker --lines=200`. |
 
 ## Notes

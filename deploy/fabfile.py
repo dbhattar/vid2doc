@@ -273,9 +273,15 @@ def deploy(c):
 
 @task
 def restart(c):
-    """Restarts the stack without rebuilding -- e.g. after editing .env by
-    hand, since env_file changes aren't picked up by a running container."""
-    c.sudo(f"bash -c 'cd {APP_DIR}/backend && docker compose restart'")
+    """Recreates the stack without rebuilding images -- e.g. after editing
+    .env by hand. Deliberately `up -d`, not `docker compose restart`:
+    `restart` just stops/starts the *same* already-created containers and
+    never re-reads .env/env_file at all, since that's only evaluated when a
+    container is (re)created -- so it would silently keep serving whatever
+    env vars the container started with, no matter what .env says now.
+    `up -d` re-evaluates the compose config (including env_file) and
+    recreates only the containers whose resolved config actually changed."""
+    c.sudo(f"bash -c 'cd {APP_DIR}/backend && docker compose up -d'")
     c.sudo(f"bash -c 'cd {APP_DIR}/backend && docker compose ps'")
 
 
