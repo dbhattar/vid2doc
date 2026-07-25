@@ -1,6 +1,10 @@
 import { getToken } from "./auth";
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000";
+// `||`, not `??` -- an empty string (e.g. NEXT_PUBLIC_API_BASE_URL= with no
+// value in .env, still inlined as "" at build time) must also fall back,
+// or every request silently becomes a relative URL against whatever origin
+// the page happens to be served from instead of the real API host.
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000";
 
 export class ApiError extends Error {
   status: number;
