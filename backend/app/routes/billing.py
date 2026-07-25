@@ -15,6 +15,12 @@ class TopUpRequest(BaseModel):
 
 @router.post("/api/billing/checkout/topup")
 def create_topup_checkout(body: TopUpRequest, current_user: dict = Depends(get_current_session_user)):
+    if not settings.PAYMENTS_ENABLED:
+        raise HTTPException(
+            status_code=503,
+            detail="Payments are temporarily unavailable while we resolve an issue with our payment provider. "
+            "Your existing balance and job processing are unaffected -- please try again soon.",
+        )
     customer_id = billing.get_or_create_stripe_customer(current_user)
     session = stripe.checkout.Session.create(
         customer=customer_id,
@@ -37,7 +43,10 @@ def create_topup_checkout(body: TopUpRequest, current_user: dict = Depends(get_c
 
 @router.get("/api/billing/wallet")
 def get_wallet(current_user: dict = Depends(get_current_user)):
-    return {"balance_cents": billing.get_wallet_balance_cents(current_user["id"])}
+    return {
+        "balance_cents": billing.get_wallet_balance_cents(current_user["id"]),
+        "payments_enabled": settings.PAYMENTS_ENABLED,
+    }
 
 
 @router.post("/api/billing/webhook")

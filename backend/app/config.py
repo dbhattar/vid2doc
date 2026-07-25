@@ -32,6 +32,11 @@ class Settings:
     # Where Stripe Checkout redirects back to after a session.
     FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:3000")
 
+    # Kill switch for new top-ups (e.g. a Stripe-side incident) -- existing
+    # wallet balances and job processing are unaffected either way, this only
+    # gates POST /api/billing/checkout/topup. Set to "false" to disable.
+    PAYMENTS_ENABLED = os.environ.get("PAYMENTS_ENABLED", "true").strip().lower() != "false"
+
     DATABASE_URL = os.environ.get(
         "DATABASE_URL", "postgresql+psycopg2://vid2doc:vid2doc@postgres:5432/vid2doc"
     )

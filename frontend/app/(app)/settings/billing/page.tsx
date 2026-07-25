@@ -11,6 +11,7 @@ function BillingPageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const [balanceCents, setBalanceCents] = useState<number | undefined>(undefined);
+  const [paymentsEnabled, setPaymentsEnabled] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [selectedPreset, setSelectedPreset] = useState<number | null>(TOPUP_PRESETS_CENTS[0]);
   const [customAmount, setCustomAmount] = useState("");
@@ -19,8 +20,11 @@ function BillingPageContent() {
   const checkoutStatus = searchParams.get("status");
 
   const loadWallet = useCallback(() => {
-    apiFetch<{ balance_cents: number }>("/api/billing/wallet")
-      .then((data) => setBalanceCents(data.balance_cents))
+    apiFetch<{ balance_cents: number; payments_enabled: boolean }>("/api/billing/wallet")
+      .then((data) => {
+        setBalanceCents(data.balance_cents);
+        setPaymentsEnabled(data.payments_enabled);
+      })
       .catch((err) => {
         if (err instanceof ApiError && err.status === 401) {
           clearSession();
@@ -84,6 +88,13 @@ function BillingPageContent() {
       )}
       {error && <p className="mt-4 text-sm text-red-600">{error}</p>}
 
+      {!paymentsEnabled && (
+        <p className="mt-4 rounded-lg bg-brand-amber-soft p-3 text-sm text-brand-amber-dark">
+          Payments are temporarily unavailable while we resolve an issue with our payment provider. Your
+          existing balance and job processing are unaffected -- please check back soon.
+        </p>
+      )}
+
       <div className="mt-8 rounded-2xl border border-brand-border bg-surface p-6 shadow-soft">
         <p className="text-sm text-muted">Wallet balance</p>
         <p className="mt-1 text-4xl font-bold tracking-tight text-brand-navy">
@@ -100,7 +111,8 @@ function BillingPageContent() {
                   setSelectedPreset(cents);
                   setCustomAmount("");
                 }}
-                className={`rounded-lg border px-4 py-2 text-sm font-medium transition-colors ${
+                disabled={!paymentsEnabled}
+                className={`rounded-lg border px-4 py-2 text-sm font-medium transition-colors disabled:cursor-default disabled:opacity-50 ${
                   selectedPreset === cents && !customAmount
                     ? "border-brand-navy bg-brand-navy text-white"
                     : "border-brand-border text-foreground hover:bg-brand-navy-soft"
@@ -120,12 +132,13 @@ function BillingPageContent() {
                 setCustomAmount(e.target.value);
                 setSelectedPreset(null);
               }}
-              className="w-28 rounded-lg border border-brand-border bg-surface px-3 py-2 text-sm outline-none transition-shadow focus:border-brand-amber-dark focus:ring-2 focus:ring-brand-amber-soft"
+              disabled={!paymentsEnabled}
+              className="w-28 rounded-lg border border-brand-border bg-surface px-3 py-2 text-sm outline-none transition-shadow focus:border-brand-amber-dark focus:ring-2 focus:ring-brand-amber-soft disabled:cursor-default disabled:opacity-50"
             />
           </div>
           <button
             onClick={handleAddFunds}
-            disabled={busy}
+            disabled={busy || !paymentsEnabled}
             className="mt-4 rounded-lg bg-brand-navy px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-navy-hover disabled:cursor-default disabled:opacity-50"
           >
             {busy ? "Redirecting..." : "Add funds"}
