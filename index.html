@@ -16,8 +16,14 @@
 
   <title>Framewrite — Turn any video into a searchable document</title>
   <meta name="description" content="Framewrite automatically transcribes, diarizes, and formats your videos into a searchable document with the right images in the right places. Pay-as-you-go: $1 per hour of video, no subscription." />
+  <meta name="theme-color" content="#1c2b4a" />
   <link rel="canonical" href="https://framewrite.cc/" />
   <link rel="icon" href="images/framewrite_icon.png" type="image/png" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
   <link rel="stylesheet" href="styles.css" />
 
   <meta property="og:type" content="website" />
@@ -66,7 +72,8 @@
       <nav class="site-nav">
         <a href="#demo">Demo</a>
         <a href="#features">Features</a>
-        <a href="#signup" class="btn-nav">Get started</a>
+        <a href="https://app.framewrite.cc/login">Log in</a>
+        <a href="https://app.framewrite.cc/login" class="btn-nav">Get started</a>
       </nav>
     </div>
   </header>
@@ -83,9 +90,10 @@
           transcript, speaker labels, and the right images dropped in at the right spot.
         </p>
         <div class="hero-cta-row">
-          <a href="#signup" class="btn-primary btn-hero">Get started</a>
+          <a href="https://app.framewrite.cc/login" class="btn-primary btn-hero">Get started free</a>
           <a href="#demo" class="btn-hero-secondary">See it in action &#8594;</a>
         </div>
+        <p class="hero-fineprint">Sign in with Google — no credit card required to start.</p>
       </div>
     </section>
 
@@ -180,50 +188,16 @@
       </div>
     </section>
 
-    <section class="signup" id="signup">
-      <div class="container">
-        <div class="signup-card">
-          <h2>Ready to try it?</h2>
-          <p class="signup-intro">
-            Leave your name and email and we'll get you set up with an account.
-          </p>
-
-          <form
-            name="waitlist"
-            method="POST"
-            data-netlify="true"
-            netlify-honeypot="bot-field"
-            action="/thanks.html"
-            class="waitlist-form"
-            id="waitlist-form"
-          >
-            <input type="hidden" name="form-name" value="waitlist" />
-            <p class="honeypot-field">
-              <label>Don't fill this out if you're human: <input name="bot-field" /></label>
-            </p>
-
-            <div class="field-row">
-              <div>
-                <label for="name">Name</label>
-                <input type="text" id="name" name="name" required autocomplete="name" />
-              </div>
-              <div>
-                <label for="email">Email</label>
-                <input type="email" id="email" name="email" required autocomplete="email" />
-              </div>
-            </div>
-
-            <button type="submit" class="btn-primary">Get started</button>
-            <p class="form-error" id="form-error">Something went wrong. Please try again.</p>
-            <p class="form-note">No spam, just a heads up when your account is ready.</p>
-          </form>
-
-          <div class="success-message" id="success-message">
-            <div class="check">&#10003;</div>
-            <h3>You're in</h3>
-            <p>We'll email you shortly to get your account set up.</p>
-          </div>
-        </div>
+    <section class="final-cta" id="signup">
+      <div class="container final-cta-inner">
+        <p class="final-cta-eyebrow">Pay-as-you-go &mdash; $1 per hour of video</p>
+        <h2>Ready to turn your first video into a document?</h2>
+        <p class="final-cta-sub">
+          No plans, no monthly commitment. Sign in with Google and upload your first video in seconds.
+        </p>
+        <a href="https://app.framewrite.cc/login" class="btn-primary btn-hero final-cta-button">
+          Get started free &#8594;
+        </a>
       </div>
     </section>
   </main>
@@ -235,7 +209,5 @@
     </div>
   </footer>
   </div>
-
-  <script src="script.js"></script>
 </body>
 </html>

@@ -13,11 +13,17 @@
   --border: #e7e3d9;
   --shadow: 0 10px 30px rgba(28, 43, 74, 0.08);
   --radius: 16px;
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-family: "Geist", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
 }
 
 * {
   box-sizing: border-box;
+}
+
+a:focus-visible,
+button:focus-visible {
+  outline: 2px solid var(--accent-dark);
+  outline-offset: 2px;
 }
 
 body {
@@ -206,79 +212,6 @@ body {
   color: var(--accent-dark);
 }
 
-/* Signup form */
-.signup {
-  padding: 0 0 96px;
-}
-
-.signup-card {
-  max-width: 480px;
-  margin: 0 auto;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-  padding: 36px;
-  text-align: center;
-}
-
-.signup-card h2 {
-  margin: 0 0 8px;
-  font-size: 1.6rem;
-  letter-spacing: -0.02em;
-}
-
-.signup-intro {
-  color: var(--text-muted);
-  margin: 0 0 24px;
-}
-
-.waitlist-form {
-  text-align: left;
-}
-
-.waitlist-form .btn-primary {
-  width: 100%;
-}
-
-.waitlist-form .field-row {
-  display: flex;
-  flex-direction: column;
-  gap: 14px;
-  margin-bottom: 14px;
-}
-
-.waitlist-form label {
-  font-size: 0.85rem;
-  font-weight: 600;
-  margin-bottom: 6px;
-  display: block;
-}
-
-.waitlist-form input[type="text"],
-.waitlist-form input[type="email"] {
-  width: 100%;
-  padding: 12px 14px;
-  border-radius: 10px;
-  border: 1px solid var(--border);
-  font-size: 1rem;
-  background: #fefdfb;
-}
-
-.waitlist-form input:focus {
-  outline: none;
-  border-color: var(--accent-dark);
-  box-shadow: 0 0 0 3px var(--accent-soft);
-}
-
-.honeypot-field {
-  position: absolute;
-  left: -9999px;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-}
-
 .btn-primary {
   padding: 13px 18px;
   border: none;
@@ -288,58 +221,74 @@ body {
   font-size: 1rem;
   font-weight: 600;
   cursor: pointer;
-  margin-top: 6px;
-  transition: background 0.15s ease;
+  transition: background 0.15s ease, transform 0.15s ease, box-shadow 0.15s ease;
 }
 
 .btn-primary:hover {
   background: var(--navy-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 8px 20px rgba(28, 43, 74, 0.18);
 }
 
 .btn-primary:disabled {
   opacity: 0.7;
   cursor: default;
+  transform: none;
+  box-shadow: none;
 }
 
-.form-note {
-  margin: 14px 0 0;
-  font-size: 0.8rem;
-  color: var(--text-muted);
-  text-align: center;
-}
-
-.form-error {
-  color: #d1435b;
+.hero-fineprint {
+  margin: 16px 0 0;
   font-size: 0.85rem;
-  margin-top: 10px;
-  display: none;
+  color: var(--text-muted);
 }
 
-.success-message {
-  display: none;
+/* Final CTA */
+.final-cta {
+  margin: 0 0 0;
+  padding: 88px 0;
+  background: linear-gradient(160deg, var(--navy) 0%, #16233d 100%);
   text-align: center;
 }
 
-.success-message .check {
-  width: 48px;
-  height: 48px;
-  border-radius: 50%;
-  background: var(--accent-soft);
+.final-cta-inner {
+  max-width: 640px;
+}
+
+.final-cta-eyebrow {
+  display: inline-block;
+  font-size: 0.78rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: var(--accent-soft);
+  background: rgba(226, 150, 47, 0.16);
+  padding: 5px 12px;
+  border-radius: 999px;
+  margin: 0 0 18px;
+}
+
+.final-cta h2 {
+  margin: 0 0 14px;
+  font-size: clamp(1.7rem, 3.5vw, 2.3rem);
+  letter-spacing: -0.02em;
+  color: #fff;
+}
+
+.final-cta-sub {
+  margin: 0 0 32px;
+  color: rgba(255, 255, 255, 0.72);
+  font-size: 1.05rem;
+}
+
+.final-cta-button {
+  background: var(--accent);
   color: var(--navy);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 1.5rem;
-  margin: 0 auto 16px;
 }
 
-.success-message h3 {
-  margin: 0 0 6px;
-}
-
-.success-message p {
-  color: var(--text-muted);
-  margin: 0;
+.final-cta-button:hover {
+  background: #eda954;
+  box-shadow: 0 8px 24px rgba(226, 150, 47, 0.35);
 }
 
 /* Demo */
@@ -568,21 +517,4 @@ body {
   height: 22px;
   width: auto;
   opacity: 0.9;
-}
-
-/* Thanks page */
-.thanks-hero {
-  padding: 120px 0;
-  text-align: center;
-}
-
-.thanks-hero h1 {
-  font-size: 2rem;
-  margin-bottom: 12px;
-}
-
-.thanks-hero a {
-  color: var(--accent-dark);
-  font-weight: 600;
-  text-decoration: none;
 }
