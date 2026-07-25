@@ -46,7 +46,12 @@ async def stripe_webhook(request: Request):
     sig_header = request.headers.get("stripe-signature")
     try:
         event = stripe.Webhook.construct_event(payload, sig_header, settings.STRIPE_WEBHOOK_SECRET)
-    except (ValueError, stripe.SignatureVerificationError):
+    except (ValueError, stripe.SignatureVerificationError) as e:
+        # The 400 sent back to Stripe deliberately stays generic (no need to
+        # hand a would-be attacker specifics about why their forged signature
+        # failed) -- but that leaves nothing to debug a real misconfiguration
+        # with, so log the actual reason here instead.
+        print(f"Webhook rejected: {type(e).__name__}: {e}", flush=True)
         raise HTTPException(status_code=400, detail="Invalid webhook payload or signature")
 
     if not billing.claim_webhook_event(event["id"]):
