@@ -1,5 +1,8 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+
+import GoogleAnalytics from "@/components/GoogleAnalytics";
+
 import "./globals.css";
 
 const geistSans = Geist({
@@ -33,7 +36,10 @@ export default function RootLayout({
           The (app) layout's own overflow-hidden wrapper is what actually
           contains the dashboard shell, but it can only do that if this
           parent is height-bounded in the first place. */}
-      <body className="h-full flex flex-col">{children}</body>
+      <body className="h-full flex flex-col">
+        {children}
+        <GoogleAnalytics />
+      </body>
     </html>
   );
 }
