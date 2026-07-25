@@ -125,8 +125,17 @@ def credit_topup(user_id: str, amount_cents: int, stripe_payment_intent_id: str 
 
 
 def get_or_create_stripe_customer(user: dict) -> str:
+    """Stripe test mode and live mode are entirely separate data stores --
+    a customer id created under one doesn't exist under the other. Switching
+    STRIPE_SECRET_KEY from test to live (or vice versa) instantly strands
+    every previously-cached stripe_customer_id, so verify it still resolves
+    before trusting it rather than failing checkout for every existing user."""
     if user.get("stripe_customer_id"):
-        return user["stripe_customer_id"]
+        try:
+            stripe.Customer.retrieve(user["stripe_customer_id"])
+            return user["stripe_customer_id"]
+        except stripe.InvalidRequestError:
+            pass
     customer = stripe.Customer.create(email=user["email"])
     users.set_stripe_customer_id(user["id"], customer.id)
     return customer.id
