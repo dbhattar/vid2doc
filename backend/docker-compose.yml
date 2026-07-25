@@ -19,9 +19,17 @@ services:
   api:
     build: .
     image: vid2doc-backend
-    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
+    # --proxy-headers + --forwarded-allow-ips=* make uvicorn trust nginx's
+    # X-Forwarded-Proto/X-Forwarded-For -- otherwise request.base_url (used
+    # to build document_url etc. in routes/status.py) reflects the internal
+    # http:// connection from nginx, not the https:// the browser actually
+    # used, and the frontend gets blocked fetching it as mixed content.
+    # '*' is safe specifically because the port binding below restricts this
+    # container to 127.0.0.1 -- nginx (same host) is the only thing that can
+    # ever connect, so there's no untrusted peer to spoof the header from.
+    command: ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers", "--forwarded-allow-ips=*"]
     ports:
-      - "8000:8000"
+      - "127.0.0.1:8000:8000"
     env_file:
       - .env
     volumes:
@@ -53,7 +61,7 @@ services:
         NEXT_PUBLIC_GA_MEASUREMENT_ID: ${NEXT_PUBLIC_GA_MEASUREMENT_ID}
     image: vid2doc-frontend
     ports:
-      - "3000:3000"
+      - "127.0.0.1:3000:3000"
     depends_on:
       - api
     restart: unless-stopped
