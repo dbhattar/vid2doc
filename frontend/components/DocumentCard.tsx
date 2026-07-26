@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 
-import { ArchiveIcon, DriveIcon, MarkdownFileIcon, MicrophoneIcon, PdfFileIcon, VideoCameraIcon, WordFileIcon } from "@/components/icons";
+import { ArchiveIcon, DriveIcon, JsonFileIcon, MarkdownFileIcon, MicrophoneIcon, PdfFileIcon, VideoCameraIcon, WordFileIcon } from "@/components/icons";
 import { apiFetch, ApiError, downloadAuthenticated } from "@/lib/api";
 import { displayTitle, formatDuration, type Job } from "@/lib/jobs";
 import { useDriveStatus } from "@/lib/useDriveStatus";
@@ -103,6 +103,16 @@ export default function DocumentCard({ job }: { job: Job }) {
             >
               <PdfFileIcon className="h-4 w-4 text-red-600" />
               PDF
+            </button>
+          )}
+          {job.document_transcript_json_url && (
+            <button
+              onClick={() => downloadAuthenticated(job.document_transcript_json_url!, `${job.job_id}.transcript.json`)}
+              title="Download Transcript JSON"
+              className="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium transition-colors hover:bg-brand-navy-soft hover:text-brand-amber-dark"
+            >
+              <JsonFileIcon className="h-4 w-4 text-emerald-600" />
+              JSON
             </button>
           )}
           {driveConnected ? (

@@ -35,6 +35,8 @@ def build_job_response(job: dict, request: Request) -> dict:
             response["document_docx_url"] = f"{base}/document.docx"
         if (doc_dir / "document.pdf").exists():
             response["document_pdf_url"] = f"{base}/document.pdf"
+        if (doc_dir / "transcript.json").exists():
+            response["document_transcript_json_url"] = f"{base}/transcript.json"
     if job["status"] == "failed":
         response["error"] = job["error_message"]
     return response

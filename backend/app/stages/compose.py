@@ -236,6 +236,78 @@ def _generate_title_openai(client, headings: list[str]) -> str:
     return json.loads(response.choices[0].message.content)["title"]
 
 
+SUMMARY_SYSTEM_PROMPT = """You are writing a concise summary of a slice of a speaker-tagged transcript.
+
+Write a short paragraph (3-6 sentences) covering what was discussed and any conclusions or decisions reached. Refer to speakers using the exact labels given in the transcript (e.g. "Speaker 1") -- never paraphrase them as "the first speaker" or similar, since these exact labels get substituted with the speakers' real names later if the user assigns them."""
+
+FINAL_SUMMARY_SYSTEM_PROMPT = """You are given several partial summaries, each covering one consecutive slice of a longer transcript, in order. Combine them into a single cohesive summary paragraph (3-6 sentences) covering the whole thing -- do not just concatenate them.
+
+Refer to speakers using the exact labels already used in the partial summaries (e.g. "Speaker 1") -- never paraphrase them as "the first speaker" or similar, since these exact labels get substituted with the speakers' real names later if the user assigns them."""
+
+SUMMARY_TOOL = {
+    "name": "submit_summary",
+    "description": "Submit the summary.",
+    "input_schema": {"type": "object", "properties": {"summary": {"type": "string"}}, "required": ["summary"]},
+}
+
+SUMMARY_JSON_SCHEMA = {
+    "type": "object",
+    "properties": {"summary": {"type": "string"}},
+    "required": ["summary"],
+    "additionalProperties": False,
+}
+
+
+def _summarize_anthropic(client, text: str, system_prompt: str) -> str:
+    response = client.messages.create(
+        model="claude-sonnet-5",
+        max_tokens=1024,
+        system=system_prompt,
+        tools=[SUMMARY_TOOL],
+        tool_choice={"type": "tool", "name": "submit_summary"},
+        messages=[{"role": "user", "content": text}],
+    )
+    for block in response.content:
+        if block.type == "tool_use":
+            return block.input["summary"]
+    return ""
+
+
+def _summarize_openai(client, text: str, system_prompt: str) -> str:
+    import json
+
+    response = client.chat.completions.create(
+        model=settings.OPENAI_MODEL,
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": text},
+        ],
+        response_format={
+            "type": "json_schema",
+            "json_schema": {"name": "submit_summary", "strict": True, "schema": SUMMARY_JSON_SCHEMA},
+        },
+    )
+    return json.loads(response.choices[0].message.content)["summary"]
+
+
+def generate_summary(segments: list[dict], provider: str | None = None) -> str:
+    """One paragraph summarizing the whole (speaker-tagged) transcript. Reuses
+    compose_document's windowing so arbitrarily long audio (capped at
+    MAX_DURATION_SECONDS today) is handled the same proven way -- a single
+    window summarizes directly, multiple windows get map-reduced (summarize
+    each, then summarize the summaries)."""
+    provider = provider or settings.LLM_PROVIDER
+    client, _, _ = _get_client_and_fns(provider)
+    summarize = _summarize_openai if provider == "openai" else _summarize_anthropic
+
+    windows = _make_windows(segments)
+    if len(windows) == 1:
+        return summarize(client, _window_text(windows[0]), SUMMARY_SYSTEM_PROMPT)
+
+    partial_summaries = [summarize(client, _window_text(w), SUMMARY_SYSTEM_PROMPT) for w in windows]
+    return summarize(client, "\n\n".join(partial_summaries), FINAL_SUMMARY_SYSTEM_PROMPT)
+
+
 def generate_title(sections: list[dict], provider: str | None = None) -> str:
     if not sections:
         return "Video Document"

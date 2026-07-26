@@ -150,6 +150,8 @@ def upload_job_to_drive(job_id: str, current_user: dict = Depends(get_current_us
         to_upload.append(doc_dir / "document.docx")
     if (doc_dir / "document.pdf").is_file():
         to_upload.append(doc_dir / "document.pdf")
+    if (doc_dir / "transcript.json").is_file():
+        to_upload.append(doc_dir / "transcript.json")
     images_dir = doc_dir / "images"
     if images_dir.is_dir():
         to_upload.extend(sorted(p for p in images_dir.iterdir() if p.is_file()))

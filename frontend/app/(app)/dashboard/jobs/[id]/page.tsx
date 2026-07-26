@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
-import { ArchiveIcon, DriveIcon, MarkdownFileIcon, MicrophoneIcon, PdfFileIcon, VideoCameraIcon, WordFileIcon } from "@/components/icons";
+import { ArchiveIcon, DriveIcon, JsonFileIcon, MarkdownFileIcon, MicrophoneIcon, PdfFileIcon, VideoCameraIcon, WordFileIcon } from "@/components/icons";
+import TranscriptViewer from "@/components/TranscriptViewer";
 import { apiFetch, ApiError, downloadAuthenticated } from "@/lib/api";
 import { clearSession } from "@/lib/auth";
 import { formatCents } from "@/lib/billing";
@@ -223,6 +224,15 @@ export default function JobDetailPage() {
                   Download PDF
                 </button>
               )}
+              {job.document_transcript_json_url && (
+                <button
+                  onClick={() => downloadAuthenticated(job.document_transcript_json_url!, `${job.job_id}.transcript.json`)}
+                  className="flex items-center gap-2 rounded-lg border border-brand-border px-3 py-1.5 text-sm text-foreground transition-colors hover:bg-brand-navy-soft"
+                >
+                  <JsonFileIcon className="h-5 w-5 text-emerald-600" />
+                  Download Transcript JSON
+                </button>
+              )}
               {driveConnected ? (
                 <button
                   onClick={handleSaveToDrive}
@@ -245,6 +255,10 @@ export default function JobDetailPage() {
             </div>
           )}
           {driveError && <p className="mt-3 text-sm text-red-600">{driveError}</p>}
+
+          {job.job_type === "audio" && job.status === "done" && job.document_transcript_json_url && (
+            <TranscriptViewer jobId={job.job_id} />
+          )}
         </div>
       )}
     </div>

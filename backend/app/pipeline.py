@@ -1,3 +1,4 @@
+import json
 import os
 from pathlib import Path
 
@@ -25,6 +26,21 @@ def _llm_available() -> bool:
     return bool(os.environ.get("ANTHROPIC_API_KEY"))
 
 
+def _normalize_speaker_labels(segments: list[dict]) -> list[str]:
+    """Raw diarization engines emit inconsistent labels (pyannote:
+    SPEAKER_00/SPEAKER_01, AssemblyAI: A/B) -- rewrite in place to clean,
+    consistent "Speaker 1", "Speaker 2", ... ordered by first appearance, so
+    the label is both engine-agnostic and a sane default before the user
+    assigns real names. Returns the ordered list of unique normalized labels."""
+    label_map: dict[str, str] = {}
+    for s in segments:
+        raw = s["speaker"]
+        if raw not in label_map:
+            label_map[raw] = f"Speaker {len(label_map) + 1}"
+        s["speaker"] = label_map[raw]
+    return list(label_map.values())
+
+
 def _fallback_sections(segments: list[dict]) -> list[dict]:
     """No LLM configured: still produce a document, just the raw merged
     transcript under one heading instead of a composed, topic-organized one."""
@@ -43,23 +59,45 @@ def _format_timestamp(seconds: float) -> str:
     return f"{hours}:{minutes:02d}:{secs:02d}" if hours else f"{minutes}:{secs:02d}"
 
 
-def _verbatim_transcript_sections(segments: list[dict]) -> list[dict]:
+def _verbatim_transcript_sections(segments: list[dict], speaker_names: dict[str, str] | None = None) -> list[dict]:
     """Audio-transcript jobs (job_type == "audio") skip document composition
     entirely -- this is just the diarized transcript, verbatim, one
     paragraph per speaker turn with a timestamp. No LLM involved, so this
-    runs whether or not a compose LLM is configured."""
+    runs whether or not a compose LLM is configured. speaker_names resolves
+    normalized labels ("Speaker 1") to user-assigned real names, if any."""
+    speaker_names = speaker_names or {}
     return [{
         "heading": "Transcript",
         "blocks": [
             {
                 "type": "paragraph",
-                "text": f"**{s['speaker']}** ({_format_timestamp(s['start_ts'])}): {s['text']}",
+                "text": (
+                    f"**{speaker_names.get(s['speaker'], s['speaker'])}** "
+                    f"({_format_timestamp(s['start_ts'])}): {s['text']}"
+                ),
                 "ref": 0,
                 "caption": "",
             }
             for s in segments
         ],
     }]
+
+
+def _build_audio_sections(segments: list[dict], summary: str, speaker_names: dict[str, str] | None = None) -> list[dict]:
+    """Shared by run_job (initial render) and routes/transcript.py's speaker
+    rename endpoint (re-render), so the "how the audio document is built"
+    logic exists in exactly one place. Substituting names into `summary`
+    is a plain string replace -- safe because generate_summary() is
+    instructed to refer to speakers by their exact normalized label."""
+    speaker_names = speaker_names or {}
+    sections = []
+    if summary:
+        resolved_summary = summary
+        for label, name in speaker_names.items():
+            resolved_summary = resolved_summary.replace(label, name)
+        sections.append({"heading": "Summary", "blocks": [{"type": "paragraph", "text": resolved_summary, "ref": 0, "caption": ""}]})
+    sections.extend(_verbatim_transcript_sections(segments, speaker_names))
+    return sections
 
 
 def run_job(job: dict) -> None:
@@ -82,10 +120,20 @@ def run_job(job: dict) -> None:
         title = "Video Transcript"
 
         if is_audio_job:
-            # No frame capture, no classification, no LLM composition -- just
-            # the verbatim, speaker-tagged transcript. Keep whatever title was
-            # already set from the uploaded filename (see routes/audio.py).
-            sections = _verbatim_transcript_sections(segments)
+            # No frame capture, no classification, no LLM document
+            # composition -- just the verbatim, speaker-tagged transcript
+            # plus (if an LLM is configured) a short summary. Keep whatever
+            # title was already set from the uploaded filename (see
+            # routes/audio.py).
+            normalized_speakers = _normalize_speaker_labels(segments)
+            summary = ""
+            if _llm_available():
+                try:
+                    jobs.update_job(job_id, progress_stage="summarizing")
+                    summary = compose.generate_summary(segments)
+                except Exception as e:
+                    print(f"Summary generation failed for job {job_id}: {e}", flush=True)
+            sections = _build_audio_sections(segments, summary)
             title = job.get("title") or "Audio Transcript"
         else:
             jobs.update_job(job_id, progress_stage="extracting_frames")
@@ -111,6 +159,14 @@ def run_job(job: dict) -> None:
         doc_dir.mkdir(parents=True, exist_ok=True)
         images_by_id = {img["id"]: img for img in images_meta}
         tables_by_id = {tbl["id"]: tbl for tbl in tables_meta}
+
+        if is_audio_job:
+            (doc_dir / "transcript.json").write_text(json.dumps({
+                "speakers": normalized_speakers,
+                "speaker_names": {},
+                "summary": summary,
+                "segments": segments,
+            }, indent=2))
 
         doc_path = assemble.render_markdown(title, sections, images_by_id, tables_by_id, doc_dir)
 

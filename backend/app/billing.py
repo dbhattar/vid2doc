@@ -12,8 +12,10 @@ from .stripe_client import stripe
 # 36 seconds of video costs exactly 1 cent. No plans/tiers.
 SECONDS_PER_CENT = 36
 # $0.40/hour for audio-only transcript jobs (job_type == "audio") -- these
-# skip the frame capture, vision-classification, and compose LLM calls that
-# make up most of a video job's cost, so they're priced lower to match.
+# skip the frame capture, vision-classification, and full document
+# composition that make up most of a video job's cost (one summary LLM
+# call still happens, see pipeline.py/compose.generate_summary), so they're
+# priced lower to match.
 SECONDS_PER_CENT_AUDIO = 90
 
 

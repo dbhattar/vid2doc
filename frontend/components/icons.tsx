@@ -3,6 +3,7 @@ import {
   ChevronLeft,
   CreditCard,
   FileArchive,
+  FileJson,
   FileText,
   FileType2,
   KeyRound,
@@ -81,6 +82,10 @@ export function WordFileIcon({ className }: IconProps) {
 
 export function PdfFileIcon({ className }: IconProps) {
   return <ScrollText className={className} aria-hidden />;
+}
+
+export function JsonFileIcon({ className }: IconProps) {
+  return <FileJson className={className} aria-hidden />;
 }
 
 export function ShieldIcon({ className }: IconProps) {
