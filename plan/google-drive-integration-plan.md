@@ -1,5 +1,12 @@
 # Save to Drive: connect Google Drive, upload generated documents
 
+**Status: implemented.** Two corrections vs. the plan below: the migration
+landed as `0007` (not `0006` -- the admin dashboard feature took `0006` in
+the meantime), and the frontend never sets `prompt: "consent"` -- Google's
+popup CodeClient (unlike the implicit/token flow) has no `prompt` option;
+`routes/drive.py`'s "no refresh_token returned" error path handles the
+reconnect case instead. Everything else below matches what shipped.
+
 ## Context
 
 Today, once a video/audio job finishes, Framewrite serves the generated

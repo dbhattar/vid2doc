@@ -206,7 +206,11 @@ docker compose up --build
 | Variable | Purpose |
 |---|---|
 | `GOOGLE_CLIENT_ID` | Google OAuth Web Client ID, used to verify ID tokens on `/api/auth/google`. Also needed by the frontend as `NEXT_PUBLIC_GOOGLE_CLIENT_ID` |
+| `GOOGLE_CLIENT_SECRET` | Only needed for the Google Drive integration (see below) — plain Sign-In-with-Google doesn't need it |
 | `JWT_SECRET` | Signs the app session token returned by `/api/auth/google` (default is dev-only — generate a real one for prod, e.g. `openssl rand -hex 32`) |
+| `ENCRYPTION_KEY` | Encrypts stored Google Drive refresh tokens (see below). Generate with `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"` |
+| `ADMIN_EMAILS` | Comma-separated emails auto-granted admin access (`/admin` dashboard) on every login — only ever grants, never revokes |
+| `PAYMENTS_ENABLED` | Kill switch for new top-ups (default `true`) — set to `false` to disable `POST /api/billing/checkout/topup` during a Stripe-side incident, without affecting existing balances or job processing |
 | `CORS_ALLOWED_ORIGINS` | Comma-separated browser origins allowed to call this API (default `http://localhost:3000`) — add the production frontend origin here once deployed |
 | `ASSEMBLYAI_API_KEY` | Real hosted diarization |
 | `BASETEN_API_KEY`, `BASETEN_MODEL_URL` | GPU-hosted Whisper + pyannote via a custom Truss deployment (see `baseten/transcribe-diarize/`) -- much faster than the local CPU fallback below |
@@ -225,6 +229,7 @@ docker compose up --build
 | `FRONTEND_URL` | Where Stripe Checkout redirects back to after a session |
 | `NEXT_PUBLIC_API_BASE_URL` | Frontend build arg (not read by the backend itself) — public URL the browser uses to reach this API |
 | `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | Frontend build arg — same value as `GOOGLE_CLIENT_ID` above |
+| `NEXT_PUBLIC_GA_MEASUREMENT_ID` | Frontend build arg — Google Analytics measurement ID, same property as the marketing site |
 
 To apply schema changes without restarting a container: `docker compose run --rm api alembic upgrade head` (this also runs automatically on every container boot).
 
@@ -253,7 +258,11 @@ frontend) from one `docker compose up`, not just the API.
 4. Add the production frontend origin to the Google Cloud OAuth client's
    Authorized JavaScript origins (Console → APIs & Services → Credentials) —
    `GOOGLE_CLIENT_ID` alone isn't enough; Google also checks the origin the
-   sign-in request came from.
+   sign-in request came from. If you're using the Google Drive integration
+   (Settings > Integrations), also: enable the Drive API for the project
+   (Console → APIs & Services → Library), add the `drive.file` scope to
+   that OAuth client's consent screen, and set `GOOGLE_CLIENT_SECRET` +
+   `ENCRYPTION_KEY` in `.env`.
 5. Register a production webhook endpoint in the Stripe Dashboard
    (Developers → Webhooks → Add endpoint) pointing at
    `https://<your-api-domain>/api/billing/webhook`, and put the signing

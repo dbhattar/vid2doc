@@ -5,9 +5,21 @@ from pathlib import Path
 class Settings:
     # Verifies the ID token the frontend gets from Google Identity Services.
     GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "")
+    # OAuth2 web client secret -- needed for the server-side auth-code
+    # exchange used by the Google Drive integration (see routes/drive.py).
+    # GOOGLE_CLIENT_ID above is reused for both Sign-In-with-Google ID token
+    # verification AND this flow, since it's the same Google Cloud OAuth
+    # client -- just needs Drive API enabled + drive.file scope allowed on
+    # that client's OAuth consent screen.
+    GOOGLE_CLIENT_SECRET = os.environ.get("GOOGLE_CLIENT_SECRET", "")
     # Signs the app-issued session JWT handed back after Google verification.
     JWT_SECRET = os.environ.get("JWT_SECRET", "dev-jwt-secret-change-me")
     JWT_EXPIRES_DAYS = int(os.environ.get("JWT_EXPIRES_DAYS", 7))
+
+    # Symmetric key for encrypting stored Google Drive OAuth refresh tokens
+    # (Fernet, base64-encoded 32-byte key -- generate with
+    # `python -c "from cryptography.fernet import Fernet; print(Fernet.generate_key().decode())"`).
+    ENCRYPTION_KEY = os.environ.get("ENCRYPTION_KEY", "")
 
     # Frontend origin(s) allowed to call this API from the browser (comma-separated).
     # Must be exact scheme+host+port -- no wildcards, no trailing slash.

@@ -3,7 +3,6 @@ import {
   ChevronLeft,
   CreditCard,
   FileArchive,
-  FileCode,
   FileText,
   FileType2,
   KeyRound,
@@ -16,6 +15,7 @@ import {
   Video,
   Wallet,
 } from "lucide-react";
+import { SiGoogledrive, SiMarkdown } from "react-icons/si";
 
 type IconProps = { className?: string };
 
@@ -59,12 +59,16 @@ export function MicrophoneIcon({ className }: IconProps) {
   return <Mic className={className} aria-hidden />;
 }
 
-// File-type download icons -- distinct glyphs per format (no trademarked
-// app logos, lucide doesn't ship those) so each download button reads
-// differently even before the tooltip text loads.
+// File-type download icons. Markdown and Google Drive use their real,
+// recognized marks (react-icons' Simple Icons set -- CC0, single-color by
+// design, exactly for this "represent a known format/service" use case).
+// Word/PDF/Zip have no equivalent free-to-use brand mark (Simple Icons
+// doesn't carry Microsoft/Adobe product icons), so those stay distinct
+// lucide shapes -- callers tint them per format (red/blue/amber) for the
+// same at-a-glance recognition without needing a trademarked logo.
 
 export function MarkdownFileIcon({ className }: IconProps) {
-  return <FileCode className={className} aria-hidden />;
+  return <SiMarkdown className={className} aria-hidden />;
 }
 
 export function ArchiveIcon({ className }: IconProps) {
@@ -85,4 +89,8 @@ export function ShieldIcon({ className }: IconProps) {
 
 export function UsersIcon({ className }: IconProps) {
   return <Users className={className} aria-hidden />;
+}
+
+export function DriveIcon({ className }: IconProps) {
+  return <SiGoogledrive className={className} aria-hidden />;
 }

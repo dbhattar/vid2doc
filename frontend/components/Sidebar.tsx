@@ -4,19 +4,44 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-import { BillingIcon, ChevronIcon, DashboardIcon, DocumentIcon, KeyIcon, ShieldIcon, WalletIcon } from "@/components/icons";
+import { BillingIcon, ChevronIcon, DashboardIcon, DocumentIcon, DriveIcon, KeyIcon, ShieldIcon, WalletIcon } from "@/components/icons";
 import UserMenu from "@/components/UserMenu";
 import type { CurrentUser } from "@/lib/auth";
 import { formatCents } from "@/lib/billing";
 
-const NAV_LINKS = [
+const PRIMARY_NAV_LINKS = [
   { href: "/dashboard", label: "Dashboard", Icon: DashboardIcon },
   { href: "/documents", label: "Documents", Icon: DocumentIcon },
+];
+
+const SETTINGS_NAV_LINKS = [
   { href: "/settings/api-keys", label: "API keys", Icon: KeyIcon },
+  { href: "/settings/integrations", label: "Integrations", Icon: DriveIcon },
   { href: "/settings/billing", label: "Billing", Icon: BillingIcon },
 ];
 
 const ADMIN_NAV_LINK = { href: "/admin", label: "Admin", Icon: ShieldIcon };
+
+type NavLinkDef = { href: string; label: string; Icon: (props: { className?: string }) => React.ReactElement };
+
+function NavLink({ href, label, Icon, collapsed, active }: NavLinkDef & { collapsed: boolean; active: boolean }) {
+  return (
+    <Link
+      href={href}
+      title={collapsed ? label : undefined}
+      className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
+        collapsed ? "justify-center" : ""
+      } ${
+        active
+          ? "bg-brand-amber-soft text-brand-amber-dark"
+          : "text-muted hover:bg-brand-navy-soft hover:text-brand-navy"
+      }`}
+    >
+      <Icon className="h-5 w-5 shrink-0" />
+      {!collapsed && <span className="truncate">{label}</span>}
+    </Link>
+  );
+}
 
 export default function Sidebar({
   collapsed,
@@ -30,7 +55,7 @@ export default function Sidebar({
   balanceCents: number | null;
 }) {
   const pathname = usePathname();
-  const navLinks = user?.is_admin ? [...NAV_LINKS, ADMIN_NAV_LINK] : NAV_LINKS;
+  const isActive = (href: string) => pathname === href || pathname?.startsWith(`${href}/`);
 
   return (
     <aside
@@ -56,31 +81,29 @@ export default function Sidebar({
           actually shrink/scroll on its own overflow without it. */}
       <nav className="min-h-0 flex-1 overflow-y-auto px-3 py-2">
         <div className="flex flex-col gap-1">
-          {navLinks.map(({ href, label, Icon }) => {
-            const active = pathname === href || pathname?.startsWith(`${href}/`);
-            return (
-              <Link
-                key={href}
-                href={href}
-                title={collapsed ? label : undefined}
-                className={`flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
-                  collapsed ? "justify-center" : ""
-                } ${
-                  active
-                    ? "bg-brand-amber-soft text-brand-amber-dark"
-                    : "text-muted hover:bg-brand-navy-soft hover:text-brand-navy"
-                }`}
-              >
-                <Icon className="h-5 w-5 shrink-0" />
-                {!collapsed && <span className="truncate">{label}</span>}
-              </Link>
-            );
-          })}
+          {PRIMARY_NAV_LINKS.map((link) => (
+            <NavLink key={link.href} {...link} collapsed={collapsed} active={isActive(link.href)} />
+          ))}
+        </div>
+
+        <div className="my-2 border-t border-brand-border" />
+
+        <div className="flex flex-col gap-1">
+          {SETTINGS_NAV_LINKS.map((link) => (
+            <NavLink key={link.href} {...link} collapsed={collapsed} active={isActive(link.href)} />
+          ))}
         </div>
       </nav>
 
-      {/* Footer -- pinned, never scrolls: wallet balance, user menu, collapse toggle. */}
+      {/* Footer -- pinned, never scrolls: admin (if applicable), wallet
+          balance, user menu, collapse toggle. */}
       <div className="shrink-0 border-t border-brand-border">
+        {user?.is_admin && (
+          <div className="px-3 pt-3">
+            <NavLink {...ADMIN_NAV_LINK} collapsed={collapsed} active={isActive(ADMIN_NAV_LINK.href)} />
+          </div>
+        )}
+
         <Link
           href="/settings/billing"
           title={collapsed ? (balanceCents === null ? "Wallet balance" : formatCents(balanceCents)) : undefined}

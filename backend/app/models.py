@@ -108,6 +108,27 @@ class Job(Base):
     )
 
 
+class GoogleDriveConnection(Base):
+    """One row per user -- the OAuth refresh token that lets us mint short-
+    lived Drive access tokens on demand for 'Save to Drive' uploads. The
+    refresh token is stored encrypted (see app/crypto.py); nothing here is
+    usable without ENCRYPTION_KEY."""
+
+    __tablename__ = "google_drive_connections"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id"), unique=True, nullable=False, index=True
+    )
+    google_email: Mapped[str] = mapped_column(String, nullable=False)
+    refresh_token_encrypted: Mapped[str] = mapped_column(Text, nullable=False)
+    scope: Mapped[str] = mapped_column(String, nullable=False)  # granted scope string, for future auditing
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
 class Feedback(Base):
     """Freeform feedback/feature requests submitted via the app's feedback
     button -- just persisted for later review, no admin UI yet (query

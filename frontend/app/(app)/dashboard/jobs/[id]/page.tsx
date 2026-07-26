@@ -4,11 +4,12 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
-import { ArchiveIcon, MarkdownFileIcon, MicrophoneIcon, PdfFileIcon, VideoCameraIcon, WordFileIcon } from "@/components/icons";
+import { ArchiveIcon, DriveIcon, MarkdownFileIcon, MicrophoneIcon, PdfFileIcon, VideoCameraIcon, WordFileIcon } from "@/components/icons";
 import { apiFetch, ApiError, downloadAuthenticated } from "@/lib/api";
 import { clearSession } from "@/lib/auth";
 import { formatCents } from "@/lib/billing";
 import { displayTitle, formatDuration, formatElapsed, isActiveJob, type Job } from "@/lib/jobs";
+import { useDriveStatus } from "@/lib/useDriveStatus";
 
 const POLL_INTERVAL_MS = 3000;
 
@@ -19,6 +20,31 @@ export default function JobDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [retrying, setRetrying] = useState(false);
   const [retryError, setRetryError] = useState<string | null>(null);
+  const driveConnected = useDriveStatus();
+  const [savingToDrive, setSavingToDrive] = useState(false);
+  const [driveError, setDriveError] = useState<string | null>(null);
+
+  async function handleSaveToDrive() {
+    if (!job) return;
+    setSavingToDrive(true);
+    setDriveError(null);
+    try {
+      const { folder_url, warnings } = await apiFetch<{ folder_url: string; warnings?: string[] }>(
+        `/api/jobs/${job.job_id}/drive-upload`,
+        { method: "POST" }
+      );
+      window.open(folder_url, "_blank");
+      if (warnings?.length) setDriveError(`Saved, but some files failed: ${warnings.join(", ")}`);
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 409) {
+        setDriveError("Google Drive access was revoked -- please reconnect in Settings.");
+      } else {
+        setDriveError(err instanceof ApiError ? err.message : "Save to Drive failed.");
+      }
+    } finally {
+      setSavingToDrive(false);
+    }
+  }
 
   const loadJob = useCallback(() => {
     apiFetch<Job>(`/api/get_status?job_id=${params.id}`)
@@ -175,7 +201,7 @@ export default function JobDetailPage() {
                   onClick={() => downloadAuthenticated(job.document_bundle_url!, `${job.job_id}.zip`)}
                   className="flex items-center gap-2 rounded-lg border border-brand-border px-3 py-1.5 text-sm text-foreground transition-colors hover:bg-brand-navy-soft"
                 >
-                  <ArchiveIcon className="h-5 w-5" />
+                  <ArchiveIcon className="h-5 w-5 text-amber-600" />
                   Download Markdown + images (.zip)
                 </button>
               )}
@@ -184,7 +210,7 @@ export default function JobDetailPage() {
                   onClick={() => downloadAuthenticated(job.document_docx_url!, `${job.job_id}.docx`)}
                   className="flex items-center gap-2 rounded-lg border border-brand-border px-3 py-1.5 text-sm text-foreground transition-colors hover:bg-brand-navy-soft"
                 >
-                  <WordFileIcon className="h-5 w-5" />
+                  <WordFileIcon className="h-5 w-5 text-blue-700" />
                   Download Word
                 </button>
               )}
@@ -193,12 +219,32 @@ export default function JobDetailPage() {
                   onClick={() => downloadAuthenticated(job.document_pdf_url!, `${job.job_id}.pdf`)}
                   className="flex items-center gap-2 rounded-lg border border-brand-border px-3 py-1.5 text-sm text-foreground transition-colors hover:bg-brand-navy-soft"
                 >
-                  <PdfFileIcon className="h-5 w-5" />
+                  <PdfFileIcon className="h-5 w-5 text-red-600" />
                   Download PDF
                 </button>
               )}
+              {driveConnected ? (
+                <button
+                  onClick={handleSaveToDrive}
+                  disabled={savingToDrive}
+                  className="flex items-center gap-2 rounded-lg border border-brand-border px-3 py-1.5 text-sm text-foreground transition-colors hover:bg-brand-navy-soft disabled:cursor-default disabled:opacity-50"
+                >
+                  <DriveIcon className="h-5 w-5" />
+                  {savingToDrive ? "Saving..." : "Save to Drive"}
+                </button>
+              ) : (
+                <Link
+                  href="/settings/integrations"
+                  title="Connect Google Drive in Settings to enable this"
+                  className="flex items-center gap-2 rounded-lg border border-brand-border px-3 py-1.5 text-sm text-muted transition-colors hover:bg-brand-navy-soft"
+                >
+                  <DriveIcon className="h-5 w-5" />
+                  Save to Drive
+                </Link>
+              )}
             </div>
           )}
+          {driveError && <p className="mt-3 text-sm text-red-600">{driveError}</p>}
         </div>
       )}
     </div>
