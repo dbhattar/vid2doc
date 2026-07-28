@@ -22,16 +22,20 @@ def _user_to_dict(user: User) -> dict:
 
 def get_or_create_user_by_google(
     google_sub: str, email: str, display_name: str | None, avatar_url: str | None
-) -> dict:
+) -> tuple[dict, bool]:
     """Looks up a user by their stable Google subject id, creating one on
     first login. Also refreshes email/display_name/avatar_url on every login
     since Google is the source of truth for that profile data. Auto-grants
     admin if the email is in ADMIN_EMAILS -- only ever grants, never revokes,
-    so it's safe to run on every login without risk of demoting someone."""
+    so it's safe to run on every login without risk of demoting someone.
+    Returns (user, is_new) -- is_new is True only the first time this
+    google_sub logs in, so callers can trigger first-login-only side effects
+    (e.g. the welcome email in routes/auth.py)."""
     session = get_session()
     try:
         user = session.query(User).filter_by(google_sub=google_sub).one_or_none()
-        if user is None:
+        is_new = user is None
+        if is_new:
             user = User(google_sub=google_sub, email=email, display_name=display_name, avatar_url=avatar_url)
             session.add(user)
         else:
@@ -41,7 +45,7 @@ def get_or_create_user_by_google(
         if email.lower() in settings.ADMIN_EMAILS:
             user.is_admin = True
         session.commit()
-        return _user_to_dict(user)
+        return _user_to_dict(user), is_new
     finally:
         session.close()
 

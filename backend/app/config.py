@@ -76,5 +76,23 @@ class Settings:
 
     WORKER_POLL_SECONDS = float(os.environ.get("WORKER_POLL_SECONDS", 2.0))
 
+    # Mailgun: transactional email (e.g. the first-login welcome email, see
+    # app/mailgun_client.py). No-op if MAILGUN_API_KEY/MAILGUN_DOMAIN are unset,
+    # so local dev/CI never need real credentials.
+    MAILGUN_API_KEY = os.environ.get("MAILGUN_API_KEY", "")
+    MAILGUN_DOMAIN = os.environ.get("MAILGUN_DOMAIN", "")
+    MAILGUN_FROM_EMAIL = os.environ.get("MAILGUN_FROM_EMAIL", "Framewrite <noreply@framewrite.cc>")
+    # EU-region Mailgun accounts use https://api.eu.mailgun.net/v3 instead.
+    MAILGUN_BASE_URL = os.environ.get("MAILGUN_BASE_URL", "https://api.mailgun.net/v3")
+    # Mailgun's own test mode (o:testmode=yes): validates the API key/domain and
+    # request shape, logs the call in the Mailgun dashboard, but never actually
+    # delivers the email. Lets you verify the whole integration against a real
+    # Mailgun account locally without risking a real send. Leave false in prod.
+    MAILGUN_TEST_MODE = os.environ.get("MAILGUN_TEST_MODE", "false").strip().lower() == "true"
+    # Debug-only: sends the welcome email on every login, not just the first,
+    # so you can iterate on copy/design without creating a fresh account each
+    # time. Never enable in production.
+    ALWAYS_SEND_WELCOME_EMAIL = os.environ.get("ALWAYS_SEND_WELCOME_EMAIL", "false").strip().lower() == "true"
+
 
 settings = Settings()
