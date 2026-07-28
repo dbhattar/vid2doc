@@ -28,6 +28,15 @@ type AdminUser = {
   job_count: number;
 };
 
+type AdminFeedback = {
+  id: string;
+  user_id: string;
+  email: string;
+  display_name: string | null;
+  message: string;
+  created_at: string;
+};
+
 function StatCard({ icon, label, value, sub }: { icon: React.ReactNode; label: string; value: string; sub?: string }) {
   return (
     <div className="rounded-2xl border border-brand-border bg-surface p-4 shadow-soft">
@@ -45,6 +54,7 @@ export default function AdminPage() {
   const router = useRouter();
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [users, setUsers] = useState<AdminUser[] | null>(null);
+  const [feedback, setFeedback] = useState<AdminFeedback[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [togglingId, setTogglingId] = useState<string | null>(null);
 
@@ -67,6 +77,11 @@ export default function AdminPage() {
       .then((data) => setUsers(data.users))
       .catch(() => {
         // Non-critical for the stats cards above to render.
+      });
+    apiFetch<{ feedback: AdminFeedback[] }>("/api/admin/feedback")
+      .then((data) => setFeedback(data.feedback))
+      .catch(() => {
+        // Non-critical for the rest of the page to render.
       });
   }
 
@@ -206,6 +221,25 @@ export default function AdminPage() {
             </tbody>
           </table>
         </div>
+      )}
+
+      <h2 className="mt-8 text-sm font-semibold uppercase tracking-wide text-muted">Recent feedback</h2>
+      {feedback === null ? (
+        <p className="mt-2 text-sm text-muted">Loading...</p>
+      ) : feedback.length === 0 ? (
+        <p className="mt-2 text-sm text-muted">No feedback yet.</p>
+      ) : (
+        <ul className="mt-2 divide-y divide-brand-border overflow-hidden rounded-2xl border border-brand-border bg-surface shadow-soft">
+          {feedback.map((f) => (
+            <li key={f.id} className="px-4 py-3">
+              <div className="flex items-center justify-between gap-3">
+                <p className="text-sm font-medium text-foreground">{f.display_name || f.email}</p>
+                <p className="shrink-0 text-xs text-muted">{new Date(f.created_at).toLocaleString()}</p>
+              </div>
+              <p className="mt-1 whitespace-pre-wrap text-sm text-muted">{f.message}</p>
+            </li>
+          ))}
+        </ul>
       )}
     </div>
   );

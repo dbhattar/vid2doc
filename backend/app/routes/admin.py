@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from .. import billing, jobs, users
+from .. import billing, feedback, jobs, users
 from ..deps import get_current_admin_user
 
 router = APIRouter()
@@ -38,6 +38,11 @@ def get_admin_stats(current_user: dict = Depends(get_current_admin_user)):
 @router.get("/api/admin/users")
 def list_admin_users(current_user: dict = Depends(get_current_admin_user)):
     return {"users": users.list_users_with_stats(limit=500)}
+
+
+@router.get("/api/admin/feedback")
+def list_admin_feedback(current_user: dict = Depends(get_current_admin_user)):
+    return {"feedback": feedback.list_feedback_with_users(limit=500)}
 
 
 class SetAdminRequest(BaseModel):
