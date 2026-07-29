@@ -1,0 +1,137 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+
+  <!-- Google tag (gtag.js) -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-RTNCYF5ZX0"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+
+    gtag('config', 'G-RTNCYF5ZX0');
+  </script>
+
+  <title>Framewrite API — Developer documentation</title>
+  <meta name="description" content="Submit a video or audio file to Framewrite's REST API, poll for status, and download the finished searchable document. Same pay-as-you-go pricing as the app." />
+  <meta name="theme-color" content="#1c2b4a" />
+  <link rel="canonical" href="https://framewrite.cc/api.html" />
+  <link rel="icon" href="images/framewrite_icon.png" type="image/png" />
+
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Geist:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+
+  <link rel="stylesheet" href="styles.css" />
+
+  <meta property="og:type" content="website" />
+  <meta property="og:site_name" content="Framewrite" />
+  <meta property="og:url" content="https://framewrite.cc/api.html" />
+  <meta property="og:title" content="Framewrite API — Developer documentation" />
+  <meta property="og:description" content="Submit a video or audio file to Framewrite's REST API, poll for status, and download the finished searchable document. Same pay-as-you-go pricing as the app." />
+  <meta property="og:image" content="https://framewrite.cc/images/framewrite_icon.png" />
+
+  <meta name="twitter:card" content="summary" />
+  <meta name="twitter:title" content="Framewrite API — Developer documentation" />
+  <meta name="twitter:description" content="Submit a video or audio file to Framewrite's REST API, poll for status, and download the finished searchable document. Same pay-as-you-go pricing as the app." />
+  <meta name="twitter:image" content="https://framewrite.cc/images/framewrite_icon.png" />
+</head>
+<body>
+  <div class="page-shell">
+  <header class="site-header">
+    <div class="container header-inner">
+      <a href="index.html" class="wordmark">
+        <img src="images/framewrite_icon.png" alt="" width="32" height="32" class="wordmark-icon" />
+        Frame<span>write</span>
+      </a>
+      <nav class="site-nav">
+        <a href="index.html#whats-new">What's new</a>
+        <a href="index.html#features">Features</a>
+        <a href="index.html#pricing">Pricing</a>
+        <a href="api.html">API</a>
+        <a href="index.html#enterprise">Enterprise</a>
+        <a href="https://app.framewrite.cc/login">Log in</a>
+        <a href="https://app.framewrite.cc/login" class="btn-nav">Get started</a>
+      </nav>
+    </div>
+  </header>
+
+  <main>
+    <section class="api-docs" id="api">
+      <div class="container">
+        <p class="api-eyebrow">For developers</p>
+        <h2>Use Framewrite via API</h2>
+        <p class="api-intro">
+          Everything Framewrite does in the browser is also a simple REST API — submit a job, poll for
+          status, and pull down the finished document. Same pay-as-you-go pricing, no extra cost to integrate.
+        </p>
+
+        <div class="api-steps">
+          <div class="api-step">
+            <span class="api-step-number">1</span>
+            <div class="api-step-body">
+              <h3>Get an API key</h3>
+              <p>
+                Generate one from Settings &rarr; API Keys after signing in. Keys are shown once, so save
+                it somewhere safe. Send it with every request as an <code>X-API-Key</code> header.
+              </p>
+            </div>
+          </div>
+
+          <div class="api-step">
+            <span class="api-step-number">2</span>
+            <div class="api-step-body">
+              <h3>Submit a video or audio file</h3>
+              <p>Upload starts the job and returns immediately — conversion happens in the background.</p>
+              <pre class="api-code"><code>curl -X POST https://api.framewrite.cc/api/convert_to_doc \
+  -H "X-API-Key: YOUR_KEY" \
+  -F "video=@meeting.mp4"
+
+# {"job_id": "5f2b6b3e-...", "status": "queued"}</code></pre>
+              <p>
+                Have audio instead of video? POST to <code>/api/transcribe_audio</code> with
+                <code>-F "audio=@call.mp3"</code> instead — priced at $0.40/hour rather than $1/hour.
+              </p>
+            </div>
+          </div>
+
+          <div class="api-step">
+            <span class="api-step-number">3</span>
+            <div class="api-step-body">
+              <h3>Check status and get your document</h3>
+              <pre class="api-code"><code>curl "https://api.framewrite.cc/api/get_status?job_id=5f2b6b3e-..." \
+  -H "X-API-Key: YOUR_KEY"
+
+# {"status": "done", "document_url": ".../document.md",
+#  "document_bundle_url": ".../bundle.zip", ...}</code></pre>
+              <p>
+                Once <code>status</code> is <code>done</code>, download the result from
+                <code>document_url</code> (Markdown) or <code>document_bundle_url</code> (a zip with the
+                document and its images). Word and PDF exports are included whenever available.
+              </p>
+            </div>
+          </div>
+        </div>
+
+        <p class="api-outro">
+          Converting a large video library? <a href="index.html#enterprise">We work with teams on volume
+          pricing and dedicated support</a>.
+        </p>
+      </div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <img src="images/framewrite_logo.png" alt="Framewrite" class="footer-logo" />
+      <p>
+        &copy; 2026 Framewrite. All rights reserved. &middot;
+        <a href="mailto:contact@framewrite.cc" class="footer-contact">contact@framewrite.cc</a>
+      </p>
+    </div>
+  </footer>
+  </div>
+</body>
+</html>
