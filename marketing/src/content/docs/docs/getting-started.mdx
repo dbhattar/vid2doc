@@ -1,0 +1,52 @@
+---
+title: Getting Started
+description: Base URL, getting an API key, and pricing for the Framewrite API.
+---
+
+## Base URL
+
+All endpoints are served from:
+
+```
+https://api.framewrite.cc
+```
+
+## Get an API key
+
+Generate one from **Settings → API Keys** after signing in at
+[app.framewrite.cc](https://app.framewrite.cc). Keys are shown once, so save it somewhere safe —
+send it with every request as an `X-API-Key` header. See [Authentication](/docs/authentication/)
+for details.
+
+## Pricing
+
+Same pay-as-you-go pricing as the app, no extra cost to integrate:
+
+| Type  | Price     |
+| ----- | --------- |
+| Video | $1.00/hour |
+| Audio | $0.40/hour |
+
+Video gets the full pipeline (diarized transcript, speaker labels, slides/diagrams pulled into a
+formatted document); audio gets a verbatim, speaker-tagged transcript only. See
+[Submit a Job](/docs/submit-a-job/) for both endpoints.
+
+## End-to-end example
+
+```bash
+# Submit
+curl -X POST https://api.framewrite.cc/api/convert_to_doc \
+  -H "X-API-Key: YOUR_KEY" \
+  -F "video=@meeting.mp4"
+# {"job_id": "5f2b6b3e-...", "status": "queued"}
+
+# Poll until status is "done"
+curl "https://api.framewrite.cc/api/get_status?job_id=5f2b6b3e-..." \
+  -H "X-API-Key: YOUR_KEY"
+
+# Download the result
+curl -O "https://api.framewrite.cc/api/documents/5f2b6b3e-.../document.md" \
+  -H "X-API-Key: YOUR_KEY"
+```
+
+Next: [Authentication](/docs/authentication/) →

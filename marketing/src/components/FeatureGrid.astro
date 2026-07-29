@@ -1,0 +1,108 @@
+---
+const items = [
+  {
+    title: 'Automatic transcript with speakers',
+    body: 'Full transcription with speaker labels, so you know who said what and when.',
+  },
+  {
+    title: 'Smart frame capture',
+    body: 'Pulls out only the visuals that actually matter — slides, diagrams, key moments.',
+  },
+  {
+    title: 'Real document formatting',
+    body: 'Proper headings and sections, not a wall of raw text you have to clean up yourself.',
+  },
+  {
+    title: 'Instantly searchable',
+    body: 'Find any topic in seconds — no more rewatching a video to find one moment.',
+  },
+  {
+    title: 'Export anywhere',
+    body: 'Download your document as Markdown, PDF, or Word — whatever fits into your workflow.',
+  },
+  {
+    title: 'Just upload and go',
+    body: 'No editing, no timestamps to hunt down. Drop in a video and get a finished document back.',
+  },
+  {
+    title: 'Audio-only transcripts',
+    body: "Already have audio instead of video — an interview, a meeting recording, a podcast? Skip the document pipeline entirely: upload just the audio and get back a speaker-identified transcript with an instant summary up top. Priced lower than video, same pay-as-you-go model.",
+  },
+];
+---
+
+<section class="features" id="features">
+  <div class="container">
+    <p class="eyebrow">How it works</p>
+    <h2>Framewrite watches and listens to your video so you don't have to do it again later.</h2>
+
+    <div class="index-list">
+      {
+        items.map((item, i) => (
+          <div class="index-item">
+            <div class="index-num">{String(i + 1).padStart(2, '0')}</div>
+            <div class="index-title">{item.title}</div>
+            <div class="index-desc">{item.body}</div>
+          </div>
+        ))
+      }
+    </div>
+  </div>
+</section>
+
+<style>
+  .features {
+    padding: 56px 0 64px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  h2 {
+    font-size: var(--step-3);
+    max-width: 24ch;
+    margin: 0 0 40px;
+  }
+
+  .index-list {
+    border-top: var(--border-width) solid var(--ink);
+  }
+
+  .index-item {
+    display: grid;
+    grid-template-columns: 90px 1fr 1.1fr;
+    gap: 24px;
+    align-items: baseline;
+    padding: 26px 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  @media (max-width: 780px) {
+    .index-item {
+      grid-template-columns: 48px 1fr;
+    }
+    .index-item .index-desc {
+      grid-column: 2;
+      margin-top: 6px;
+    }
+  }
+
+  .index-num {
+    font-family: var(--font-display);
+    font-weight: 900;
+    font-size: 2rem;
+    color: var(--line);
+    line-height: 1;
+  }
+
+  .index-title {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 1.3rem;
+    letter-spacing: -0.01em;
+  }
+
+  .index-desc {
+    font-size: 0.95rem;
+    line-height: 1.6;
+    color: var(--ink-soft);
+  }
+</style>

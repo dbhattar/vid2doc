@@ -1,0 +1,247 @@
+.game-card {
+  background: var(--paper);
+  border: var(--border-width) solid var(--ink);
+  padding: 32px 28px;
+  max-width: 480px;
+  margin: 0 auto;
+  text-align: center;
+}
+
+@media (max-width: 640px) {
+  .game-card {
+    padding: 22px 18px;
+  }
+}
+
+.game-idle-copy {
+  margin: 0 0 20px;
+  color: var(--ink-soft);
+  font-size: 0.98rem;
+}
+
+.game-hud {
+  display: flex;
+  justify-content: space-between;
+  font-family: var(--font-mono);
+  font-size: 0.85rem;
+  color: var(--ink-soft);
+  margin-bottom: 12px;
+}
+
+.game-hud b {
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.game-timer-track {
+  height: 8px;
+  background: var(--paper-shade);
+  border: 1px solid var(--ink);
+  overflow: hidden;
+  margin-bottom: 16px;
+}
+
+.game-timer-fill {
+  height: 100%;
+  width: 100%;
+  background: var(--accent);
+  transform-origin: left;
+}
+
+.game-timer-fill.is-urgent {
+  background: #b3141f;
+}
+
+.game-status {
+  min-height: 1.2em;
+  margin: 0 0 16px;
+  font-family: var(--font-mono);
+  font-size: 0.8rem;
+  color: var(--ink-soft);
+}
+
+.game-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.game-tile {
+  position: relative;
+  aspect-ratio: 1 / 1;
+  border: var(--border-width) solid var(--ink);
+  padding: 0;
+  margin: 0;
+  cursor: pointer;
+  overflow: hidden;
+  background: var(--paper-shade);
+}
+
+.game-tile-slide {
+  background: var(--paper);
+}
+
+.slide-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 18%;
+  background: var(--accent);
+}
+
+.slide-lines {
+  position: absolute;
+  top: 32%;
+  left: 10%;
+  right: 30%;
+  display: flex;
+  flex-direction: column;
+  gap: 10%;
+}
+
+.slide-lines i {
+  display: block;
+  height: 12%;
+  background: var(--line);
+}
+
+.slide-lines i:first-child {
+  background: var(--ink-soft);
+  width: 70%;
+}
+
+.slide-lines i:nth-child(3) {
+  width: 55%;
+}
+
+.slide-chart {
+  position: absolute;
+  bottom: 10%;
+  right: 8%;
+  display: flex;
+  align-items: flex-end;
+  gap: 8%;
+  height: 24%;
+  width: 26%;
+}
+
+.slide-chart b {
+  flex: 1;
+  background: var(--ink);
+}
+
+.slide-chart b:nth-child(1) {
+  height: 50%;
+}
+.slide-chart b:nth-child(2) {
+  height: 85%;
+}
+.slide-chart b:nth-child(3) {
+  height: 65%;
+}
+
+.game-tile-noise {
+  position: relative;
+}
+
+.game-tile-noise::before {
+  content: '';
+  position: absolute;
+  inset: -8px;
+}
+
+.noise-variant-1::before {
+  background-image: repeating-linear-gradient(
+      0deg,
+      rgba(20, 18, 15, 0.16) 0px,
+      rgba(20, 18, 15, 0.16) 2px,
+      transparent 2px,
+      transparent 4px
+    ),
+    repeating-linear-gradient(90deg, rgba(200, 30, 58, 0.14) 0px, rgba(200, 30, 58, 0.14) 3px, transparent 3px, transparent 7px);
+  background-color: var(--paper-shade);
+}
+
+.noise-variant-2::before {
+  background: radial-gradient(circle at 25% 30%, rgba(20, 18, 15, 0.5), transparent 55%),
+    radial-gradient(circle at 75% 65%, rgba(200, 30, 58, 0.35), transparent 50%), var(--paper-shade);
+  filter: blur(3px);
+}
+
+.noise-variant-3::before {
+  background-image: repeating-linear-gradient(
+    100deg,
+    var(--ink) 0 6px,
+    var(--paper-shade) 6px 14px,
+    rgba(200, 30, 58, 0.3) 14px 16px
+  );
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .game-tile.is-correct {
+    animation: tile-correct 0.4s ease;
+  }
+  .game-tile.is-wrong {
+    animation: tile-wrong 0.4s ease;
+  }
+  @keyframes tile-correct {
+    0% {
+      box-shadow: 0 0 0 0 rgba(34, 150, 90, 0.6);
+    }
+    50% {
+      box-shadow: 0 0 0 4px rgba(34, 150, 90, 0.6);
+    }
+    100% {
+      box-shadow: 0 0 0 0 rgba(34, 150, 90, 0);
+    }
+  }
+  @keyframes tile-wrong {
+    0%,
+    100% {
+      transform: translateX(0);
+    }
+    25% {
+      transform: translateX(-6px);
+    }
+    75% {
+      transform: translateX(6px);
+    }
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .game-tile.is-correct {
+    box-shadow: 0 0 0 3px rgba(34, 150, 90, 0.6);
+    transition: none;
+  }
+  .game-tile.is-wrong {
+    box-shadow: 0 0 0 3px rgba(200, 30, 58, 0.6);
+    transition: none;
+  }
+}
+
+.game-tile-reveal {
+  box-shadow: 0 0 0 3px var(--accent) inset;
+}
+
+.game-end-score {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 900;
+  color: var(--ink);
+  margin: 0 0 10px;
+}
+
+.game-end-payoff {
+  color: var(--ink-soft);
+  margin: 0 0 24px;
+}
+
+.game-end-actions {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 20px;
+  flex-wrap: wrap;
+}

@@ -1,0 +1,89 @@
+---
+import MarketingLayout from './MarketingLayout.astro';
+
+interface Props {
+  title: string;
+  description: string;
+  publishDate: Date;
+  author: string;
+  path: string;
+}
+
+const { title, description, publishDate, author, path } = Astro.props;
+const formattedDate = publishDate.toLocaleDateString('en-US', {
+  year: 'numeric',
+  month: 'long',
+  day: 'numeric',
+});
+---
+
+<MarketingLayout title={`${title} — Framewrite Blog`} description={description} path={path}>
+  <article class="post">
+    <div class="container post-inner">
+      <a href="/blog" class="back-link">&#8592; Back to blog</a>
+      <p class="post-meta">{author} &middot; {formattedDate}</p>
+      <h1>{title}</h1>
+      <div class="post-body">
+        <slot />
+      </div>
+    </div>
+  </article>
+</MarketingLayout>
+
+<style>
+  .post {
+    padding: 56px 0 72px;
+  }
+
+  .post-inner {
+    max-width: 720px;
+  }
+
+  .back-link {
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--ink-soft);
+    text-decoration: none;
+    margin-bottom: 28px;
+  }
+
+  .back-link:hover {
+    color: var(--ink);
+  }
+
+  .post-meta {
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    color: var(--ink-soft);
+    margin: 0 0 12px;
+  }
+
+  h1 {
+    font-size: var(--step-4);
+    margin: 0 0 32px;
+    padding-bottom: 32px;
+    border-bottom: var(--border-width) solid var(--ink);
+  }
+
+  .post-body {
+    font-size: 1.05rem;
+    line-height: 1.75;
+    color: var(--ink);
+  }
+
+  .post-body :global(p) {
+    margin: 0 0 1.4em;
+  }
+
+  .post-body :global(h2) {
+    font-size: var(--step-2);
+    margin: 2em 0 0.6em;
+  }
+
+  .post-body :global(a) {
+    color: var(--accent);
+  }
+</style>

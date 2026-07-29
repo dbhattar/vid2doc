@@ -1,0 +1,121 @@
+---
+const tiers = [
+  {
+    label: 'Video',
+    price: '$1.00',
+    unit: '/hour',
+    body: 'Full pipeline — diarized transcript, speaker labels, and the right slides/diagrams pulled into a formatted document.',
+  },
+  {
+    label: 'Audio',
+    price: '$0.40',
+    unit: '/hour',
+    body: 'Verbatim, speaker-tagged transcript only — no document composition, priced lower to match.',
+  },
+];
+---
+
+<section class="pricing" id="pricing">
+  <div class="container">
+    <p class="eyebrow">Pricing</p>
+    <h2>Simple, pay-as-you-go pricing</h2>
+    <p class="section-intro">
+      No subscriptions, no plans. Billed exactly proportional to length — pay only for what you convert.
+    </p>
+
+    <div class="pricing-grid">
+      {
+        tiers.map((tier) => (
+          <div class="pricing-card">
+            <p class="pricing-label">{tier.label}</p>
+            <p class="pricing-amount">
+              {tier.price}
+              <span>{tier.unit}</span>
+            </p>
+            <p class="pricing-desc">{tier.body}</p>
+          </div>
+        ))
+      }
+    </div>
+  </div>
+</section>
+
+<style>
+  .pricing {
+    padding: 56px 0 64px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  h2 {
+    font-size: var(--step-3);
+    margin: 0 0 12px;
+  }
+
+  .section-intro {
+    color: var(--ink-soft);
+    max-width: 60ch;
+    margin: 0 0 36px;
+    font-size: 1.02rem;
+  }
+
+  .pricing-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0;
+    max-width: 760px;
+    border: var(--border-width) solid var(--ink);
+  }
+
+  @media (max-width: 640px) {
+    .pricing-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+
+  .pricing-card {
+    padding: 32px 28px;
+  }
+
+  .pricing-card:first-child {
+    border-right: var(--border-width) solid var(--ink);
+  }
+
+  @media (max-width: 640px) {
+    .pricing-card:first-child {
+      border-right: none;
+      border-bottom: var(--border-width) solid var(--ink);
+    }
+  }
+
+  .pricing-label {
+    font-family: var(--font-mono);
+    font-size: 0.76rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    color: var(--accent);
+    margin: 0 0 14px;
+  }
+
+  .pricing-amount {
+    font-family: var(--font-display);
+    font-weight: 900;
+    font-size: 2.6rem;
+    letter-spacing: -0.02em;
+    margin: 0 0 14px;
+  }
+
+  .pricing-amount span {
+    font-family: var(--font-mono);
+    font-size: 1rem;
+    font-weight: 500;
+    color: var(--ink-soft);
+  }
+
+  .pricing-desc {
+    margin: 0;
+    color: var(--ink-soft);
+    font-size: 0.92rem;
+    line-height: 1.55;
+  }
+</style>

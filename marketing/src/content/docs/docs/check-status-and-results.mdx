@@ -1,0 +1,51 @@
+---
+title: Check Status & Get Results
+description: Poll a job's status and download the finished document.
+---
+
+```bash
+curl "https://api.framewrite.cc/api/get_status?job_id=5f2b6b3e-..." \
+  -H "X-API-Key: YOUR_KEY"
+```
+
+## Response fields
+
+| Field              | Always present? | Description                                                |
+| ------------------ | ---------------- | ------------------------------------------------------------ |
+| `job_id`           | yes              | The id you got back from submit                              |
+| `status`           | yes              | `queued`, `processing`, `done`, or `failed`                   |
+| `progress_stage`   | yes (nullable)   | Current pipeline stage while processing                      |
+| `job_type`         | yes              | `video` or `audio`                                            |
+| `title`            | yes (nullable)   | From the uploaded filename, replaced by an AI-generated title once composed |
+| `created_at` / `updated_at` | yes    | Timestamps                                                    |
+| `duration_seconds` | yes (nullable)   | Length of the uploaded file                                    |
+| `billed_cents`     | yes              | What this job cost                                            |
+
+When `status` is `"done"`, these are also included:
+
+| Field                            | Notes                                                  |
+| --------------------------------- | ------------------------------------------------------- |
+| `document_url`                    | The document as Markdown                                |
+| `document_bundle_url`             | A zip with the document and its images                  |
+| `document_docx_url`               | Word export — only present if it rendered successfully  |
+| `document_pdf_url`                | PDF export — only present if it rendered successfully    |
+| `document_transcript_json_url`    | Raw transcript JSON — audio jobs only                    |
+
+When `status` is `"failed"`, an `error` field explains what went wrong.
+
+## Downloading the result
+
+Fetch any of the `*_url` fields directly (same `X-API-Key` header required):
+
+```bash
+curl -O "https://api.framewrite.cc/api/documents/5f2b6b3e-.../document.md" \
+  -H "X-API-Key: YOUR_KEY"
+```
+
+Or grab everything at once via `document_bundle_url`, which zips the document together with its
+extracted images.
+
+:::note
+Documents are retained for 7 days. After that, `status` stays `"done"` (the conversion did
+succeed) but the response includes `"retention_expired": true` instead of any download URLs.
+:::

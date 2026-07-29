@@ -1,0 +1,159 @@
+---
+---
+
+<section class="hero">
+  <div class="container hero-grid">
+    <div>
+      <p class="eyebrow" data-reveal><span class="rec-dot"></span> Now live</p>
+      <h1 data-reveal style="--reveal-delay: 80ms">
+        Turn any video into<br />a document<br />
+        <em>you'll actually use.</em>
+      </h1>
+    </div>
+    <div class="hero-side">
+      <p class="hero-sub" data-reveal style="--reveal-delay: 160ms">
+        Pay-as-you-go at just $1 per hour of video — no subscription, no monthly commitment. Upload a
+        video and Framewrite hands you back a clean, searchable document — full transcript, speaker
+        labels, and the right images dropped in at the right spot.
+      </p>
+      <div class="hero-actions" data-reveal style="--reveal-delay: 220ms">
+        <a href="https://app.framewrite.cc/login" class="btn-primary">Get started free</a>
+        <a href="#whats-new" class="btn-secondary">See what's new &#8594;</a>
+      </div>
+      <div class="transcript-sample" aria-hidden="true" data-reveal style="--reveal-delay: 280ms">
+        <div><span class="ts">00:04:12</span><span class="spk">SPEAKER 2 —</span> ...so if we pull up the roadmap slide—</div>
+        <div><span class="ts">00:04:15</span><span class="spk">SPEAKER 1 —</span> right, that's the one Framewrite already grabbed<span class="cursor"></span></div>
+      </div>
+      <p class="hero-fineprint">Sign in with Google — no credit card required to start.</p>
+    </div>
+  </div>
+</section>
+
+<style>
+  .hero {
+    border-bottom: var(--rule-width) solid var(--ink);
+  }
+
+  .hero-grid {
+    display: grid;
+    grid-template-columns: 1.55fr 1fr;
+    gap: 40px;
+    padding: 64px 0 72px;
+  }
+
+  @media (max-width: 900px) {
+    .hero-grid {
+      grid-template-columns: 1fr;
+      padding: 40px 0 48px;
+    }
+  }
+
+  .eyebrow {
+    margin: 0 0 22px;
+  }
+
+  .rec-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: var(--accent);
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .rec-dot {
+      animation: rec-pulse 1.8s ease-in-out infinite;
+    }
+  }
+
+  @keyframes rec-pulse {
+    0%,
+    100% {
+      opacity: 1;
+    }
+    50% {
+      opacity: 0.35;
+    }
+  }
+
+  .hero h1 {
+    font-size: var(--step-6);
+    line-height: 0.98;
+    margin: 0 0 0 -3px;
+  }
+
+  .hero h1 em {
+    font-family: var(--font-display);
+    font-style: italic;
+    font-weight: 500;
+    color: var(--accent);
+  }
+
+  .hero-side {
+    display: flex;
+    flex-direction: column;
+    justify-content: flex-end;
+    padding-top: 8px;
+  }
+
+  .hero-sub {
+    font-size: 1.05rem;
+    line-height: 1.6;
+    color: var(--ink-soft);
+    max-width: 42ch;
+    margin: 0 0 26px;
+  }
+
+  .hero-actions {
+    display: flex;
+    align-items: center;
+    gap: 22px;
+    margin-bottom: 28px;
+    flex-wrap: wrap;
+  }
+
+  .transcript-sample {
+    border: var(--border-width) solid var(--ink);
+    background: var(--paper-shade);
+    padding: 16px 18px;
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    line-height: 1.75;
+    margin-bottom: 16px;
+  }
+
+  .transcript-sample .ts {
+    color: var(--accent);
+    margin-right: 8px;
+  }
+
+  .transcript-sample .spk {
+    color: var(--ink-soft);
+  }
+
+  .transcript-sample .cursor {
+    display: inline-block;
+    width: 7px;
+    height: 1em;
+    background: var(--accent);
+    vertical-align: text-bottom;
+    margin-left: 2px;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .transcript-sample .cursor {
+      animation: blink 1s steps(1) infinite;
+    }
+  }
+
+  @keyframes blink {
+    50% {
+      opacity: 0;
+    }
+  }
+
+  .hero-fineprint {
+    margin: 0;
+    font-size: 0.82rem;
+    color: var(--ink-soft);
+  }
+</style>

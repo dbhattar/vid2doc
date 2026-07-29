@@ -1,0 +1,25 @@
+---
+import MarketingLayout from '../layouts/MarketingLayout.astro';
+import Hero from '../components/Hero.astro';
+import Reveal from '../components/Reveal.astro';
+import SpotTheSlide from '../components/SpotTheSlide/SpotTheSlide.astro';
+import WhatsNewGrid from '../components/WhatsNewGrid.astro';
+import FeatureGrid from '../components/FeatureGrid.astro';
+import PricingTable from '../components/PricingTable.astro';
+import EnterpriseCta from '../components/EnterpriseCta.astro';
+import FinalCta from '../components/FinalCta.astro';
+---
+
+<MarketingLayout
+  title="Framewrite — Turn any video into a searchable document"
+  description="Framewrite automatically transcribes, diarizes, and formats your videos into a searchable document with the right images in the right places. Pay-as-you-go: $1 per hour of video, no subscription."
+  path="/"
+>
+  <Hero />
+  <Reveal><SpotTheSlide /></Reveal>
+  <Reveal><WhatsNewGrid /></Reveal>
+  <Reveal><FeatureGrid /></Reveal>
+  <Reveal><PricingTable /></Reveal>
+  <Reveal><EnterpriseCta /></Reveal>
+  <Reveal><FinalCta /></Reveal>
+</MarketingLayout>

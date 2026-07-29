@@ -1,0 +1,30 @@
+---
+title: Authentication
+description: Authenticate API requests with an X-API-Key header.
+---
+
+Every request must include your API key as an `X-API-Key` header:
+
+```bash
+curl https://api.framewrite.cc/api/jobs \
+  -H "X-API-Key: YOUR_KEY"
+```
+
+Keys are created from **Settings → API Keys** in the app and are shown in full exactly once at
+creation time — there's no way to view a key again after that, so save it somewhere safe (a
+password manager or secrets store). If you lose one, revoke it and create a new one.
+
+## Error responses
+
+An invalid, missing, or revoked key returns `401` with a JSON body:
+
+```json
+{ "detail": "Invalid or revoked API key" }
+```
+
+| Situation                  | Response                                              |
+| --------------------------- | ------------------------------------------------------ |
+| No `X-API-Key` header sent | `401 { "detail": "Missing credentials" }`             |
+| Key doesn't exist / revoked | `401 { "detail": "Invalid or revoked API key" }`      |
+
+Next: [Submit a Job](/docs/submit-a-job/) →

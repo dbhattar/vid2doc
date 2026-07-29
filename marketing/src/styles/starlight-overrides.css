@@ -1,0 +1,50 @@
+/*
+  Remaps Starlight's own theme variables onto the site's shared tokens
+  (loaded first via astro.config's customCss array) so /docs matches the
+  rest of the site instead of looking like a stock Starlight template.
+*/
+:root {
+  --sl-color-accent: var(--accent);
+  --sl-color-accent-high: var(--accent);
+  --sl-color-white: var(--ink);
+  --sl-color-gray-1: var(--ink);
+  --sl-color-gray-2: var(--ink-soft);
+  --sl-color-gray-3: var(--ink-soft);
+  --sl-color-gray-4: var(--line);
+  --sl-color-gray-5: var(--line);
+  --sl-color-gray-6: var(--paper-shade);
+  --sl-color-black: var(--paper);
+  --sl-color-bg: var(--paper);
+  --sl-color-bg-nav: var(--paper);
+  --sl-color-bg-sidebar: var(--paper);
+  --sl-color-bg-inline-code: var(--paper-shade);
+  --sl-color-text: var(--ink);
+  --sl-color-text-accent: var(--accent);
+  --sl-font: var(--font-body);
+  --sl-font-mono: var(--font-mono);
+  --sl-nav-height: 4rem;
+}
+
+:root[data-theme='dark'] {
+  --sl-color-white: var(--ink);
+  --sl-color-black: var(--paper);
+  --sl-color-bg: var(--paper);
+  --sl-color-bg-nav: var(--paper);
+  --sl-color-bg-sidebar: var(--paper);
+}
+
+/* Starlight ships rounded corners by default -- match the site's sharp,
+   thick-rule editorial language instead of the default soft radii. */
+.sl-markdown-content pre,
+.sl-markdown-content code,
+.sl-markdown-content img,
+.card,
+.sidebar-content a {
+  border-radius: 0 !important;
+}
+
+/* Site wordmark/nav typography for the Starlight-rendered pages, matching
+   the hand-built Header.astro. */
+starlight-search-button::part(button) {
+  border-radius: 0;
+}

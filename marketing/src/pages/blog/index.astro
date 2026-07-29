@@ -1,0 +1,106 @@
+---
+import { getCollection } from 'astro:content';
+import MarketingLayout from '../../layouts/MarketingLayout.astro';
+
+const allPosts = await getCollection('blog', ({ data }) => !data.draft);
+const posts = allPosts.sort((a, b) => b.data.publishDate.valueOf() - a.data.publishDate.valueOf());
+---
+
+<MarketingLayout
+  title="Blog — Framewrite"
+  description="Product updates, engineering notes, and everything else from the team building Framewrite."
+  path="/blog"
+>
+  <section class="blog-index">
+    <div class="container">
+      <p class="eyebrow">Blog</p>
+      <h1>Notes from the team</h1>
+      <p class="section-intro">Product updates, engineering notes, and everything else.</p>
+
+      {
+        posts.length === 0 ? (
+          <p class="empty">Nothing published yet — check back soon.</p>
+        ) : (
+          <div class="post-list">
+            {posts.map((post) => (
+              <a href={`/blog/${post.id}`} class="post-item">
+                <p class="post-item-date">
+                  {post.data.publishDate.toLocaleDateString('en-US', {
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric',
+                  })}
+                </p>
+                <h2 class="post-item-title">{post.data.title}</h2>
+                <p class="post-item-desc">{post.data.description}</p>
+              </a>
+            ))}
+          </div>
+        )
+      }
+    </div>
+  </section>
+</MarketingLayout>
+
+<style>
+  .blog-index {
+    padding: 56px 0 72px;
+  }
+
+  h1 {
+    font-size: var(--step-5);
+    margin: 0 0 12px;
+  }
+
+  .section-intro {
+    color: var(--ink-soft);
+    max-width: 60ch;
+    margin: 0 0 40px;
+    font-size: 1.02rem;
+  }
+
+  .empty {
+    color: var(--ink-soft);
+    font-family: var(--font-mono);
+    font-size: 0.9rem;
+  }
+
+  .post-list {
+    border-top: var(--border-width) solid var(--ink);
+  }
+
+  .post-item {
+    display: block;
+    padding: 28px 0;
+    border-bottom: 1px solid var(--line);
+    text-decoration: none;
+    color: inherit;
+  }
+
+  .post-item-date {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--accent);
+    margin: 0 0 8px;
+  }
+
+  .post-item-title {
+    font-size: 1.5rem;
+    margin: 0 0 8px;
+    transition: color 150ms ease;
+  }
+
+  .post-item:hover .post-item-title {
+    color: var(--accent);
+  }
+
+  .post-item-desc {
+    color: var(--ink-soft);
+    font-size: 0.98rem;
+    line-height: 1.6;
+    margin: 0;
+    max-width: 62ch;
+  }
+</style>

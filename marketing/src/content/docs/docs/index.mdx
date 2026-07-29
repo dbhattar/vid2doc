@@ -1,0 +1,35 @@
+---
+title: Framewrite API
+description: Everything Framewrite does in the browser is also a simple REST API.
+---
+
+Everything Framewrite does in the browser is also a simple REST API — submit a job, poll for
+status, and pull down the finished document. Same pay-as-you-go pricing, no extra cost to
+integrate.
+
+## Quick start
+
+```bash
+# 1. Submit a video
+curl -X POST https://api.framewrite.cc/api/convert_to_doc \
+  -H "X-API-Key: YOUR_KEY" \
+  -F "video=@meeting.mp4"
+# {"job_id": "5f2b6b3e-...", "status": "queued"}
+
+# 2. Poll for status
+curl "https://api.framewrite.cc/api/get_status?job_id=5f2b6b3e-..." \
+  -H "X-API-Key: YOUR_KEY"
+# {"status": "done", "document_url": ".../document.md", ...}
+```
+
+## In this section
+
+- [Getting Started](/docs/getting-started/) — base URL, getting an API key, pricing
+- [Authentication](/docs/authentication/) — the `X-API-Key` header and error responses
+- [Submit a Job](/docs/submit-a-job/) — uploading video or audio
+- [Check Status & Get Results](/docs/check-status-and-results/) — polling and downloading
+
+:::note
+Converting a large video library? [We work with teams](/#enterprise) on volume pricing and
+dedicated support.
+:::

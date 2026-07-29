@@ -1,0 +1,80 @@
+/*
+  Design tokens for the "bold & editorial" direction approved 2026-07-28.
+  Concept: recording -> transcript -> document, made literal (masthead/rule/
+  index-list language, a monospace "REC" voice) rather than decorative.
+  One loud accent (recording red) against a near-monochrome ink/paper field.
+  Swap values here, never hardcode a color/space/font in a component.
+*/
+
+:root {
+  --paper: #ffffff;
+  --paper-shade: #f2f0ec;
+  --ink: #14120f;
+  --ink-soft: #56514a;
+  --line: #dedbd4;
+  --accent: #c81e3a;
+  --accent-ink: #ffffff;
+
+  --font-display: 'Fraunces', Georgia, serif;
+  --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+  --font-body: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
+
+  /* Fluid type scale -- clamp(min, preferred, max) */
+  --step-0: clamp(1rem, 0.95rem + 0.25vw, 1.125rem);
+  --step-1: clamp(1.2rem, 1.1rem + 0.5vw, 1.4rem);
+  --step-2: clamp(1.5rem, 1.3rem + 1vw, 1.9rem);
+  --step-3: clamp(1.9rem, 1.6rem + 1.5vw, 2.6rem);
+  --step-4: clamp(2.4rem, 1.9rem + 2.5vw, 3.6rem);
+  --step-5: clamp(3rem, 2.2rem + 4vw, 4.6rem);
+  --step-6: clamp(2.6rem, 1.6rem + 6vw, 5.4rem);
+
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 3rem;
+  --space-8: 4rem;
+  --space-9: 6rem;
+
+  --radius-sm: 0; /* sharp corners are part of the direction, not an oversight */
+  --border-width: 2px;
+  --rule-width: 3px;
+
+  --shadow-sm: none; /* rules/borders carry separation, not soft shadows */
+
+  --ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --duration-fast: 150ms;
+  --duration-base: 400ms;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #121110;
+    --paper-shade: #1c1a17;
+    --ink: #f4f1ea;
+    --ink-soft: #b6afa4;
+    --line: #35312b;
+    --accent: #ff6248;
+    --accent-ink: #14120f;
+  }
+}
+:root[data-theme='dark'] {
+  --paper: #121110;
+  --paper-shade: #1c1a17;
+  --ink: #f4f1ea;
+  --ink-soft: #b6afa4;
+  --line: #35312b;
+  --accent: #ff6248;
+  --accent-ink: #14120f;
+}
+:root[data-theme='light'] {
+  --paper: #ffffff;
+  --paper-shade: #f2f0ec;
+  --ink: #14120f;
+  --ink-soft: #56514a;
+  --line: #dedbd4;
+  --accent: #c81e3a;
+  --accent-ink: #ffffff;
+}

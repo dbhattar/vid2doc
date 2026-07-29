@@ -11,9 +11,10 @@ Live marketing site: [framewrite.cc](https://framewrite.cc).
 
 This repo contains the whole product, not just one piece of it:
 
-- **`index.html` / `styles.css` / `script.js` / `thanks.html`** — the static
-  marketing site (hero, pricing, waitlist-style signup form), deployed to
-  Netlify directly from this repo. Framework-free by design.
+- **`marketing/`** — the public site at framewrite.cc: homepage, blog, and
+  developer docs (Astro + Starlight), deployed to Netlify as a static build
+  from this repo. Deployed and maintained entirely independently from
+  `frontend/`/`backend/`. See `marketing/README.md`.
 - **`backend/`** — the actual product: a FastAPI API + worker service
   (Google OAuth, per-user API keys, the video→document pipeline, Stripe
   wallet billing, retention). See `backend/README.md` — that's the real
@@ -53,15 +54,16 @@ cd backend && cp .env.example .env && cd ..   # fill in real values -- see backe
 (`restart-containers.sh` must be run from the repo root — it resolves
 `backend/` relative to its own location.)
 
-The marketing site has no build step — just serve the directory root:
+The marketing site is a separate Astro project — see `marketing/README.md` for details:
 
 ```bash
-python3 -m http.server 8080
+cd marketing && npm install && npm run dev
 ```
 
 ## Deployment
 
-- Marketing site → Netlify, directly from this repo's root (`netlify.toml`).
+- Marketing site → Netlify, building the `marketing/` subdirectory per the
+  root `netlify.toml` (`base = "marketing"`, `publish = "dist"`).
 - Product (backend + frontend) → a single VPS via Docker Compose, automated
   with Fabric from `deploy/` (`bootstrap` → `setup-tls` → `deploy`). See
   `deploy/README.md` for the tasks and `backend/README.md`'s "Deploying to a

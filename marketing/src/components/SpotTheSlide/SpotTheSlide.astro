@@ -1,0 +1,65 @@
+---
+import './spot-the-slide.css';
+---
+
+<section class="spot-slide" id="spot-the-slide">
+  <div class="container">
+    <p class="eyebrow">Try it yourself</p>
+    <h2>Spot the Slide</h2>
+    <p class="section-intro">
+      Nine tiles. One real slide, the rest is raw-footage noise. Click it before time runs out —
+      Framewrite does this automatically, every frame, every video.
+    </p>
+
+    <div class="game-card">
+      <div class="game-idle" data-panel="idle">
+        <p class="game-idle-copy">Nine tiles. One slide. Beat the clock.</p>
+        <button type="button" class="btn-primary" id="game-start">Play</button>
+      </div>
+
+      <div class="game-play-area" data-panel="playing" hidden>
+        <div class="game-hud">
+          <span class="game-score">Score: <b id="game-score-val">0</b></span>
+          <span class="game-best">Best: <b id="game-best-val">0</b></span>
+        </div>
+        <div class="game-timer-track">
+          <div class="game-timer-fill" id="game-timer-fill"></div>
+        </div>
+        <p class="game-status" id="game-status" aria-live="polite" aria-atomic="true"></p>
+        <div class="game-grid" id="game-grid"></div>
+      </div>
+
+      <div class="game-end" data-panel="ended" hidden>
+        <p class="game-end-score">Final score: <b id="game-end-score-val">0</b></p>
+        <p class="game-end-payoff">Framewrite finds every slide automatically — zero clicks, zero guessing.</p>
+        <div class="game-end-actions">
+          <button type="button" class="btn-primary" id="game-again">Play again</button>
+          <a href="https://app.framewrite.cc/login" class="btn-secondary" id="game-cta">Get started free &#8594;</a>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  .spot-slide {
+    padding: 56px 0 64px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  h2 {
+    font-size: var(--step-3);
+    margin: 0 0 12px;
+  }
+
+  .section-intro {
+    color: var(--ink-soft);
+    max-width: 60ch;
+    margin: 0 0 36px;
+    font-size: 1.02rem;
+  }
+</style>
+
+<script>
+  import './spot-the-slide.ts';
+</script>

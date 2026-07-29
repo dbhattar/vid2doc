@@ -1,0 +1,60 @@
+---
+title: Submit a Job
+description: Submit a video or audio file for conversion.
+---
+
+import { Tabs, TabItem } from '@astrojs/starlight/components';
+
+Uploading starts a job and returns immediately — conversion happens in the background. Poll
+[`/api/get_status`](/docs/check-status-and-results/) to know when it's done.
+
+<Tabs>
+  <TabItem label="Video">
+
+`POST /api/convert_to_doc` — full pipeline: diarized transcript, speaker labels, and the right
+slides/diagrams pulled into a formatted document.
+
+```bash
+curl -X POST https://api.framewrite.cc/api/convert_to_doc \
+  -H "X-API-Key: YOUR_KEY" \
+  -F "video=@meeting.mp4"
+```
+
+Accepted extensions: `.mp4`, `.mov`, `.mkv`, `.webm`, `.avi`, `.m4v`.
+
+  </TabItem>
+  <TabItem label="Audio">
+
+`POST /api/transcribe_audio` — a verbatim, speaker-tagged transcript only, no document
+composition. Priced lower than video ($0.40/hour vs $1.00/hour) since it skips frame capture and
+document composition entirely.
+
+```bash
+curl -X POST https://api.framewrite.cc/api/transcribe_audio \
+  -H "X-API-Key: YOUR_KEY" \
+  -F "audio=@call.mp3"
+```
+
+Accepted extensions: `.mp3`, `.wav`, `.m4a`, `.aac`, `.flac`, `.ogg`, `.wma`.
+
+  </TabItem>
+</Tabs>
+
+## Response
+
+Both endpoints respond `202 Accepted`:
+
+```json
+{ "job_id": "5f2b6b3e-...", "status": "queued" }
+```
+
+Save the `job_id` — you'll need it to poll for status and fetch the result.
+
+## Errors
+
+| Situation                          | Response                                                      |
+| ----------------------------------- | ----------------------------------------------------------- |
+| Unsupported file extension          | `400` with the allowed extensions listed                    |
+| Insufficient wallet balance         | `402` with the required cost and your current balance        |
+
+Next: [Check Status & Get Results](/docs/check-status-and-results/) →
