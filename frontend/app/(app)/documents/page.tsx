@@ -50,23 +50,23 @@ function DocumentSection({ jobType, title, Icon }: { jobType: JobType; title: st
     <div className="mt-10">
       <div className="flex items-center gap-2.5">
         <span
-          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
-            jobType === "audio" ? "bg-brand-navy-soft text-brand-navy" : "bg-brand-amber-soft text-brand-amber-dark"
+          className={`flex h-8 w-8 shrink-0 items-center justify-center ${
+            jobType === "audio" ? "bg-paper-shade text-ink-soft" : "bg-accent-soft text-accent"
           }`}
         >
           <Icon className="h-4 w-4" />
         </span>
-        <h2 className="text-sm font-semibold text-foreground">
-          {title} <span className="font-normal text-muted">({total})</span>
+        <h2 className="text-sm font-semibold text-ink">
+          {title} <span className="font-normal text-ink-soft">({total})</span>
         </h2>
       </div>
 
-      {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
+      {error && <p className="mt-2 text-sm text-status-error">{error}</p>}
 
       {jobs === null ? (
-        <p className="mt-3 text-sm text-muted">Loading...</p>
+        <p className="mt-3 text-sm text-ink-soft">Loading...</p>
       ) : jobs.length === 0 ? (
-        <p className="mt-3 rounded-2xl border border-dashed border-brand-border p-6 text-center text-sm text-muted">
+        <p className="mt-3 border-2 border-dashed border-line p-6 text-center text-sm text-ink-soft">
           No {title.toLowerCase()} yet.
         </p>
       ) : (
@@ -86,15 +86,15 @@ function DocumentSection({ jobType, title, Icon }: { jobType: JobType; title: st
 export default function DocumentsPage() {
   return (
     <div className="mx-auto w-full max-w-5xl px-6 py-10">
-      <h1 className="text-2xl font-bold tracking-tight text-brand-navy">Documents</h1>
-      <p className="mt-1 text-sm text-muted">Every document Framewrite has finished generating for you.</p>
+      <h1 className="font-display text-2xl font-bold tracking-tight text-ink">Documents</h1>
+      <p className="mt-1 text-sm text-ink-soft">Every document Framewrite has finished generating for you.</p>
 
       <DocumentSection jobType="video" title="Video documents" Icon={VideoCameraIcon} />
       <DocumentSection jobType="audio" title="Audio transcripts" Icon={MicrophoneIcon} />
 
-      <p className="mt-10 text-center text-sm text-muted">
+      <p className="mt-10 text-center text-sm text-ink-soft">
         Nothing here yet? Convert a video or audio file from the{" "}
-        <Link href="/dashboard" className="underline hover:text-brand-amber-dark">
+        <Link href="/dashboard" className="underline hover:text-accent">
           dashboard
         </Link>
         .

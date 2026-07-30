@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import Card from "@/components/Card";
 import { MicrophoneIcon, ShieldIcon, UsersIcon, VideoCameraIcon, WalletIcon } from "@/components/icons";
 import { apiFetch, ApiError } from "@/lib/api";
 import { clearSession } from "@/lib/auth";
@@ -39,14 +40,14 @@ type AdminFeedback = {
 
 function StatCard({ icon, label, value, sub }: { icon: React.ReactNode; label: string; value: string; sub?: string }) {
   return (
-    <div className="rounded-2xl border border-brand-border bg-surface p-4 shadow-soft">
-      <div className="flex items-center gap-2 text-muted">
+    <Card className="p-4">
+      <div className="flex items-center gap-2 text-ink-soft">
         {icon}
-        <span className="text-xs font-medium uppercase tracking-wide">{label}</span>
+        <span className="font-mono text-xs font-medium uppercase tracking-wide">{label}</span>
       </div>
-      <p className="mt-2 text-2xl font-bold text-brand-navy">{value}</p>
-      {sub && <p className="mt-0.5 text-xs text-muted">{sub}</p>}
-    </div>
+      <p className="mt-2 font-display text-2xl font-bold text-ink">{value}</p>
+      {sub && <p className="mt-0.5 text-xs text-ink-soft">{sub}</p>}
+    </Card>
   );
 }
 
@@ -109,12 +110,12 @@ export default function AdminPage() {
 
   return (
     <div className="mx-auto w-full max-w-4xl px-6 py-10">
-      <h1 className="text-2xl font-bold tracking-tight text-brand-navy">Admin</h1>
-      <p className="mt-1 text-sm text-muted">Platform-wide usage and revenue.</p>
+      <h1 className="font-display text-2xl font-bold tracking-tight text-ink">Admin</h1>
+      <p className="mt-1 text-sm text-ink-soft">Platform-wide usage and revenue.</p>
 
-      {error && <p className="mt-4 text-sm text-red-600">{error}</p>}
+      {error && <p className="mt-4 text-sm text-status-error">{error}</p>}
 
-      {!stats && !error && <p className="mt-6 text-sm text-muted">Loading...</p>}
+      {!stats && !error && <p className="mt-6 text-sm text-ink-soft">Loading...</p>}
 
       {stats && (
         <>
@@ -141,35 +142,33 @@ export default function AdminPage() {
           </div>
 
           <div className="mt-3 grid grid-cols-2 gap-3">
-            <div className="flex items-center gap-2 rounded-2xl border border-brand-border bg-surface p-4 shadow-soft">
-              <VideoCameraIcon className="h-4 w-4 text-brand-amber-dark" />
-              <span className="text-sm text-muted">Video</span>
-              <span className="ml-auto text-sm font-semibold text-foreground">{stats.job_counts.video.toLocaleString()}</span>
-            </div>
-            <div className="flex items-center gap-2 rounded-2xl border border-brand-border bg-surface p-4 shadow-soft">
-              <MicrophoneIcon className="h-4 w-4 text-brand-navy" />
-              <span className="text-sm text-muted">Audio</span>
-              <span className="ml-auto text-sm font-semibold text-foreground">{stats.job_counts.audio.toLocaleString()}</span>
-            </div>
+            <Card className="flex items-center gap-2 p-4">
+              <VideoCameraIcon className="h-4 w-4 text-accent" />
+              <span className="text-sm text-ink-soft">Video</span>
+              <span className="ml-auto text-sm font-semibold text-ink">{stats.job_counts.video.toLocaleString()}</span>
+            </Card>
+            <Card className="flex items-center gap-2 p-4">
+              <MicrophoneIcon className="h-4 w-4 text-ink-soft" />
+              <span className="text-sm text-ink-soft">Audio</span>
+              <span className="ml-auto text-sm font-semibold text-ink">{stats.job_counts.audio.toLocaleString()}</span>
+            </Card>
           </div>
 
-          <h2 className="mt-8 text-sm font-semibold uppercase tracking-wide text-muted">Top 5 spenders</h2>
+          <h2 className="mt-8 font-mono text-sm font-semibold uppercase tracking-wide text-ink-soft">Top 5 spenders</h2>
           {stats.top_spenders.length === 0 ? (
-            <p className="mt-2 text-sm text-muted">No spending yet.</p>
+            <p className="mt-2 text-sm text-ink-soft">No spending yet.</p>
           ) : (
-            <ul className="mt-2 divide-y divide-brand-border overflow-hidden rounded-2xl border border-brand-border bg-surface shadow-soft">
+            <ul className="mt-2 divide-y divide-line border-2 border-line bg-paper">
               {stats.top_spenders.map((u, i) => (
                 <li key={u.id} className="flex items-center justify-between px-4 py-3">
                   <div className="flex items-center gap-3">
-                    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand-amber-soft text-xs font-semibold text-brand-amber-dark">
-                      {i + 1}
-                    </span>
+                    <span className="font-display w-4 text-sm font-bold text-accent">{i + 1}</span>
                     <div>
-                      <p className="text-sm font-medium text-foreground">{u.display_name || u.email}</p>
-                      <p className="text-xs text-muted">{u.email}</p>
+                      <p className="text-sm font-medium text-ink">{u.display_name || u.email}</p>
+                      <p className="text-xs text-ink-soft">{u.email}</p>
                     </div>
                   </div>
-                  <span className="text-sm font-semibold text-foreground">{formatCents(u.spent_cents)}</span>
+                  <span className="text-sm font-semibold text-ink">{formatCents(u.spent_cents)}</span>
                 </li>
               ))}
             </ul>
@@ -177,14 +176,14 @@ export default function AdminPage() {
         </>
       )}
 
-      <h2 className="mt-8 text-sm font-semibold uppercase tracking-wide text-muted">All users</h2>
+      <h2 className="mt-8 font-mono text-sm font-semibold uppercase tracking-wide text-ink-soft">All users</h2>
       {users === null ? (
-        <p className="mt-2 text-sm text-muted">Loading...</p>
+        <p className="mt-2 text-sm text-ink-soft">Loading...</p>
       ) : (
-        <div className="mt-2 overflow-x-auto rounded-2xl border border-brand-border bg-surface shadow-soft">
+        <div className="mt-2 overflow-x-auto border-2 border-line bg-paper">
           <table className="w-full text-left text-sm">
             <thead>
-              <tr className="border-b border-brand-border text-xs uppercase tracking-wide text-muted">
+              <tr className="border-b border-line font-mono text-xs uppercase tracking-wide text-ink-soft">
                 <th className="px-4 py-3 font-medium">User</th>
                 <th className="px-4 py-3 font-medium">Joined</th>
                 <th className="px-4 py-3 font-medium">Jobs</th>
@@ -192,24 +191,24 @@ export default function AdminPage() {
                 <th className="px-4 py-3 font-medium">Admin</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-brand-border">
+            <tbody className="divide-y divide-line">
               {users.map((u) => (
                 <tr key={u.id}>
                   <td className="px-4 py-3">
-                    <p className="font-medium text-foreground">{u.display_name || u.email}</p>
-                    <p className="text-xs text-muted">{u.email}</p>
+                    <p className="font-medium text-ink">{u.display_name || u.email}</p>
+                    <p className="text-xs text-ink-soft">{u.email}</p>
                   </td>
-                  <td className="px-4 py-3 text-muted">{new Date(u.created_at).toLocaleDateString()}</td>
-                  <td className="px-4 py-3 text-muted">{u.job_count}</td>
-                  <td className="px-4 py-3 text-muted">{formatCents(u.spent_cents)}</td>
+                  <td className="px-4 py-3 text-ink-soft">{new Date(u.created_at).toLocaleDateString()}</td>
+                  <td className="px-4 py-3 text-ink-soft">{u.job_count}</td>
+                  <td className="px-4 py-3 text-ink-soft">{formatCents(u.spent_cents)}</td>
                   <td className="px-4 py-3">
                     <button
                       onClick={() => handleToggleAdmin(u)}
                       disabled={togglingId === u.id}
-                      className={`flex items-center gap-1.5 rounded-lg border px-2.5 py-1 text-xs font-medium transition-colors disabled:cursor-default disabled:opacity-50 ${
+                      className={`flex items-center gap-1.5 border-2 px-2.5 py-1 text-xs font-medium transition-colors disabled:cursor-default disabled:opacity-50 ${
                         u.is_admin
-                          ? "border-brand-amber/50 bg-brand-amber-soft text-brand-amber-dark hover:bg-brand-amber/20"
-                          : "border-brand-border text-muted hover:bg-brand-navy-soft hover:text-brand-navy"
+                          ? "border-accent bg-accent-soft text-accent hover:bg-accent/20"
+                          : "border-line text-ink-soft hover:bg-paper-shade hover:text-ink"
                       }`}
                     >
                       <ShieldIcon className="h-3.5 w-3.5" />
@@ -223,20 +222,20 @@ export default function AdminPage() {
         </div>
       )}
 
-      <h2 className="mt-8 text-sm font-semibold uppercase tracking-wide text-muted">Recent feedback</h2>
+      <h2 className="mt-8 font-mono text-sm font-semibold uppercase tracking-wide text-ink-soft">Recent feedback</h2>
       {feedback === null ? (
-        <p className="mt-2 text-sm text-muted">Loading...</p>
+        <p className="mt-2 text-sm text-ink-soft">Loading...</p>
       ) : feedback.length === 0 ? (
-        <p className="mt-2 text-sm text-muted">No feedback yet.</p>
+        <p className="mt-2 text-sm text-ink-soft">No feedback yet.</p>
       ) : (
-        <ul className="mt-2 divide-y divide-brand-border overflow-hidden rounded-2xl border border-brand-border bg-surface shadow-soft">
+        <ul className="mt-2 divide-y divide-line border-2 border-line bg-paper">
           {feedback.map((f) => (
             <li key={f.id} className="px-4 py-3">
               <div className="flex items-center justify-between gap-3">
-                <p className="text-sm font-medium text-foreground">{f.display_name || f.email}</p>
-                <p className="shrink-0 text-xs text-muted">{new Date(f.created_at).toLocaleString()}</p>
+                <p className="text-sm font-medium text-ink">{f.display_name || f.email}</p>
+                <p className="shrink-0 text-xs text-ink-soft">{new Date(f.created_at).toLocaleString()}</p>
               </div>
-              <p className="mt-1 whitespace-pre-wrap text-sm text-muted">{f.message}</p>
+              <p className="mt-1 whitespace-pre-wrap text-sm text-ink-soft">{f.message}</p>
             </li>
           ))}
         </ul>

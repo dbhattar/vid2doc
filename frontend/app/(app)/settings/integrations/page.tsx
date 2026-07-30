@@ -4,6 +4,8 @@ import { GoogleOAuthProvider, useGoogleLogin } from "@react-oauth/google";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import Button from "@/components/Button";
+import Card from "@/components/Card";
 import { DriveIcon } from "@/components/icons";
 import { apiFetch, ApiError } from "@/lib/api";
 import { clearSession } from "@/lib/auth";
@@ -37,13 +39,10 @@ function ConnectButton({ onConnected, onError }: { onConnected: (email: string) 
   });
 
   return (
-    <button
-      onClick={() => login()}
-      className="flex items-center gap-2 rounded-lg bg-brand-navy px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-navy-hover"
-    >
+    <Button onClick={() => login()}>
       <DriveIcon className="h-4 w-4" />
       Connect Google Drive
-    </button>
+    </Button>
   );
 }
 
@@ -86,36 +85,32 @@ export default function IntegrationsPage() {
 
   return (
     <div className="mx-auto w-full max-w-2xl px-6 py-10">
-      <h1 className="text-2xl font-bold tracking-tight text-brand-navy">Integrations</h1>
-      <p className="mt-1 text-sm text-muted">Connect Google Drive to save generated documents there with one click.</p>
+      <h1 className="font-display text-2xl font-bold tracking-tight text-ink">Integrations</h1>
+      <p className="mt-1 text-sm text-ink-soft">Connect Google Drive to save generated documents there with one click.</p>
 
-      {error && <p className="mt-4 text-sm text-red-600">{error}</p>}
+      {error && <p className="mt-4 text-sm text-status-error">{error}</p>}
 
-      <div className="mt-8 flex items-center justify-between rounded-2xl border border-brand-border bg-surface p-6 shadow-soft">
+      <Card className="mt-8 flex items-center justify-between p-6">
         <div className="flex items-center gap-3">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-brand-navy-soft text-brand-navy">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center bg-paper-shade text-ink-soft">
             <DriveIcon className="h-5 w-5" />
           </span>
           <div>
-            <p className="text-sm font-semibold text-foreground">Google Drive</p>
+            <p className="text-sm font-semibold text-ink">Google Drive</p>
             {connected === null ? (
-              <p className="text-sm text-muted">Loading...</p>
+              <p className="text-sm text-ink-soft">Loading...</p>
             ) : connected ? (
-              <p className="text-sm text-muted">Connected as {googleEmail}</p>
+              <p className="text-sm text-ink-soft">Connected as {googleEmail}</p>
             ) : (
-              <p className="text-sm text-muted">Not connected</p>
+              <p className="text-sm text-ink-soft">Not connected</p>
             )}
           </div>
         </div>
 
         {connected === null ? null : connected ? (
-          <button
-            onClick={handleDisconnect}
-            disabled={disconnecting}
-            className="rounded-lg border border-brand-border px-4 py-2 text-sm font-medium text-foreground transition-colors hover:bg-brand-navy-soft disabled:cursor-default disabled:opacity-50"
-          >
+          <Button variant="outline" onClick={handleDisconnect} disabled={disconnecting}>
             {disconnecting ? "Disconnecting..." : "Disconnect"}
-          </button>
+          </Button>
         ) : GOOGLE_CLIENT_ID ? (
           <GoogleOAuthProvider clientId={GOOGLE_CLIENT_ID}>
             <ConnectButton
@@ -127,9 +122,9 @@ export default function IntegrationsPage() {
             />
           </GoogleOAuthProvider>
         ) : (
-          <p className="text-sm text-red-600">Missing NEXT_PUBLIC_GOOGLE_CLIENT_ID -- not configured.</p>
+          <p className="text-sm text-status-error">Missing NEXT_PUBLIC_GOOGLE_CLIENT_ID -- not configured.</p>
         )}
-      </div>
+      </Card>
     </div>
   );
 }

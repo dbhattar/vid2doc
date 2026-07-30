@@ -3,6 +3,8 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useCallback, useEffect, useState } from "react";
 
+import Button from "@/components/Button";
+import Card from "@/components/Card";
 import { apiFetch, ApiError } from "@/lib/api";
 import { clearSession } from "@/lib/auth";
 import { formatCents, MAX_TOPUP_CENTS, MIN_TOPUP_CENTS, TOPUP_PRESETS_CENTS } from "@/lib/billing";
@@ -70,39 +72,39 @@ function BillingPageContent() {
 
   return (
     <div className="mx-auto w-full max-w-2xl px-6 py-10">
-      <h1 className="text-2xl font-bold tracking-tight text-brand-navy">Billing</h1>
-      <p className="mt-1 text-sm text-muted">
+      <h1 className="font-display text-2xl font-bold tracking-tight text-ink">Billing</h1>
+      <p className="mt-1 text-sm text-ink-soft">
         Pay-as-you-go: $1.00 per hour of video, $0.40 per hour of audio-only transcription -- charged only when you
         submit something.
       </p>
 
       {checkoutStatus === "success" && (
-        <p className="mt-4 rounded-lg bg-green-50 p-3 text-sm text-green-700">
+        <p className="mt-4 bg-status-success-soft p-3 text-sm text-status-success">
           Payment received. Your balance may take a few seconds to update below.
         </p>
       )}
       {checkoutStatus === "cancelled" && (
-        <p className="mt-4 rounded-lg bg-brand-navy-soft p-3 text-sm text-muted">
+        <p className="mt-4 bg-paper-shade p-3 text-sm text-ink-soft">
           Checkout was cancelled -- no changes were made.
         </p>
       )}
-      {error && <p className="mt-4 text-sm text-red-600">{error}</p>}
+      {error && <p className="mt-4 text-sm text-status-error">{error}</p>}
 
       {!paymentsEnabled && (
-        <p className="mt-4 rounded-lg bg-brand-amber-soft p-3 text-sm text-brand-amber-dark">
+        <p className="mt-4 bg-status-warning-soft p-3 text-sm text-status-warning">
           Payments are temporarily unavailable while we resolve an issue with our payment provider. Your
           existing balance and job processing are unaffected -- please check back soon.
         </p>
       )}
 
-      <div className="mt-8 rounded-2xl border border-brand-border bg-surface p-6 shadow-soft">
-        <p className="text-sm text-muted">Wallet balance</p>
-        <p className="mt-1 text-4xl font-bold tracking-tight text-brand-navy">
+      <Card className="mt-8 p-6">
+        <p className="text-sm text-ink-soft">Wallet balance</p>
+        <p className="mt-1 font-display text-4xl font-bold tracking-tight text-ink">
           {balanceCents === undefined ? "..." : formatCents(balanceCents)}
         </p>
 
         <div className="mt-6">
-          <p className="text-sm font-semibold text-foreground">Add funds</p>
+          <p className="text-sm font-semibold text-ink">Add funds</p>
           <div className="mt-3 flex flex-wrap gap-2">
             {TOPUP_PRESETS_CENTS.map((cents) => (
               <button
@@ -112,10 +114,10 @@ function BillingPageContent() {
                   setCustomAmount("");
                 }}
                 disabled={!paymentsEnabled}
-                className={`rounded-lg border px-4 py-2 text-sm font-medium transition-colors disabled:cursor-default disabled:opacity-50 ${
+                className={`border-2 px-4 py-2 text-sm font-medium transition-colors disabled:cursor-default disabled:opacity-50 ${
                   selectedPreset === cents && !customAmount
-                    ? "border-brand-navy bg-brand-navy text-white"
-                    : "border-brand-border text-foreground hover:bg-brand-navy-soft"
+                    ? "border-ink bg-ink text-paper"
+                    : "border-line text-ink hover:bg-paper-shade"
                 }`}
               >
                 {formatCents(cents)}
@@ -133,20 +135,16 @@ function BillingPageContent() {
                 setSelectedPreset(null);
               }}
               disabled={!paymentsEnabled}
-              className="w-28 rounded-lg border border-brand-border bg-surface px-3 py-2 text-sm outline-none transition-shadow focus:border-brand-amber-dark focus:ring-2 focus:ring-brand-amber-soft disabled:cursor-default disabled:opacity-50"
+              className="w-28 border-2 border-line bg-paper px-3 py-2 text-sm outline-none transition-shadow focus:border-accent focus:ring-2 focus:ring-accent-soft disabled:cursor-default disabled:opacity-50"
             />
           </div>
-          <button
-            onClick={handleAddFunds}
-            disabled={busy || !paymentsEnabled}
-            className="mt-4 rounded-lg bg-brand-navy px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-navy-hover disabled:cursor-default disabled:opacity-50"
-          >
+          <Button onClick={handleAddFunds} disabled={busy || !paymentsEnabled} className="mt-4">
             {busy ? "Redirecting..." : "Add funds"}
-          </button>
+          </Button>
         </div>
-      </div>
+      </Card>
 
-      <p className="mt-6 text-xs text-muted">
+      <p className="mt-6 text-xs text-ink-soft">
         Documents aren&apos;t guaranteed to be retained past 7 days -- download what you need.
       </p>
     </div>
@@ -158,7 +156,7 @@ export default function BillingPage() {
     <Suspense
       fallback={
         <div className="flex flex-1 items-center justify-center">
-          <p className="text-sm text-muted">Loading...</p>
+          <p className="text-sm text-ink-soft">Loading...</p>
         </div>
       }
     >

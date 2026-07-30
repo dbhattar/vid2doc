@@ -1,0 +1,87 @@
+---
+---
+
+<button type="button" id="theme-toggle" class="theme-toggle" title="Theme: System (click to change)">
+  <span id="theme-toggle-icon" class="theme-toggle-icon" aria-hidden="true"></span>
+</button>
+
+<style>
+  .theme-toggle {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    border: 2px solid var(--line);
+    background: var(--paper);
+    color: var(--ink-soft);
+    cursor: pointer;
+    transition: color 150ms ease, border-color 150ms ease;
+  }
+
+  .theme-toggle:hover {
+    color: var(--ink);
+    border-color: var(--ink);
+  }
+
+  .theme-toggle-icon {
+    display: flex;
+    width: 16px;
+    height: 16px;
+  }
+
+  .theme-toggle-icon svg {
+    width: 100%;
+    height: 100%;
+  }
+</style>
+
+<script>
+  import {
+    applyTheme,
+    loadThemePreference,
+    nextThemePreference,
+    saveThemePreference,
+    watchSystemPreference,
+  } from '../scripts/theme';
+  import type { ThemePreference } from '../scripts/theme';
+
+  const ICONS: Record<ThemePreference, string> = {
+    light:
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41"/></svg>',
+    dark: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79Z"/></svg>',
+    system:
+      '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14"/><path d="M8 21h8M12 17v4"/></svg>',
+  };
+
+  const LABELS: Record<ThemePreference, string> = {
+    light: 'Light',
+    dark: 'Dark',
+    system: 'System',
+  };
+
+  const button = document.getElementById('theme-toggle');
+  const iconSlot = document.getElementById('theme-toggle-icon');
+
+  function render(pref: ThemePreference) {
+    if (!button || !iconSlot) return;
+    iconSlot.innerHTML = ICONS[pref];
+    button.title = `Theme: ${LABELS[pref]} (click to change)`;
+    button.setAttribute('aria-label', `Theme: ${LABELS[pref]}. Click to switch.`);
+  }
+
+  let current = loadThemePreference();
+  render(current);
+
+  button?.addEventListener('click', () => {
+    current = nextThemePreference(current);
+    applyTheme(current);
+    saveThemePreference(current);
+    render(current);
+  });
+
+  // Keep data-theme correct if the OS scheme changes while on "system" --
+  // data-theme is always concrete now (never removed), so this can't rely on
+  // pure CSS media-query reactivity the way an unset attribute would.
+  watchSystemPreference(() => applyTheme('system'));
+</script>

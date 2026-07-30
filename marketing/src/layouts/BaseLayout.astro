@@ -23,6 +23,23 @@ const canonical = new URL(path, Astro.site).toString();
     <link rel="canonical" href={canonical} />
     <link rel="icon" href="/images/framewrite_icon.png" type="image/png" />
 
+    <!-- Blocking + inline on purpose: must set data-theme before first paint
+         to avoid a flash of the wrong theme. Same storage key/semantics as
+         Starlight's own theme picker (see src/scripts/theme.ts) so this
+         stays in sync with /docs, which sets its own data-theme the same
+         way via @astrojs/starlight's ThemeProvider. -->
+    <script is:inline>
+      (function () {
+        try {
+          var stored = localStorage.getItem('starlight-theme');
+          var resolved = stored === 'light' || stored === 'dark'
+            ? stored
+            : (matchMedia('(prefers-color-scheme: light)').matches ? 'light' : 'dark');
+          document.documentElement.dataset.theme = resolved;
+        } catch (e) {}
+      })();
+    </script>
+
     <meta property="og:type" content="website" />
     <meta property="og:site_name" content="Framewrite" />
     <meta property="og:url" content={canonical} />

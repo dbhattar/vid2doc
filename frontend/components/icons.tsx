@@ -10,8 +10,11 @@ import {
   LayoutDashboard,
   Mic,
   MessageSquare,
+  Monitor,
+  Moon,
   ScrollText,
   Shield,
+  Sun,
   Users,
   Video,
   Wallet,
@@ -94,6 +97,18 @@ export function ShieldIcon({ className }: IconProps) {
 
 export function UsersIcon({ className }: IconProps) {
   return <Users className={className} aria-hidden />;
+}
+
+export function SunIcon({ className }: IconProps) {
+  return <Sun className={className} aria-hidden />;
+}
+
+export function MoonIcon({ className }: IconProps) {
+  return <Moon className={className} aria-hidden />;
+}
+
+export function SystemThemeIcon({ className }: IconProps) {
+  return <Monitor className={className} aria-hidden />;
 }
 
 export function DriveIcon({ className }: IconProps) {

@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 
+import Button from "@/components/Button";
 import { apiFetch, ApiError } from "@/lib/api";
 import { formatTimestamp, type TranscriptData } from "@/lib/jobs";
 
@@ -56,8 +57,8 @@ export default function TranscriptViewer({ jobId }: { jobId: string }) {
     }
   }
 
-  if (error) return <p className="mt-6 text-sm text-red-600">{error}</p>;
-  if (!data) return <p className="mt-6 text-sm text-muted">Loading transcript...</p>;
+  if (error) return <p className="mt-6 text-sm text-status-error">{error}</p>;
+  if (!data) return <p className="mt-6 text-sm text-ink-soft">Loading transcript...</p>;
 
   const displayName = (speaker: string) => names[speaker] || speaker;
 
@@ -68,18 +69,18 @@ export default function TranscriptViewer({ jobId }: { jobId: string }) {
   const totalTime = Object.values(totalsBySpeaker).reduce((a, b) => a + b, 0) || 1;
 
   return (
-    <div className="mt-6 rounded-2xl border border-brand-border bg-surface p-6 shadow-soft">
-      <h2 className="text-lg font-semibold text-brand-navy">Transcript</h2>
+    <div className="mt-6 border-2 border-line bg-paper p-6">
+      <h2 className="font-display text-lg font-bold text-ink">Transcript</h2>
 
       {data.summary && (
-        <div className="mt-3 rounded-lg bg-brand-navy-soft p-3 text-sm text-foreground">
-          <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted">Summary</p>
+        <div className="mt-3 bg-paper-shade p-3 text-sm text-ink">
+          <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-ink-soft">Summary</p>
           <p>{data.summary}</p>
         </div>
       )}
 
       {data.speakers.length > 1 && (
-        <div className="mt-4 flex h-2 overflow-hidden rounded-full bg-brand-navy-soft">
+        <div className="mt-4 flex h-2 overflow-hidden bg-paper-shade">
           {data.speakers.map((speaker, i) => {
             const pct = ((totalsBySpeaker[speaker] ?? 0) / totalTime) * 100;
             if (pct <= 0) return null;
@@ -108,17 +109,13 @@ export default function TranscriptViewer({ jobId }: { jobId: string }) {
               value={names[speaker] ?? ""}
               placeholder={speaker}
               onChange={(e) => setNames((prev) => ({ ...prev, [speaker]: e.target.value }))}
-              className="w-32 rounded-lg border border-brand-border bg-surface px-2 py-1 text-sm outline-none transition-shadow focus:border-brand-amber-dark focus:ring-2 focus:ring-brand-amber-soft"
+              className="w-32 border-2 border-line bg-paper px-2 py-1 text-sm outline-none transition-shadow focus:border-accent focus:ring-2 focus:ring-accent-soft"
             />
           </div>
         ))}
-        <button
-          onClick={handleSaveNames}
-          disabled={saving}
-          className="rounded-lg bg-brand-navy px-3 py-1.5 text-sm font-semibold text-white transition-colors hover:bg-brand-navy-hover disabled:cursor-default disabled:opacity-50"
-        >
+        <Button onClick={handleSaveNames} disabled={saving}>
           {saving ? "Saving..." : "Save names"}
-        </button>
+        </Button>
       </div>
 
       <div className="mt-4 max-h-[32rem] space-y-3 overflow-y-auto pr-1">
@@ -132,10 +129,10 @@ export default function TranscriptViewer({ jobId }: { jobId: string }) {
                 {initials(displayName(seg.speaker))}
               </span>
               <div>
-                <p className="text-xs font-medium text-muted">
+                <p className="text-xs font-medium text-ink-soft">
                   {displayName(seg.speaker)} &middot; {formatTimestamp(seg.start_ts)}
                 </p>
-                <p className="text-sm text-foreground">{seg.text}</p>
+                <p className="text-sm text-ink">{seg.text}</p>
               </div>
             </div>
           );

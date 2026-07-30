@@ -4,6 +4,8 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
+import Button, { buttonClassName } from "@/components/Button";
+import Card from "@/components/Card";
 import { ArchiveIcon, DriveIcon, JsonFileIcon, MarkdownFileIcon, MicrophoneIcon, PdfFileIcon, VideoCameraIcon, WordFileIcon } from "@/components/icons";
 import TranscriptViewer from "@/components/TranscriptViewer";
 import { apiFetch, ApiError, downloadAuthenticated } from "@/lib/api";
@@ -94,11 +96,11 @@ export default function JobDetailPage() {
   return (
     <div className="mx-auto w-full max-w-2xl px-6 py-10">
       <div className="flex items-center gap-4">
-        <Link href="/dashboard" className="text-sm text-muted hover:text-brand-amber-dark hover:underline">
+        <Link href="/dashboard" className="text-sm text-ink-soft hover:text-accent hover:underline">
           ← Back to dashboard
         </Link>
         {job && job.status === "done" && !job.retention_expired && (
-          <Link href="/documents" className="text-sm text-muted hover:text-brand-amber-dark hover:underline">
+          <Link href="/documents" className="text-sm text-ink-soft hover:text-accent hover:underline">
             All documents →
           </Link>
         )}
@@ -107,81 +109,75 @@ export default function JobDetailPage() {
       <div className="mt-4 flex items-center gap-2.5">
         {job && (
           <span
-            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
-              job.job_type === "audio" ? "bg-brand-navy-soft text-brand-navy" : "bg-brand-amber-soft text-brand-amber-dark"
+            className={`flex h-8 w-8 shrink-0 items-center justify-center ${
+              job.job_type === "audio" ? "bg-paper-shade text-ink-soft" : "bg-accent-soft text-accent"
             }`}
             title={job.job_type === "audio" ? "Audio transcript" : "Video document"}
           >
             {job.job_type === "audio" ? <MicrophoneIcon className="h-4 w-4" /> : <VideoCameraIcon className="h-4 w-4" />}
           </span>
         )}
-        <h1 className="truncate text-2xl font-bold tracking-tight text-brand-navy">
+        <h1 className="truncate font-display text-2xl font-bold tracking-tight text-ink">
           {job ? displayTitle(job) : "Job detail"}
         </h1>
       </div>
 
-      {error && <p className="mt-4 text-sm text-red-600">{error}</p>}
+      {error && <p className="mt-4 text-sm text-status-error">{error}</p>}
 
-      {!error && !job && <p className="mt-4 text-sm text-muted">Loading...</p>}
+      {!error && !job && <p className="mt-4 text-sm text-ink-soft">Loading...</p>}
 
       {job && (
-        <div className="mt-6 rounded-2xl border border-brand-border bg-surface p-6 shadow-soft">
+        <Card className="mt-6 p-6">
           <dl className="space-y-3 text-sm">
             <div className="flex justify-between">
-              <dt className="text-muted">Status</dt>
-              <dd className="font-medium text-foreground">{job.status}</dd>
+              <dt className="text-ink-soft">Status</dt>
+              <dd className="font-medium text-ink">{job.status}</dd>
             </div>
             {job.status === "processing" && job.progress_stage && (
               <div className="flex justify-between">
-                <dt className="text-muted">Stage</dt>
-                <dd className="font-medium text-foreground">{job.progress_stage.replaceAll("_", " ")}</dd>
+                <dt className="text-ink-soft">Stage</dt>
+                <dd className="font-medium text-ink">{job.progress_stage.replaceAll("_", " ")}</dd>
               </div>
             )}
             <div className="flex justify-between">
-              <dt className="text-muted">Created</dt>
-              <dd className="font-medium text-foreground">{new Date(job.created_at).toLocaleString()}</dd>
+              <dt className="text-ink-soft">Created</dt>
+              <dd className="font-medium text-ink">{new Date(job.created_at).toLocaleString()}</dd>
             </div>
             <div className="flex justify-between">
-              <dt className="text-muted">Type</dt>
-              <dd className="font-medium text-foreground capitalize">{job.job_type}</dd>
+              <dt className="text-ink-soft">Type</dt>
+              <dd className="font-medium text-ink capitalize">{job.job_type}</dd>
             </div>
             <div className="flex justify-between">
-              <dt className="text-muted">{job.job_type === "audio" ? "Audio length" : "Video length"}</dt>
-              <dd className="font-medium text-foreground">{formatDuration(job.duration_seconds)}</dd>
+              <dt className="text-ink-soft">{job.job_type === "audio" ? "Audio length" : "Video length"}</dt>
+              <dd className="font-medium text-ink">{formatDuration(job.duration_seconds)}</dd>
             </div>
             {(job.status === "done" || job.status === "failed") && (
               <div className="flex justify-between">
-                <dt className="text-muted">Took</dt>
-                <dd className="font-medium text-foreground">{formatElapsed(job)}</dd>
+                <dt className="text-ink-soft">Took</dt>
+                <dd className="font-medium text-ink">{formatElapsed(job)}</dd>
               </div>
             )}
             <div className="flex justify-between">
-              <dt className="text-muted">Cost</dt>
-              <dd className="font-medium text-foreground">{formatCents(job.billed_cents)}</dd>
+              <dt className="text-ink-soft">Cost</dt>
+              <dd className="font-medium text-ink">{formatCents(job.billed_cents)}</dd>
             </div>
           </dl>
 
           {job.status === "failed" && job.error && (
-            <p className="mt-4 rounded-lg bg-red-50 p-3 text-sm text-red-700">
-              {job.error}
-            </p>
+            <p className="mt-4 bg-status-error-soft p-3 text-sm text-status-error">{job.error}</p>
           )}
 
           {job.status === "failed" && (
             <div className="mt-4">
-              <button
-                onClick={handleRetry}
-                disabled={retrying}
-                className="rounded-lg bg-brand-navy px-3 py-1.5 text-sm font-semibold text-white transition-colors hover:bg-brand-navy-hover disabled:cursor-default disabled:opacity-50"
-              >
+              <Button onClick={handleRetry} disabled={retrying}>
                 {retrying ? "Retrying..." : "Retry"}
-              </button>
-              {retryError && <p className="mt-2 text-sm text-red-600">{retryError}</p>}
+              </Button>
+              {retryError && <p className="mt-2 text-sm text-status-error">{retryError}</p>}
             </div>
           )}
 
           {job.status === "done" && job.retention_expired && (
-            <p className="mt-4 rounded-lg bg-brand-navy-soft p-3 text-sm text-muted">
+            <p className="mt-4 bg-paper-shade p-3 text-sm text-ink-soft">
               This document was deleted per the 7-day retention policy and can no longer be downloaded.
             </p>
           )}
@@ -189,64 +185,48 @@ export default function JobDetailPage() {
           {job.status === "done" && !job.retention_expired && (
             <div className="mt-6 flex flex-wrap gap-2">
               {job.document_url && (
-                <button
-                  onClick={() => downloadAuthenticated(job.document_url!, `${job.job_id}.md`)}
-                  className="flex items-center gap-2 rounded-lg bg-brand-navy px-3 py-1.5 text-sm font-semibold text-white transition-colors hover:bg-brand-navy-hover"
-                >
+                <Button onClick={() => downloadAuthenticated(job.document_url!, `${job.job_id}.md`)}>
                   <MarkdownFileIcon className="h-5 w-5" />
                   Download Markdown
-                </button>
+                </Button>
               )}
               {job.document_bundle_url && (
-                <button
-                  onClick={() => downloadAuthenticated(job.document_bundle_url!, `${job.job_id}.zip`)}
-                  className="flex items-center gap-2 rounded-lg border border-brand-border px-3 py-1.5 text-sm text-foreground transition-colors hover:bg-brand-navy-soft"
-                >
+                <Button variant="outline" onClick={() => downloadAuthenticated(job.document_bundle_url!, `${job.job_id}.zip`)}>
                   <ArchiveIcon className="h-5 w-5 text-amber-600" />
                   Download Markdown + images (.zip)
-                </button>
+                </Button>
               )}
               {job.document_docx_url && (
-                <button
-                  onClick={() => downloadAuthenticated(job.document_docx_url!, `${job.job_id}.docx`)}
-                  className="flex items-center gap-2 rounded-lg border border-brand-border px-3 py-1.5 text-sm text-foreground transition-colors hover:bg-brand-navy-soft"
-                >
+                <Button variant="outline" onClick={() => downloadAuthenticated(job.document_docx_url!, `${job.job_id}.docx`)}>
                   <WordFileIcon className="h-5 w-5 text-blue-700" />
                   Download Word
-                </button>
+                </Button>
               )}
               {job.document_pdf_url && (
-                <button
-                  onClick={() => downloadAuthenticated(job.document_pdf_url!, `${job.job_id}.pdf`)}
-                  className="flex items-center gap-2 rounded-lg border border-brand-border px-3 py-1.5 text-sm text-foreground transition-colors hover:bg-brand-navy-soft"
-                >
-                  <PdfFileIcon className="h-5 w-5 text-red-600" />
+                <Button variant="outline" onClick={() => downloadAuthenticated(job.document_pdf_url!, `${job.job_id}.pdf`)}>
+                  <PdfFileIcon className="h-5 w-5 text-ink-soft" />
                   Download PDF
-                </button>
+                </Button>
               )}
               {job.document_transcript_json_url && (
-                <button
+                <Button
+                  variant="outline"
                   onClick={() => downloadAuthenticated(job.document_transcript_json_url!, `${job.job_id}.transcript.json`)}
-                  className="flex items-center gap-2 rounded-lg border border-brand-border px-3 py-1.5 text-sm text-foreground transition-colors hover:bg-brand-navy-soft"
                 >
                   <JsonFileIcon className="h-5 w-5 text-emerald-600" />
                   Download Transcript JSON
-                </button>
+                </Button>
               )}
               {driveConnected ? (
-                <button
-                  onClick={handleSaveToDrive}
-                  disabled={savingToDrive}
-                  className="flex items-center gap-2 rounded-lg border border-brand-border px-3 py-1.5 text-sm text-foreground transition-colors hover:bg-brand-navy-soft disabled:cursor-default disabled:opacity-50"
-                >
+                <Button variant="outline" onClick={handleSaveToDrive} disabled={savingToDrive}>
                   <DriveIcon className="h-5 w-5" />
                   {savingToDrive ? "Saving..." : "Save to Drive"}
-                </button>
+                </Button>
               ) : (
                 <Link
                   href="/settings/integrations"
                   title="Connect Google Drive in Settings to enable this"
-                  className="flex items-center gap-2 rounded-lg border border-brand-border px-3 py-1.5 text-sm text-muted transition-colors hover:bg-brand-navy-soft"
+                  className={buttonClassName("outline", "text-ink-soft")}
                 >
                   <DriveIcon className="h-5 w-5" />
                   Save to Drive
@@ -254,12 +234,12 @@ export default function JobDetailPage() {
               )}
             </div>
           )}
-          {driveError && <p className="mt-3 text-sm text-red-600">{driveError}</p>}
+          {driveError && <p className="mt-3 text-sm text-status-error">{driveError}</p>}
 
           {job.job_type === "audio" && job.status === "done" && job.document_transcript_json_url && (
             <TranscriptViewer jobId={job.job_id} />
           )}
-        </div>
+        </Card>
       )}
     </div>
   );

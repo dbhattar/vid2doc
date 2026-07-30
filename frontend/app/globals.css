@@ -1,47 +1,121 @@
 @import "tailwindcss";
 
 :root {
-  --background: #faf9f6;
-  --foreground: #1c2b4a;
-  --surface: #ffffff;
-  --muted: #5b6b83;
+  --paper: #ffffff;
+  --paper-shade: #f2f0ec;
+  --ink: #14120f;
+  --ink-soft: #56514a;
+  --line: #dedbd4;
+  --accent: #c81e3a;
+  --accent-ink: #ffffff;
+  /* A light tint of --accent -- used for active/highlighted states a dashboard
+     needs that a static marketing page doesn't (e.g. the active sidebar item).
+     Not part of marketing/'s token set, but derived the same way its old
+     --accent-soft was: a light wash of the brand accent. */
+  --accent-soft: #fbe3e6;
 
-  --brand-navy: #1c2b4a;
-  --brand-navy-hover: #2c3f63;
-  --brand-navy-soft: #eef1f5;
-  --brand-amber: #e2962f;
-  --brand-amber-dark: #9c631a;
-  --brand-amber-soft: #fbe9cf;
-  --brand-border: #e7e3d9;
+  /* Separate from --accent on purpose -- a failed-job badge must never read
+     as a CTA just because both happen to be "red". */
+  --status-success: #1f7a4d;
+  --status-success-soft: #e4f2ea;
+  --status-error: #b3141f;
+  --status-error-soft: #fbe6e6;
+  --status-warning: #9c631a;
+  --status-warning-soft: #fbe9cf;
+  --status-info: #2b3a67;
+  --status-info-soft: #eef1f5;
+}
 
-  --shadow-soft: 0 10px 30px rgba(28, 43, 74, 0.08);
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #121110;
+    --paper-shade: #1c1a17;
+    --ink: #f4f1ea;
+    --ink-soft: #b6afa4;
+    --line: #35312b;
+    --accent: #ff6248;
+    --accent-ink: #14120f;
+    --accent-soft: #3a1f20;
+
+    --status-success: #4fae7c;
+    --status-success-soft: #16281f;
+    --status-error: #e05a52;
+    --status-error-soft: #331616;
+    --status-warning: #d9a34a;
+    --status-warning-soft: #322613;
+    --status-info: #8a9bce;
+    --status-info-soft: #1c2233;
+  }
+}
+
+/* Explicit overrides for the manual toggle (ThemeToggle.tsx) -- these must
+   win over the prefers-color-scheme block above in both directions, since
+   the whole point is letting a user pick a theme against  their OS setting. */
+:root[data-theme='dark'] {
+  --paper: #121110;
+  --paper-shade: #1c1a17;
+  --ink: #f4f1ea;
+  --ink-soft: #b6afa4;
+  --line: #35312b;
+  --accent: #ff6248;
+  --accent-ink: #14120f;
+  --accent-soft: #3a1f20;
+
+  --status-success: #4fae7c;
+  --status-success-soft: #16281f;
+  --status-error: #e05a52;
+  --status-error-soft: #331616;
+  --status-warning: #d9a34a;
+  --status-warning-soft: #322613;
+  --status-info: #8a9bce;
+  --status-info-soft: #1c2233;
+}
+:root[data-theme='light'] {
+  --paper: #ffffff;
+  --paper-shade: #f2f0ec;
+  --ink: #14120f;
+  --ink-soft: #56514a;
+  --line: #dedbd4;
+  --accent: #c81e3a;
+  --accent-ink: #ffffff;
+  --accent-soft: #fbe3e6;
+
+  --status-success: #1f7a4d;
+  --status-success-soft: #e4f2ea;
+  --status-error: #b3141f;
+  --status-error-soft: #fbe6e6;
+  --status-warning: #9c631a;
+  --status-warning-soft: #fbe9cf;
+  --status-info: #2b3a67;
+  --status-info-soft: #eef1f5;
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-surface: var(--surface);
-  --color-muted: var(--muted);
+  --color-paper: var(--paper);
+  --color-paper-shade: var(--paper-shade);
+  --color-ink: var(--ink);
+  --color-ink-soft: var(--ink-soft);
+  --color-line: var(--line);
+  --color-accent: var(--accent);
+  --color-accent-ink: var(--accent-ink);
+  --color-accent-soft: var(--accent-soft);
 
-  --color-brand-navy: var(--brand-navy);
-  --color-brand-navy-hover: var(--brand-navy-hover);
-  --color-brand-navy-soft: var(--brand-navy-soft);
-  --color-brand-amber: var(--brand-amber);
-  --color-brand-amber-dark: var(--brand-amber-dark);
-  --color-brand-amber-soft: var(--brand-amber-soft);
-  --color-brand-border: var(--brand-border);
+  --color-status-success: var(--status-success);
+  --color-status-success-soft: var(--status-success-soft);
+  --color-status-error: var(--status-error);
+  --color-status-error-soft: var(--status-error-soft);
+  --color-status-warning: var(--status-warning);
+  --color-status-warning-soft: var(--status-warning-soft);
+  --color-status-info: var(--status-info);
+  --color-status-info-soft: var(--status-info-soft);
 
-  --shadow-soft: var(--shadow-soft);
-
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-display: var(--font-fraunces);
+  --font-mono: var(--font-plex-mono);
+  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
 }
 
-/* No dark-mode variant by design -- this app always renders the light
-   palette above, matching the marketing site, regardless of OS theme. */
-
 body {
-  background: var(--background);
-  color: var(--foreground);
+  background: var(--paper);
+  color: var(--ink);
   font-family: var(--font-sans), ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }

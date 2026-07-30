@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import Button from "@/components/Button";
 import { apiFetch, ApiError } from "@/lib/api";
 import { clearSession } from "@/lib/auth";
 
@@ -83,28 +84,28 @@ export default function ApiKeysPage() {
 
   return (
     <div className="mx-auto w-full max-w-2xl px-6 py-10">
-      <h1 className="text-2xl font-bold tracking-tight text-brand-navy">API keys</h1>
-      <p className="mt-1 text-sm text-muted">Use a key with the <code>X-API-Key</code> header to call the API directly.</p>
+      <h1 className="font-display text-2xl font-bold tracking-tight text-ink">API keys</h1>
+      <p className="mt-1 text-sm text-ink-soft">Use a key with the <code>X-API-Key</code> header to call the API directly.</p>
 
       {revealedKey && (
-        <div className="mt-6 rounded-2xl border border-brand-amber/40 bg-brand-amber-soft p-4">
-          <p className="text-sm font-medium text-brand-amber-dark">
+        <div className="mt-6 border-2 border-accent bg-accent-soft p-4">
+          <p className="text-sm font-medium text-accent">
             Copy this key now -- you won&apos;t be able to see it again.
           </p>
           <div className="mt-2 flex items-center gap-2">
-            <code className="flex-1 overflow-x-auto rounded-lg bg-surface px-3 py-2 text-sm">
+            <code className="flex-1 overflow-x-auto border border-line bg-paper px-3 py-2 text-sm">
               {revealedKey}
             </code>
             <button
               onClick={handleCopy}
-              className="shrink-0 rounded-lg border border-brand-amber/50 px-3 py-2 text-sm font-medium text-brand-amber-dark transition-colors hover:bg-white/60"
+              className="shrink-0 border-2 border-accent px-3 py-2 text-sm font-medium text-accent transition-colors hover:bg-paper/60"
             >
               {copied ? "Copied" : "Copy"}
             </button>
           </div>
           <button
             onClick={() => setRevealedKey(null)}
-            className="mt-3 text-sm text-brand-amber-dark underline"
+            className="mt-3 text-sm text-accent underline"
           >
             Done, I&apos;ve saved it
           </button>
@@ -117,43 +118,39 @@ export default function ApiKeysPage() {
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="Key name (e.g. CI pipeline)"
-          className="flex-1 rounded-lg border border-brand-border bg-surface px-3 py-2 text-sm outline-none transition-shadow focus:border-brand-amber-dark focus:ring-2 focus:ring-brand-amber-soft"
+          className="flex-1 border-2 border-line bg-paper px-3 py-2 text-sm outline-none transition-shadow focus:border-accent focus:ring-2 focus:ring-accent-soft"
         />
-        <button
-          type="submit"
-          disabled={creating || !name.trim()}
-          className="rounded-lg bg-brand-navy px-4 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-navy-hover disabled:cursor-default disabled:opacity-50"
-        >
+        <Button type="submit" disabled={creating || !name.trim()}>
           {creating ? "Creating..." : "Create key"}
-        </button>
+        </Button>
       </form>
 
-      {error && <p className="mt-4 text-sm text-red-600">{error}</p>}
+      {error && <p className="mt-4 text-sm text-status-error">{error}</p>}
 
       <div className="mt-8">
         {keys === null ? (
-          <p className="text-sm text-muted">Loading...</p>
+          <p className="text-sm text-ink-soft">Loading...</p>
         ) : keys.length === 0 ? (
-          <p className="rounded-2xl border border-dashed border-brand-border p-6 text-center text-sm text-muted">
+          <p className="border-2 border-dashed border-line p-6 text-center text-sm text-ink-soft">
             No API keys yet -- create one above.
           </p>
         ) : (
-          <ul className="divide-y divide-brand-border overflow-hidden rounded-2xl border border-brand-border bg-surface shadow-soft">
+          <ul className="divide-y divide-line border-2 border-line bg-paper">
             {keys.map((key) => (
               <li key={key.id} className="flex items-center justify-between px-4 py-3">
                 <div>
-                  <p className="text-sm font-medium text-foreground">{key.name}</p>
-                  <p className="text-xs text-muted">
+                  <p className="text-sm font-medium text-ink">{key.name}</p>
+                  <p className="text-xs text-ink-soft">
                     {key.key_prefix}•••••••••••••••• &middot; created {new Date(key.created_at).toLocaleDateString()}
                     {key.last_used_at && ` · last used ${new Date(key.last_used_at).toLocaleDateString()}`}
                   </p>
                 </div>
                 {key.revoked_at ? (
-                  <span className="text-xs text-muted">Revoked</span>
+                  <span className="text-xs text-ink-soft">Revoked</span>
                 ) : (
                   <button
                     onClick={() => handleRevoke(key)}
-                    className="text-sm text-red-600 hover:underline"
+                    className="text-sm text-status-error hover:underline"
                   >
                     Revoke
                   </button>

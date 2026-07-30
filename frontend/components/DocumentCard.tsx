@@ -36,18 +36,18 @@ export default function DocumentCard({ job }: { job: Job }) {
   }
 
   return (
-    <div className="flex flex-col rounded-2xl border border-brand-border bg-surface p-4 shadow-soft transition-shadow hover:shadow-md">
+    <div className="flex flex-col border-2 border-line bg-paper p-4 transition-colors hover:border-accent">
       <div className="flex items-start justify-between gap-2">
         <span
-          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${
-            job.job_type === "audio" ? "bg-brand-navy-soft text-brand-navy" : "bg-brand-amber-soft text-brand-amber-dark"
+          className={`flex h-8 w-8 shrink-0 items-center justify-center ${
+            job.job_type === "audio" ? "bg-paper-shade text-ink-soft" : "bg-accent-soft text-accent"
           }`}
           title={job.job_type === "audio" ? "Audio transcript" : "Video document"}
         >
           <TypeIcon className="h-4 w-4" />
         </span>
         {job.retention_expired && (
-          <span className="shrink-0 text-xs text-muted" title="Documents aren't guaranteed past 7 days">
+          <span className="shrink-0 text-xs text-ink-soft" title="Documents aren't guaranteed past 7 days">
             Expired
           </span>
         )}
@@ -55,23 +55,23 @@ export default function DocumentCard({ job }: { job: Job }) {
 
       <Link
         href={`/dashboard/jobs/${job.job_id}`}
-        className="mt-3 line-clamp-2 text-sm font-medium text-foreground hover:text-brand-amber-dark hover:underline"
+        className="mt-3 line-clamp-2 text-sm font-medium text-ink hover:text-accent hover:underline"
       >
         {displayTitle(job)}
       </Link>
-      <p className="mt-1 text-xs text-muted">
+      <p className="mt-1 text-xs text-ink-soft">
         {new Date(job.created_at).toLocaleDateString()} &middot; {formatDuration(job.duration_seconds)}
       </p>
 
       {!job.retention_expired && (
-        <div className="mt-3 flex flex-wrap items-center gap-1.5 border-t border-brand-border pt-3 text-muted">
+        <div className="mt-3 flex flex-wrap items-center gap-1.5 border-t border-line pt-3 text-ink-soft">
           {job.document_url && (
             <button
               onClick={() => downloadAuthenticated(job.document_url!, `${job.job_id}.md`)}
               title="Download Markdown"
-              className="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium transition-colors hover:bg-brand-navy-soft hover:text-brand-amber-dark"
+              className="flex items-center gap-1.5 px-2 py-1.5 text-xs font-medium transition-colors hover:bg-paper-shade hover:text-accent"
             >
-              <MarkdownFileIcon className="h-4 w-4 text-foreground" />
+              <MarkdownFileIcon className="h-4 w-4 text-ink" />
               Markdown
             </button>
           )}
@@ -79,7 +79,7 @@ export default function DocumentCard({ job }: { job: Job }) {
             <button
               onClick={() => downloadAuthenticated(job.document_bundle_url!, `${job.job_id}.zip`)}
               title="Download Markdown + images (.zip)"
-              className="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium transition-colors hover:bg-brand-navy-soft hover:text-brand-amber-dark"
+              className="flex items-center gap-1.5 px-2 py-1.5 text-xs font-medium transition-colors hover:bg-paper-shade hover:text-accent"
             >
               <ArchiveIcon className="h-4 w-4 text-amber-600" />
               ZIP
@@ -89,7 +89,7 @@ export default function DocumentCard({ job }: { job: Job }) {
             <button
               onClick={() => downloadAuthenticated(job.document_docx_url!, `${job.job_id}.docx`)}
               title="Download Word"
-              className="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium transition-colors hover:bg-brand-navy-soft hover:text-brand-amber-dark"
+              className="flex items-center gap-1.5 px-2 py-1.5 text-xs font-medium transition-colors hover:bg-paper-shade hover:text-accent"
             >
               <WordFileIcon className="h-4 w-4 text-blue-700" />
               Word
@@ -99,9 +99,9 @@ export default function DocumentCard({ job }: { job: Job }) {
             <button
               onClick={() => downloadAuthenticated(job.document_pdf_url!, `${job.job_id}.pdf`)}
               title="Download PDF"
-              className="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium transition-colors hover:bg-brand-navy-soft hover:text-brand-amber-dark"
+              className="flex items-center gap-1.5 px-2 py-1.5 text-xs font-medium transition-colors hover:bg-paper-shade hover:text-accent"
             >
-              <PdfFileIcon className="h-4 w-4 text-red-600" />
+              <PdfFileIcon className="h-4 w-4 text-ink-soft" />
               PDF
             </button>
           )}
@@ -109,7 +109,7 @@ export default function DocumentCard({ job }: { job: Job }) {
             <button
               onClick={() => downloadAuthenticated(job.document_transcript_json_url!, `${job.job_id}.transcript.json`)}
               title="Download Transcript JSON"
-              className="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium transition-colors hover:bg-brand-navy-soft hover:text-brand-amber-dark"
+              className="flex items-center gap-1.5 px-2 py-1.5 text-xs font-medium transition-colors hover:bg-paper-shade hover:text-accent"
             >
               <JsonFileIcon className="h-4 w-4 text-emerald-600" />
               JSON
@@ -120,7 +120,7 @@ export default function DocumentCard({ job }: { job: Job }) {
               onClick={handleSaveToDrive}
               disabled={savingToDrive}
               title="Save to Google Drive"
-              className="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium transition-colors hover:bg-brand-navy-soft hover:text-brand-amber-dark disabled:cursor-default disabled:opacity-50"
+              className="flex items-center gap-1.5 px-2 py-1.5 text-xs font-medium transition-colors hover:bg-paper-shade hover:text-accent disabled:cursor-default disabled:opacity-50"
             >
               <DriveIcon className="h-4 w-4" />
               {savingToDrive ? "Saving..." : "Drive"}
@@ -129,7 +129,7 @@ export default function DocumentCard({ job }: { job: Job }) {
             <Link
               href="/settings/integrations"
               title="Connect Google Drive in Settings to enable this"
-              className="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium text-muted/40 transition-colors hover:bg-brand-navy-soft"
+              className="flex items-center gap-1.5 px-2 py-1.5 text-xs font-medium text-ink-soft/40 transition-colors hover:bg-paper-shade"
             >
               <DriveIcon className="h-4 w-4" />
               Drive
@@ -137,7 +137,7 @@ export default function DocumentCard({ job }: { job: Job }) {
           )}
         </div>
       )}
-      {driveError && <p className="mt-2 text-xs text-red-600">{driveError}</p>}
+      {driveError && <p className="mt-2 text-xs text-status-error">{driveError}</p>}
     </div>
   );
 }

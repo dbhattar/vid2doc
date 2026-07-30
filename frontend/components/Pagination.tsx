@@ -18,7 +18,7 @@ export default function Pagination({
   const rangeEnd = Math.min(page * pageSize, total);
 
   return (
-    <div className="mt-4 flex items-center justify-between text-sm text-muted">
+    <div className="mt-4 flex items-center justify-between text-sm text-ink-soft">
       <span>
         {rangeStart}-{rangeEnd} of {total}
       </span>
@@ -26,7 +26,7 @@ export default function Pagination({
         <button
           onClick={() => onPageChange(page - 1)}
           disabled={page <= 1}
-          className="rounded-lg border border-brand-border px-3 py-1.5 font-medium text-foreground transition-colors hover:bg-brand-navy-soft disabled:cursor-default disabled:opacity-40"
+          className="border-2 border-line px-3 py-1.5 font-medium text-ink transition-colors hover:bg-paper-shade disabled:cursor-default disabled:opacity-40"
         >
           Previous
         </button>
@@ -36,7 +36,7 @@ export default function Pagination({
         <button
           onClick={() => onPageChange(page + 1)}
           disabled={page >= totalPages}
-          className="rounded-lg border border-brand-border px-3 py-1.5 font-medium text-foreground transition-colors hover:bg-brand-navy-soft disabled:cursor-default disabled:opacity-40"
+          className="border-2 border-line px-3 py-1.5 font-medium text-ink transition-colors hover:bg-paper-shade disabled:cursor-default disabled:opacity-40"
         >
           Next
         </button>

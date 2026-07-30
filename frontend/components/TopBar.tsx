@@ -6,7 +6,7 @@ import FeedbackButton from "@/components/FeedbackButton";
 // entry points. The user menu lives in the sidebar, not here.
 export default function TopBar() {
   return (
-    <header className="flex h-16 shrink-0 items-center justify-end border-b border-brand-border bg-background px-4">
+    <header className="flex h-16 shrink-0 items-center justify-end border-b border-line bg-paper px-4">
       <FeedbackButton />
     </header>
   );

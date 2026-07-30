@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from "react";
 
+import Button from "@/components/Button";
 import { FeedbackIcon } from "@/components/icons";
 import { apiFetch, ApiError } from "@/lib/api";
 
@@ -49,27 +50,27 @@ export default function FeedbackButton() {
       <button
         onClick={toggle}
         title="Feedback / feature requests"
-        className="flex items-center justify-center rounded-lg p-2 text-muted transition-colors hover:bg-brand-navy-soft hover:text-brand-navy"
+        className="flex items-center justify-center p-2 text-ink-soft transition-colors hover:bg-paper-shade hover:text-ink"
       >
         <FeedbackIcon className="h-5 w-5" />
       </button>
 
       {open && (
-        <div className="absolute right-0 z-20 mt-2 w-80 rounded-xl border border-brand-border bg-surface p-4 shadow-soft">
+        <div className="absolute right-0 z-20 mt-2 w-80 border-2 border-line bg-paper p-4">
           {sent ? (
             <div className="text-center">
-              <p className="text-sm font-medium text-foreground">Thanks for the feedback!</p>
+              <p className="text-sm font-medium text-ink">Thanks for the feedback!</p>
               <button
                 onClick={() => setOpen(false)}
-                className="mt-3 text-sm text-muted hover:text-brand-amber-dark hover:underline"
+                className="mt-3 text-sm text-ink-soft hover:text-accent hover:underline"
               >
                 Close
               </button>
             </div>
           ) : (
             <form onSubmit={handleSubmit}>
-              <p className="text-sm font-semibold text-foreground">Feedback or feature request</p>
-              <p className="mt-1 text-xs text-muted">
+              <p className="text-sm font-semibold text-ink">Feedback or feature request</p>
+              <p className="mt-1 text-xs text-ink-soft">
                 Tell us what&apos;s working, what&apos;s not, or what you&apos;d like to see.
               </p>
               <textarea
@@ -77,16 +78,12 @@ export default function FeedbackButton() {
                 onChange={(e) => setMessage(e.target.value)}
                 rows={4}
                 placeholder="Type your feedback here..."
-                className="mt-3 w-full resize-none rounded-lg border border-brand-border bg-surface px-3 py-2 text-sm outline-none transition-shadow focus:border-brand-amber-dark focus:ring-2 focus:ring-brand-amber-soft"
+                className="mt-3 w-full resize-none border-2 border-line bg-paper px-3 py-2 text-sm outline-none transition-shadow focus:border-accent focus:ring-2 focus:ring-accent-soft"
               />
-              {error && <p className="mt-2 text-sm text-red-600">{error}</p>}
-              <button
-                type="submit"
-                disabled={submitting || !message.trim()}
-                className="mt-3 w-full rounded-lg bg-brand-navy px-3 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-navy-hover disabled:cursor-default disabled:opacity-50"
-              >
+              {error && <p className="mt-2 text-sm text-status-error">{error}</p>}
+              <Button type="submit" disabled={submitting || !message.trim()} className="mt-3 w-full justify-center">
                 {submitting ? "Sending..." : "Send feedback"}
-              </button>
+              </Button>
             </form>
           )}
         </div>
