@@ -154,12 +154,16 @@ def delete_job(job_id: str) -> None:
 def list_jobs_eligible_for_retention(cutoff: datetime) -> list[dict]:
     """`done` jobs created before `cutoff` that haven't already been cleaned
     up. Retention applies to everyone -- there's no plan tier anymore that
-    gets unlimited retention."""
+    gets unlimited retention. `awaiting_review` jobs are swept the same way:
+    a frame review nobody ever finished never produces a usable document
+    either, so it shouldn't hold onto disk space forever just because it
+    never technically "finished" (see retention.py for how the two statuses
+    are handled differently once found)."""
     session = get_session()
     try:
         rows = (
             session.query(Job)
-            .filter(Job.status == "done", Job.created_at < cutoff, Job.deleted_at.is_(None))
+            .filter(Job.status.in_(["done", "awaiting_review"]), Job.created_at < cutoff, Job.deleted_at.is_(None))
             .all()
         )
         return [_job_to_dict(j) for j in rows]

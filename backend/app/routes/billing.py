@@ -45,6 +45,7 @@ def create_topup_checkout(body: TopUpRequest, current_user: dict = Depends(get_c
 def get_wallet(current_user: dict = Depends(get_current_user)):
     return {
         "balance_cents": billing.get_wallet_balance_cents(current_user["id"]),
+        "spent_cents": billing.net_spent_cents(current_user["id"]),
         "payments_enabled": settings.PAYMENTS_ENABLED,
     }
 

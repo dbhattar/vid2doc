@@ -28,9 +28,7 @@ Classify a frame as "filler" (dropped from the document) if ANY of these apply:
 
 For everything else, decide:
 - "table" if it shows tabular data with rows/columns -- also extract the table's headers and rows as structured data, best effort from what's visible.
-- Otherwise pick the content type that best fits: slide, diagram, whiteboard, code, photo, or chart.
-
-Always include a one-sentence present-tense caption describing what's shown (empty string for filler frames)."""
+- Otherwise pick the content type that best fits: slide, diagram, whiteboard, code, photo, or chart."""
 
 TABLE_SCHEMA_ANTHROPIC = {
     "type": ["object", "null"],
@@ -49,10 +47,9 @@ ITEM_SCHEMA_ANTHROPIC = {
             "type": "string",
             "enum": ["slide", "diagram", "whiteboard", "code", "photo", "chart", "table", "filler"],
         },
-        "caption": {"type": "string"},
         "table": TABLE_SCHEMA_ANTHROPIC,
     },
-    "required": ["frame_index", "content_type", "caption", "table"],
+    "required": ["frame_index", "content_type", "table"],
 }
 
 CLASSIFY_TOOL = {
@@ -80,7 +77,6 @@ CLASSIFY_JSON_SCHEMA = {
                         "type": "string",
                         "enum": ["slide", "diagram", "whiteboard", "code", "photo", "chart", "table", "filler"],
                     },
-                    "caption": {"type": "string"},
                     "table": {
                         "anyOf": [
                             {
@@ -96,7 +92,7 @@ CLASSIFY_JSON_SCHEMA = {
                         ]
                     },
                 },
-                "required": ["frame_index", "content_type", "caption", "table"],
+                "required": ["frame_index", "content_type", "table"],
                 "additionalProperties": False,
             },
         }
@@ -197,19 +193,145 @@ def classify_frames(candidates: list[dict], provider: str | None = None) -> tupl
                     "id": next_id,
                     "kind": "table",
                     "timestamp": frame["timestamp"],
-                    "caption": c["caption"],
                     "headers": c["table"]["headers"],
                     "rows": c["table"]["rows"],
+                    # Kept (unlike before) so a table item can still be viewed/saved
+                    # as an image during frame review, same as any other item.
+                    "path": frame["path"],
                 })
             else:
                 images_meta.append({
                     "id": next_id,
                     "kind": "image",
                     "timestamp": frame["timestamp"],
-                    "caption": c["caption"],
                     "content_type": c["content_type"],
                     "path": frame["path"],
                 })
             next_id += 1
 
     return images_meta, tables_meta
+
+
+CAPTION_SYSTEM_PROMPT = """You are writing a one-sentence, present-tense caption for a frame that a user has already chosen to include in a document generated from a video transcript.
+
+State plainly what the frame's content actually is or says -- lead with the substance, not the medium. For example, write "Q3 revenue grew 12% year over year" rather than "A slide showing Q3 revenue growth", and "Recursive binary search implementation in Python" rather than "A code snippet of a binary search function". For a table, describe what its data represents rather than restating its headers."""
+
+CAPTION_ITEM_SCHEMA_ANTHROPIC = {
+    "type": "object",
+    "properties": {
+        "frame_index": {"type": "integer", "description": "1-based index within this batch"},
+        "caption": {"type": "string"},
+    },
+    "required": ["frame_index", "caption"],
+}
+
+CAPTION_TOOL = {
+    "name": "submit_captions",
+    "description": "Submit captions for a batch of already-selected video frames.",
+    "input_schema": {
+        "type": "object",
+        "properties": {"captions": {"type": "array", "items": CAPTION_ITEM_SCHEMA_ANTHROPIC}},
+        "required": ["captions"],
+    },
+}
+
+CAPTION_JSON_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "captions": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {"frame_index": {"type": "integer"}, "caption": {"type": "string"}},
+                "required": ["frame_index", "caption"],
+                "additionalProperties": False,
+            },
+        }
+    },
+    "required": ["captions"],
+    "additionalProperties": False,
+}
+
+
+def _caption_batch_anthropic(client, batch: list[dict]) -> list[dict]:
+    content = []
+    for i, item in enumerate(batch, start=1):
+        label = "table" if item["kind"] == "table" else item.get("content_type", "image")
+        content.append({"type": "text", "text": f"Frame {i} ({label})"})
+        content.append(
+            {"type": "image", "source": {"type": "base64", "media_type": "image/jpeg", "data": _encode_image(Path(item["path"]))}}
+        )
+
+    response = client.messages.create(
+        model="claude-sonnet-5",
+        max_tokens=2048,
+        system=CAPTION_SYSTEM_PROMPT,
+        tools=[CAPTION_TOOL],
+        tool_choice={"type": "tool", "name": "submit_captions"},
+        messages=[{"role": "user", "content": content}],
+    )
+    for block in response.content:
+        if block.type == "tool_use":
+            return block.input["captions"]
+    return []
+
+
+def _caption_batch_openai(client, batch: list[dict]) -> list[dict]:
+    import json
+
+    content = []
+    for i, item in enumerate(batch, start=1):
+        label = "table" if item["kind"] == "table" else item.get("content_type", "image")
+        content.append({"type": "text", "text": f"Frame {i} ({label})"})
+        content.append({"type": "image_url", "image_url": {"url": f"data:image/jpeg;base64,{_encode_image(Path(item['path']))}"}})
+
+    response = client.chat.completions.create(
+        model=settings.OPENAI_MODEL,
+        messages=[
+            {"role": "system", "content": CAPTION_SYSTEM_PROMPT},
+            {"role": "user", "content": content},
+        ],
+        response_format={
+            "type": "json_schema",
+            "json_schema": {"name": "submit_captions", "strict": True, "schema": CAPTION_JSON_SCHEMA},
+        },
+    )
+    return json.loads(response.choices[0].message.content)["captions"]
+
+
+def caption_frames(items: list[dict], provider: str | None = None) -> list[dict]:
+    """Generates a caption for each item, given only the ones the user chose
+    to keep during frame review -- run after that decision (see
+    pipeline.resume_after_review), not during classify_frames, so
+    caption-writing (and its vision-LLM cost) is never spent on a frame the
+    user ends up skipping. Returns copies of `items` with "caption" filled
+    in; order and all other fields are preserved."""
+    if not items:
+        return []
+
+    provider = provider or settings.LLM_PROVIDER
+
+    if provider == "openai":
+        import openai
+
+        api_key = os.environ.get("OPENAI_API_KEY")
+        if not api_key:
+            raise PipelineError("OPENAI_API_KEY is not set")
+        client = openai.OpenAI(api_key=api_key)
+        caption_batch = _caption_batch_openai
+    else:
+        import anthropic
+
+        api_key = os.environ.get("ANTHROPIC_API_KEY")
+        if not api_key:
+            raise PipelineError("ANTHROPIC_API_KEY is not set")
+        client = anthropic.Anthropic(api_key=api_key)
+        caption_batch = _caption_batch_anthropic
+
+    captioned: list[dict] = []
+    for start in range(0, len(items), BATCH_SIZE):
+        batch = items[start:start + BATCH_SIZE]
+        for c in caption_batch(client, batch):
+            item = batch[c["frame_index"] - 1]
+            captioned.append({**item, "caption": c["caption"]})
+    return captioned

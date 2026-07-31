@@ -71,7 +71,8 @@ function BillingPageContent() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-2xl px-6 py-10">
+    <div className="w-full px-6 py-10">
+      <div className="mx-auto max-w-2xl">
       <h1 className="font-display text-2xl font-bold tracking-tight text-ink">Billing</h1>
       <p className="mt-1 text-sm text-ink-soft">
         Pay-as-you-go: $1.00 per hour of video, $0.40 per hour of audio-only transcription -- charged only when you
@@ -147,6 +148,7 @@ function BillingPageContent() {
       <p className="mt-6 text-xs text-ink-soft">
         Documents aren&apos;t guaranteed to be retained past 7 days -- download what you need.
       </p>
+      </div>
     </div>
   );
 }

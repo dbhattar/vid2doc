@@ -1,4 +1,4 @@
-export type JobStatus = "queued" | "processing" | "done" | "failed";
+export type JobStatus = "queued" | "processing" | "awaiting_review" | "done" | "failed";
 export type JobType = "video" | "audio";
 
 export type Job = {
@@ -20,6 +20,22 @@ export type Job = {
   error?: string;
 };
 
+/** One candidate frame surfaced during a video job's "awaiting_review" pause
+ * -- see backend/app/routes/review.py. `content_type` is only present on
+ * `kind: "image"` items ("table" items are their own content type). No
+ * caption yet at this point -- captioning is deferred until after the user
+ * submits which frames to keep (see pipeline.resume_after_review), so it's
+ * never spent on a frame the user ends up skipping. */
+export type ReviewItem = {
+  id: number;
+  kind: "image" | "table";
+  timestamp: number;
+  content_type?: string;
+  headers?: string[];
+  rows?: string[][];
+  included: boolean;
+};
+
 export type TranscriptSegment = { speaker: string; text: string; start_ts: number; end_ts: number };
 
 export type TranscriptData = {
@@ -33,18 +49,6 @@ export type TranscriptData = {
 // Audio: verbatim speaker-tagged transcript only (POST /api/transcribe_audio).
 export const VIDEO_EXTENSIONS = [".mp4", ".mov", ".mkv", ".webm", ".avi", ".m4v"];
 export const AUDIO_EXTENSIONS = [".mp3", ".wav", ".m4a", ".aac", ".flac", ".ogg", ".wma"];
-export const ACCEPTED_UPLOAD_EXTENSIONS = [...VIDEO_EXTENSIONS, ...AUDIO_EXTENSIONS].join(",");
-
-/** Which upload endpoint a file should go to, based on its extension --
- * null for anything neither list recognizes. */
-export function jobTypeForFilename(filename: string): JobType | null {
-  const dot = filename.lastIndexOf(".");
-  if (dot === -1) return null;
-  const ext = filename.slice(dot).toLowerCase();
-  if (VIDEO_EXTENSIONS.includes(ext)) return "video";
-  if (AUDIO_EXTENSIONS.includes(ext)) return "audio";
-  return null;
-}
 
 export const ACTIVE_JOB_STATUSES = new Set<JobStatus>(["queued", "processing"]);
 

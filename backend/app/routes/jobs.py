@@ -5,6 +5,7 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 from .. import billing, jobs
+from ..config import settings
 from ..deps import get_current_user
 from .status import build_job_response
 
@@ -79,14 +80,23 @@ def retry_job(job_id: str, request: Request, current_user: dict = Depends(get_cu
 def delete_job(job_id: str, current_user: dict = Depends(get_current_user)):
     """Removes a failed job -- it already refunded its charge in full (see
     pipeline.run_job's except block), produced no usable document, and just
-    clutters the jobs list otherwise. Scoped to failed jobs only, same as
-    retry above, so there's no risk of deleting a job someone's still
-    waiting on or a document someone still needs."""
+    clutters the jobs list otherwise. Also allowed for a job sitting in
+    "awaiting_review" (a video paused for frame review) -- same reasoning as
+    retention.py's 7-day sweep for an abandoned review: no usable document
+    was ever produced, so this refunds the original charge too, rather than
+    making "wait for the sweep" the only way to get money back for a job
+    you've decided not to finish. There's no risk of deleting a job someone's
+    still waiting on or a document someone still needs, since both statuses
+    mean nothing downstream depends on this job anymore."""
     job = jobs.get_job(job_id)
     if not job or job["user_id"] != current_user["id"]:
         raise HTTPException(status_code=404, detail="Job not found")
-    if job["status"] != "failed":
-        raise HTTPException(status_code=400, detail="Only failed jobs can be deleted")
+    if job["status"] not in ("failed", "awaiting_review"):
+        raise HTTPException(status_code=400, detail="Only failed or awaiting-review jobs can be deleted")
 
+    if job["status"] == "awaiting_review" and job.get("user_id") and job.get("billed_cents"):
+        billing.refund_job_charge(job["user_id"], job_id, job["billed_cents"])
+
+    shutil.rmtree(settings.OUTPUT_DIR / job_id, ignore_errors=True)
     shutil.rmtree(Path(job["source_path"]).parent, ignore_errors=True)
     jobs.delete_job(job_id)

@@ -109,7 +109,7 @@ export default function AdminPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-4xl px-6 py-10">
+    <div className="w-full px-6 py-10">
       <h1 className="font-display text-2xl font-bold tracking-tight text-ink">Admin</h1>
       <p className="mt-1 text-sm text-ink-soft">Platform-wide usage and revenue.</p>
 

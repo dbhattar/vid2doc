@@ -83,7 +83,8 @@ export default function ApiKeysPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-2xl px-6 py-10">
+    <div className="w-full px-6 py-10">
+      <div className="mx-auto max-w-2xl">
       <h1 className="font-display text-2xl font-bold tracking-tight text-ink">API keys</h1>
       <p className="mt-1 text-sm text-ink-soft">Use a key with the <code>X-API-Key</code> header to call the API directly.</p>
 
@@ -159,6 +160,7 @@ export default function ApiKeysPage() {
             ))}
           </ul>
         )}
+      </div>
       </div>
     </div>
   );

@@ -45,6 +45,23 @@ def get_wallet_balance_cents(user_id: str) -> int:
         session.close()
 
 
+def net_spent_cents(user_id: str) -> int:
+    """Net amount actually spent on processing (usage charges minus any
+    refunds), for the unified dashboard's usage overview -- deliberately
+    excludes topups, which are money added, not spent."""
+    session = get_session()
+    try:
+        total = session.execute(
+            select(func.coalesce(func.sum(WalletLedgerEntry.amount_cents), 0)).where(
+                WalletLedgerEntry.user_id == user_id,
+                WalletLedgerEntry.entry_type.in_(["usage_charge", "usage_refund"]),
+            )
+        ).scalar()
+        return -int(total or 0)
+    finally:
+        session.close()
+
+
 def total_revenue_cents() -> int:
     """Real money collected platform-wide -- sum of topup entries only, not
     net wallet balance (which would undercount revenue by however much

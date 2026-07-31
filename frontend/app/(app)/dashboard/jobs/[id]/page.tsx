@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import Button, { buttonClassName } from "@/components/Button";
 import Card from "@/components/Card";
+import FrameReviewPanel from "@/components/FrameReviewPanel";
 import { ArchiveIcon, DriveIcon, JsonFileIcon, MarkdownFileIcon, MicrophoneIcon, PdfFileIcon, VideoCameraIcon, WordFileIcon } from "@/components/icons";
 import TranscriptViewer from "@/components/TranscriptViewer";
 import { apiFetch, ApiError, downloadAuthenticated } from "@/lib/api";
@@ -94,44 +95,48 @@ export default function JobDetailPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-2xl px-6 py-10">
-      <div className="flex items-center gap-4">
-        <Link href="/dashboard" className="text-sm text-ink-soft hover:text-accent hover:underline">
-          ← Back to dashboard
-        </Link>
-        {job && job.status === "done" && !job.retention_expired && (
-          <Link href="/documents" className="text-sm text-ink-soft hover:text-accent hover:underline">
-            All documents →
-          </Link>
-        )}
-      </div>
-
-      <div className="mt-4 flex items-center gap-2.5">
-        {job && (
-          <span
-            className={`flex h-8 w-8 shrink-0 items-center justify-center ${
-              job.job_type === "audio" ? "bg-paper-shade text-ink-soft" : "bg-accent-soft text-accent"
-            }`}
-            title={job.job_type === "audio" ? "Audio transcript" : "Video document"}
+    <div className="w-full px-6 py-10">
+      <div className="mx-auto max-w-2xl">
+        <div className="flex items-center gap-4">
+          <Link
+            href={`/dashboard/${job?.job_type === "audio" ? "audio" : "video"}`}
+            className="text-sm text-ink-soft hover:text-accent hover:underline"
           >
-            {job.job_type === "audio" ? <MicrophoneIcon className="h-4 w-4" /> : <VideoCameraIcon className="h-4 w-4" />}
-          </span>
-        )}
-        <h1 className="truncate font-display text-2xl font-bold tracking-tight text-ink">
-          {job ? displayTitle(job) : "Job detail"}
-        </h1>
-      </div>
+            ← Back to {job?.job_type === "audio" ? "Audio" : "Video"}
+          </Link>
+          {job && job.status === "done" && !job.retention_expired && (
+            <Link href="/documents" className="text-sm text-ink-soft hover:text-accent hover:underline">
+              All documents →
+            </Link>
+          )}
+        </div>
 
-      {error && <p className="mt-4 text-sm text-status-error">{error}</p>}
+        <div className="mt-4 flex items-center gap-2.5">
+          {job && (
+            <span
+              className={`flex h-8 w-8 shrink-0 items-center justify-center ${
+                job.job_type === "audio" ? "bg-paper-shade text-ink-soft" : "bg-accent-soft text-accent"
+              }`}
+              title={job.job_type === "audio" ? "Audio transcript" : "Video document"}
+            >
+              {job.job_type === "audio" ? <MicrophoneIcon className="h-4 w-4" /> : <VideoCameraIcon className="h-4 w-4" />}
+            </span>
+          )}
+          <h1 className="truncate font-display text-2xl font-bold tracking-tight text-ink">
+            {job ? displayTitle(job) : "Job detail"}
+          </h1>
+        </div>
 
-      {!error && !job && <p className="mt-4 text-sm text-ink-soft">Loading...</p>}
+        {error && <p className="mt-4 text-sm text-status-error">{error}</p>}
 
-      {job && (
-        <Card className="mt-6 p-6">
+        {!error && !job && <p className="mt-4 text-sm text-ink-soft">Loading...</p>}
+
+        {job && (
+          <Card className="mt-6 p-6">
           <dl className="space-y-3 text-sm">
             <div className="flex justify-between">
               <dt className="text-ink-soft">Status</dt>
-              <dd className="font-medium text-ink">{job.status}</dd>
+              <dd className="font-medium text-ink">{job.status.replaceAll("_", " ")}</dd>
             </div>
             {job.status === "processing" && job.progress_stage && (
               <div className="flex justify-between">
@@ -240,6 +245,13 @@ export default function JobDetailPage() {
             <TranscriptViewer jobId={job.job_id} />
           )}
         </Card>
+        )}
+      </div>
+
+      {job && job.status === "awaiting_review" && (
+        <div className="mt-6">
+          <FrameReviewPanel job={job} onSubmitted={setJob} />
+        </div>
       )}
     </div>
   );

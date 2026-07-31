@@ -84,7 +84,8 @@ export default function IntegrationsPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-2xl px-6 py-10">
+    <div className="w-full px-6 py-10">
+      <div className="mx-auto max-w-2xl">
       <h1 className="font-display text-2xl font-bold tracking-tight text-ink">Integrations</h1>
       <p className="mt-1 text-sm text-ink-soft">Connect Google Drive to save generated documents there with one click.</p>
 
@@ -125,6 +126,7 @@ export default function IntegrationsPage() {
           <p className="text-sm text-status-error">Missing NEXT_PUBLIC_GOOGLE_CLIENT_ID -- not configured.</p>
         )}
       </Card>
+      </div>
     </div>
   );
 }

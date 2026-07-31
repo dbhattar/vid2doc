@@ -2,92 +2,33 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 
-import Button from "@/components/Button";
 import Card from "@/components/Card";
 import DocumentCard from "@/components/DocumentCard";
-import { MicrophoneIcon, VideoCameraIcon } from "@/components/icons";
+import { MicrophoneIcon, VideoCameraIcon, WalletIcon } from "@/components/icons";
+import JobRow from "@/components/JobRow";
 import Pagination from "@/components/Pagination";
-import StatusBadge from "@/components/StatusBadge";
 import { apiFetch, ApiError } from "@/lib/api";
 import { clearSession } from "@/lib/auth";
-import {
-  ACCEPTED_UPLOAD_EXTENSIONS,
-  displayTitle,
-  formatDuration,
-  isActiveJob,
-  jobTypeForFilename,
-  type Job,
-} from "@/lib/jobs";
+import { formatCents } from "@/lib/billing";
+import { displayTitle, isActiveJob, type Job } from "@/lib/jobs";
 
 const POLL_INTERVAL_MS = 4000;
 const DOCUMENTS_PAGE_SIZE = 12;
 
-function JobRow({
-  job,
-  onRetry,
-  onDelete,
-  retryingJobId,
-  deletingJobId,
-}: {
-  job: Job;
-  onRetry: (jobId: string) => void;
-  onDelete: (job: Job) => void;
-  retryingJobId: string | null;
-  deletingJobId: string | null;
-}) {
-  return (
-    <li className="flex items-center justify-between px-4 py-3">
-      <div className="min-w-0">
-        <Link
-          href={`/dashboard/jobs/${job.job_id}`}
-          className="block truncate text-sm font-medium text-ink hover:text-accent hover:underline"
-        >
-          {displayTitle(job)}
-        </Link>
-        <p className="text-xs text-ink-soft">
-          {new Date(job.created_at).toLocaleDateString()} &middot; {formatDuration(job.duration_seconds)}
-        </p>
-        {job.status === "failed" && job.error && (
-          <p className="mt-0.5 max-w-sm truncate text-xs text-status-error" title={job.error}>
-            {job.error}
-          </p>
-        )}
-      </div>
-      <div className="flex items-center gap-3">
-        <StatusBadge job={job} />
-        {job.status === "failed" && (
-          <>
-            <button
-              onClick={() => onRetry(job.job_id)}
-              disabled={retryingJobId === job.job_id || deletingJobId === job.job_id}
-              className="text-sm text-ink hover:text-accent hover:underline disabled:cursor-default disabled:opacity-50"
-            >
-              {retryingJobId === job.job_id ? "Retrying..." : "Retry"}
-            </button>
-            <button
-              onClick={() => onDelete(job)}
-              disabled={retryingJobId === job.job_id || deletingJobId === job.job_id}
-              className="text-sm text-status-error hover:underline disabled:cursor-default disabled:opacity-50"
-            >
-              {deletingJobId === job.job_id ? "Deleting..." : "Delete"}
-            </button>
-          </>
-        )}
-      </div>
-    </li>
-  );
-}
-
+// The holistic "everything at a glance" view -- balance, documents by type,
+// what's currently in progress across both. Uploading itself now lives on
+// the Video/Audio pages (see ./video, ./audio), which is where that flow can
+// keep evolving independently without cluttering this overview.
 export default function DashboardPage() {
   const router = useRouter();
+  const [balanceCents, setBalanceCents] = useState<number | null>(null);
+  const [spentCents, setSpentCents] = useState<number | null>(null);
+  const [walletError, setWalletError] = useState<string | null>(null);
+
   const [jobs, setJobs] = useState<Job[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [uploadError, setUploadError] = useState<string | null>(null);
-  const [uploadBlockedByBilling, setUploadBlockedByBilling] = useState(false);
-  const [uploading, setUploading] = useState(false);
-  const [selectedFileName, setSelectedFileName] = useState<string | null>(null);
   const [retryingJobId, setRetryingJobId] = useState<string | null>(null);
   const [retryError, setRetryError] = useState<string | null>(null);
   const [deletingJobId, setDeletingJobId] = useState<string | null>(null);
@@ -101,8 +42,6 @@ export default function DashboardPage() {
   const [documentsTotal, setDocumentsTotal] = useState(0);
   const [documentsError, setDocumentsError] = useState<string | null>(null);
 
-  const fileInputRef = useRef<HTMLInputElement>(null);
-
   const handleAuthError = useCallback(
     (err: unknown) => {
       if (err instanceof ApiError && err.status === 401) {
@@ -114,6 +53,18 @@ export default function DashboardPage() {
     },
     [router],
   );
+
+  const loadWallet = useCallback(() => {
+    apiFetch<{ balance_cents: number; spent_cents: number }>("/api/billing/wallet")
+      .then((data) => {
+        setBalanceCents(data.balance_cents);
+        setSpentCents(data.spent_cents);
+      })
+      .catch((err) => {
+        if (handleAuthError(err)) return;
+        setWalletError(err instanceof ApiError ? err.message : "Failed to load wallet.");
+      });
+  }, [handleAuthError]);
 
   const loadJobs = useCallback(() => {
     apiFetch<{ jobs: Job[]; total: number }>("/api/jobs?limit=50")
@@ -155,58 +106,29 @@ export default function DashboardPage() {
   );
 
   useEffect(() => {
+    loadWallet();
     loadJobs();
     loadStats();
     loadDocuments(1);
-  }, [loadJobs, loadStats, loadDocuments]);
+  }, [loadWallet, loadJobs, loadStats, loadDocuments]);
 
   useEffect(() => {
     loadDocuments(documentsPage);
   }, [documentsPage, loadDocuments]);
 
   // Poll while at least one job is still queued/processing; also refreshes
-  // stats/the document grid so a job finishing mid-session shows up without
-  // a manual reload.
+  // the balance/stats/document grid so a job finishing mid-session shows up
+  // without a manual reload.
   useEffect(() => {
     if (!jobs || !jobs.some(isActiveJob)) return;
     const id = setInterval(() => {
+      loadWallet();
       loadJobs();
       loadStats();
       loadDocuments(documentsPage);
     }, POLL_INTERVAL_MS);
     return () => clearInterval(id);
-  }, [jobs, loadJobs, loadStats, loadDocuments, documentsPage]);
-
-  async function handleUpload(e: React.FormEvent) {
-    e.preventDefault();
-    const file = fileInputRef.current?.files?.[0];
-    if (!file) return;
-
-    const jobType = jobTypeForFilename(file.name);
-    if (!jobType) {
-      setUploadError("Unsupported file type.");
-      return;
-    }
-
-    setUploading(true);
-    setUploadError(null);
-    setUploadBlockedByBilling(false);
-    try {
-      const formData = new FormData();
-      formData.append(jobType === "audio" ? "audio" : "video", file);
-      const endpoint = jobType === "audio" ? "/api/transcribe_audio" : "/api/convert_to_doc";
-      await apiFetch(endpoint, { method: "POST", body: formData });
-      if (fileInputRef.current) fileInputRef.current.value = "";
-      setSelectedFileName(null);
-      loadJobs();
-    } catch (err) {
-      if (handleAuthError(err)) return;
-      setUploadError(err instanceof ApiError ? err.message : "Upload failed.");
-      setUploadBlockedByBilling(err instanceof ApiError && err.status === 402);
-    } finally {
-      setUploading(false);
-    }
-  }
+  }, [jobs, loadWallet, loadJobs, loadStats, loadDocuments, documentsPage]);
 
   async function handleRetry(jobId: string) {
     setRetryingJobId(jobId);
@@ -239,50 +161,31 @@ export default function DashboardPage() {
 
   const videoInProgress = jobs?.filter((j) => j.status !== "done" && j.job_type === "video") ?? null;
   const audioInProgress = jobs?.filter((j) => j.status !== "done" && j.job_type === "audio") ?? null;
+  const totalProcessed = (videoCount ?? 0) + (audioCount ?? 0);
 
   return (
-    <div className="mx-auto w-full max-w-5xl px-6 py-10">
+    <div className="w-full px-6 py-10">
       <h1 className="font-display text-2xl font-bold tracking-tight text-ink">Dashboard</h1>
-      <p className="mt-1 text-sm text-ink-soft">Submit a video or audio file and track it through to a finished result.</p>
+      <p className="mt-1 text-sm text-ink-soft">Everything happening across your videos and audio, at a glance.</p>
 
-      <form onSubmit={handleUpload} className="mt-8 border-2 border-line bg-paper p-6">
-        <h2 className="text-sm font-semibold text-ink">Convert a video or audio file</h2>
-        <p className="mt-1 text-xs text-ink-soft">
-          Video (MP4, MOV, MKV, WebM, AVI, M4V) gets a full document. Audio (MP3, WAV, M4A, AAC, FLAC, OGG) gets a
-          verbatim, speaker-tagged transcript. Either way, up to 90 minutes.
-        </p>
-
-        <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-stretch">
-          <label className="flex flex-1 cursor-pointer items-center border-2 border-dashed border-line px-4 py-3 text-sm text-ink-soft transition-colors hover:border-accent hover:bg-accent-soft/40">
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept={ACCEPTED_UPLOAD_EXTENSIONS}
-              onChange={(e) => setSelectedFileName(e.target.files?.[0]?.name ?? null)}
-              className="sr-only"
-            />
-            <span className="truncate">{selectedFileName ?? "Click to choose a video or audio file..."}</span>
-          </label>
-          <Button type="submit" disabled={uploading || !selectedFileName} className="shrink-0 justify-center">
-            {uploading ? "Uploading..." : "Upload"}
-          </Button>
-        </div>
-        {uploadError && (
-          <p className="mt-2 text-sm text-status-error">
-            {uploadError}
-            {uploadBlockedByBilling && (
-              <>
-                {" "}
-                <Link href="/settings/billing" className="underline">
-                  Manage billing
-                </Link>
-              </>
-            )}
+      <div className="mt-8 grid grid-cols-1 gap-4 lg:grid-cols-3">
+        <Card className="p-5 lg:col-span-1">
+          <div className="flex items-center gap-2 text-ink-soft">
+            <WalletIcon className="h-4 w-4" />
+            <span className="font-mono text-xs font-medium uppercase tracking-wide">Wallet balance</span>
+          </div>
+          <p className="mt-2 font-display text-3xl font-bold tracking-tight text-ink">
+            {balanceCents === null ? "—" : formatCents(balanceCents)}
           </p>
-        )}
-      </form>
+          <div className="mt-3 flex items-center justify-between text-xs text-ink-soft">
+            <span>{spentCents === null ? "—" : `${formatCents(spentCents)} spent on processing`}</span>
+            <Link href="/settings/billing" className="text-accent hover:underline">
+              Add funds →
+            </Link>
+          </div>
+          {walletError && <p className="mt-2 text-xs text-status-error">{walletError}</p>}
+        </Card>
 
-      <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2">
         <Card className="flex items-center gap-4 p-5">
           <span className="flex h-11 w-11 shrink-0 items-center justify-center bg-accent-soft text-accent">
             <VideoCameraIcon className="h-5 w-5" />
@@ -302,6 +205,10 @@ export default function DashboardPage() {
           </div>
         </Card>
       </div>
+
+      {totalProcessed > 0 && (
+        <p className="mt-3 text-xs text-ink-soft">{totalProcessed.toLocaleString()} document{totalProcessed === 1 ? "" : "s"} processed in total.</p>
+      )}
 
       {((videoInProgress && videoInProgress.length > 0) || (audioInProgress && audioInProgress.length > 0)) && (
         <div className="mt-10">
@@ -364,11 +271,19 @@ export default function DashboardPage() {
           <p className="mt-3 text-sm text-ink-soft">Loading...</p>
         ) : documents.length === 0 ? (
           <p className="mt-3 border-2 border-dashed border-line p-6 text-center text-sm text-ink-soft">
-            No documents yet -- upload a video or audio file above to get started.
+            No documents yet -- upload a{" "}
+            <Link href="/dashboard/video" className="underline hover:text-accent">
+              video
+            </Link>{" "}
+            or{" "}
+            <Link href="/dashboard/audio" className="underline hover:text-accent">
+              audio
+            </Link>{" "}
+            file to get started.
           </p>
         ) : (
           <>
-            <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="mt-3 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
               {documents.map((job) => (
                 <DocumentCard key={job.job_id} job={job} />
               ))}

@@ -4,7 +4,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 
-import { BillingIcon, ChevronIcon, DashboardIcon, DocumentIcon, DriveIcon, KeyIcon, ShieldIcon, WalletIcon } from "@/components/icons";
+import { BillingIcon, ChevronIcon, DashboardIcon, DocumentIcon, DriveIcon, KeyIcon, MicrophoneIcon, ShieldIcon, VideoCameraIcon, WalletIcon } from "@/components/icons";
 import ThemeToggle from "@/components/ThemeToggle";
 import UserMenu from "@/components/UserMenu";
 import type { CurrentUser } from "@/lib/auth";
@@ -12,6 +12,8 @@ import { formatCents } from "@/lib/billing";
 
 const PRIMARY_NAV_LINKS = [
   { href: "/dashboard", label: "Dashboard", Icon: DashboardIcon },
+  { href: "/dashboard/video", label: "Video", Icon: VideoCameraIcon },
+  { href: "/dashboard/audio", label: "Audio", Icon: MicrophoneIcon },
   { href: "/documents", label: "Documents", Icon: DocumentIcon },
 ];
 
@@ -52,7 +54,10 @@ export default function Sidebar({
   balanceCents: number | null;
 }) {
   const pathname = usePathname();
-  const isActive = (href: string) => pathname === href || pathname?.startsWith(`${href}/`);
+  // "/dashboard" itself is exact-match only -- otherwise it'd also light up
+  // for "/dashboard/video" etc., which have their own nav entries now.
+  const isActive = (href: string) =>
+    href === "/dashboard" ? pathname === href : pathname === href || pathname?.startsWith(`${href}/`);
 
   return (
     <aside
