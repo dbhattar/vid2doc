@@ -2,9 +2,12 @@
 
 `jobs` is the one pre-existing table (previously raw sqlite3, see git history of
 app/db.py) -- its columns here are a superset of the original: user_id,
-duration_seconds, billed_cents, and deleted_at are new. user_id is
-nullable because Milestone 1 (this file) intentionally lands before auth does;
-it becomes application-required starting with the auth milestone.
+duration_seconds, billed_cents, and deleted_at are new. user_id started out
+nullable only because Milestone 1 (this file) intentionally landed before auth
+did; every authenticated route now always sets it. That nullability is reused
+deliberately as the signal for an anonymous trial job (see routes/trial.py) --
+`user_id IS NULL` means "trial", never charged, never paused for review, swept
+by retention.py on a much shorter clock than real users' jobs.
 
 Pricing is pure pay-as-you-go ($1.00/video-hour, charged up front per job,
 wallet-funded) -- there are no subscription plans/tiers.
@@ -100,6 +103,9 @@ class Job(Base):
     # created before this column existed never recorded it.
     source_size_bytes: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     billed_cents: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
+    # Only ever set for anonymous trial jobs (user_id IS NULL) -- the basis
+    # for routes/trial.py's per-IP daily cap. Never set for real users.
+    client_ip: Mapped[str | None] = mapped_column(String, nullable=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

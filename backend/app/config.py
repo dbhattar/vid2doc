@@ -94,5 +94,18 @@ class Settings:
     # time. Never enable in production.
     ALWAYS_SEND_WELCOME_EMAIL = os.environ.get("ALWAYS_SEND_WELCOME_EMAIL", "false").strip().lower() == "true"
 
+    # Anonymous "try it free" upload on the marketing site (routes/trial.py) --
+    # no wallet/billing gate, so these caps plus Turnstile are what stand in
+    # for it. Deliberately much tighter than the authenticated caps above.
+    TRIAL_MAX_VIDEO_DURATION_SECONDS = int(os.environ.get("TRIAL_MAX_VIDEO_DURATION_SECONDS", 10 * 60))
+    TRIAL_MAX_AUDIO_DURATION_SECONDS = int(os.environ.get("TRIAL_MAX_AUDIO_DURATION_SECONDS", 30 * 60))
+    TRIAL_MAX_UPLOAD_BYTES = int(os.environ.get("TRIAL_MAX_UPLOAD_BYTES", 300 * 1024 * 1024))  # 300MB
+    TRIAL_MAX_PER_IP_PER_DAY = int(os.environ.get("TRIAL_MAX_PER_IP_PER_DAY", 2))
+    TRIAL_RETENTION_HOURS = int(os.environ.get("TRIAL_RETENTION_HOURS", 6))
+    # Cloudflare Turnstile secret key (see app/turnstile.py) -- verify_turnstile_token
+    # fails closed if this is unset, so trial uploads are simply rejected
+    # rather than silently unprotected in an environment that forgot to set it.
+    TURNSTILE_SECRET_KEY = os.environ.get("TURNSTILE_SECRET_KEY", "")
+
 
 settings = Settings()

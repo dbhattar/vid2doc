@@ -43,19 +43,20 @@ export default function UserMenu({ user, collapsed }: { user: CurrentUser | null
         onClick={() => setOpen((o) => !o)}
         title={collapsed ? name : undefined}
         className={`flex w-full items-center gap-2.5 py-1.5 text-left transition-colors hover:bg-paper-shade ${
-          collapsed ? "justify-center px-0" : "px-1.5"
+          collapsed ? "md:justify-center md:px-0" : "px-1.5"
         }`}
       >
         {avatar}
-        {!collapsed && (
-          <>
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-sm font-medium text-ink">{name}</span>
-              {user?.email && <span className="block truncate text-xs text-ink-soft">{user.email}</span>}
-            </span>
-            <ChevronDownIcon className={`h-4 w-4 shrink-0 text-ink-soft transition-transform ${open ? "rotate-180" : ""}`} />
-          </>
-        )}
+        {/* Hidden only in desktop icon-rail mode (md:hidden when collapsed)
+            -- below md this is an off-canvas drawer that's always full
+            width, so the name/email/chevron should stay visible there. */}
+        <span className={`flex min-w-0 flex-1 items-center gap-2.5 ${collapsed ? "md:hidden" : ""}`}>
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-sm font-medium text-ink">{name}</span>
+            {user?.email && <span className="block truncate text-xs text-ink-soft">{user.email}</span>}
+          </span>
+          <ChevronDownIcon className={`h-4 w-4 shrink-0 text-ink-soft transition-transform ${open ? "rotate-180" : ""}`} />
+        </span>
       </button>
 
       {open && (

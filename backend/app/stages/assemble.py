@@ -334,7 +334,8 @@ def render_docx(title: str, sections: list[dict], images_by_id: dict, tables_by_
                     for c, val in enumerate(row):
                         table.cell(r, c).text = str(val)
                 _docx_format_header_row(table, len(header))
-                _docx_add_caption(doc, _caption(block, table_data))
+                caption_p = _docx_add_caption(doc, _caption(block, table_data))
+                caption_p.alignment = WD_ALIGN_PARAGRAPH.CENTER
 
     _docx_add_footer(doc)
     doc.save(output_path)
@@ -395,7 +396,12 @@ def _pdf_styles() -> dict:
             "SectionHeading", fontName="Fraunces-SemiBold", fontSize=17, leading=21, textColor=ink, spaceBefore=18, spaceAfter=10
         ),
         "body": body,
-        "caption": ParagraphStyle("Caption", fontName="PlexMono", fontSize=8.5, leading=12, textColor=ink_soft, spaceAfter=12),
+        # Images/tables are centered on the page (hAlign="CENTER" on the
+        # flowable itself) -- the caption needs its own alignment set too,
+        # since a Paragraph's text alignment is independent of hAlign.
+        "caption": ParagraphStyle(
+            "Caption", fontName="PlexMono", fontSize=8.5, leading=12, textColor=ink_soft, spaceAfter=12, alignment=TA_CENTER
+        ),
         "toc_heading": ParagraphStyle("TOCHeading", fontName="Fraunces-SemiBold", fontSize=17, leading=21, textColor=ink, spaceAfter=12),
         "toc_entry": ParagraphStyle("TOCEntry", fontName="PlexMono", fontSize=10, leading=16, textColor=ink),
     }

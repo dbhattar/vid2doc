@@ -156,14 +156,32 @@ def _transcribe_segments(job: dict, output_dir: Path) -> list[dict]:
     return transcript["segments"]
 
 
+def _compose_and_finalize(job: dict, output_dir: Path, images_meta: list[dict], tables_meta: list[dict]) -> None:
+    """Transcribe, compose, and finalize -- the shared tail for a video job
+    that has already decided which images/tables to include, whether that
+    decision came from a real user's review submission
+    (resume_after_review) or was made automatically for an anonymous trial
+    job (run_job's trial branch, which has no review step to wait for)."""
+    job_id = job["id"]
+    segments = _transcribe_segments(job, output_dir)
+
+    jobs.update_job(job_id, progress_stage="composing_document")
+    sections = compose.compose_document(segments, images_meta + tables_meta)
+    title = compose.generate_title(sections)
+    jobs.update_job(job_id, title=title)
+
+    if not sections:
+        sections = _fallback_sections(segments)
+
+    _finalize_document(job, title, sections, images_meta, tables_meta)
+
+
 def resume_after_review(job: dict) -> None:
     """Picks up where run_job left off for a video job that paused at
     "awaiting_review" -- reads review.json (written once, at pause time,
     before transcription or captioning ever ran), filters to the items the
     user kept, generates captions for exactly that filtered set (never spent
-    on a frame the user skipped), THEN transcribes (the other paid step
-    deferred until the user actually commits to the job), composes the
-    document, and finishes exactly like a job that never needed review.
+    on a frame the user skipped), then hands off to _compose_and_finalize.
     Mirrors routes/transcript.py's set_speaker_names: reuse a persisted
     intermediate artifact for a cheap resume instead of re-running upstream
     stages (here, frame extraction/filtering/classification)."""
@@ -179,17 +197,7 @@ def resume_after_review(job: dict) -> None:
     images_meta = [i for i in captioned if i["kind"] == "image"]
     tables_meta = [i for i in captioned if i["kind"] == "table"]
 
-    segments = _transcribe_segments(job, output_dir)
-
-    jobs.update_job(job_id, progress_stage="composing_document")
-    sections = compose.compose_document(segments, images_meta + tables_meta)
-    title = compose.generate_title(sections)
-    jobs.update_job(job_id, title=title)
-
-    if not sections:
-        sections = _fallback_sections(segments)
-
-    _finalize_document(job, title, sections, images_meta, tables_meta)
+    _compose_and_finalize(job, output_dir, images_meta, tables_meta)
 
 
 def run_job(job: dict) -> None:
@@ -253,6 +261,19 @@ def run_job(job: dict) -> None:
             images_meta, tables_meta = classify.classify_frames(candidates)
 
         if images_meta or tables_meta:
+            if job.get("user_id") is None:
+                # Anonymous trial job (see routes/trial.py) -- no interactive
+                # review; caption and include everything the classifier
+                # found, then go straight through. Real users get to pick
+                # which frames make the document; trial users get an
+                # instant, best-effort demo instead.
+                jobs.update_job(job_id, progress_stage="captioning_frames")
+                captioned = classify.caption_frames(images_meta + tables_meta)
+                trial_images = [i for i in captioned if i["kind"] == "image"]
+                trial_tables = [i for i in captioned if i["kind"] == "table"]
+                _compose_and_finalize(job, output_dir, trial_images, trial_tables)
+                return
+
             items = [{**item, "included": True} for item in images_meta + tables_meta]
             output_dir.mkdir(parents=True, exist_ok=True)
             (output_dir / "review.json").write_text(json.dumps({"items": items}, indent=2))

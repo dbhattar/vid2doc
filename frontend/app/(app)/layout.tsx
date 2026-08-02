@@ -18,6 +18,10 @@ const BALANCE_POLL_MS = 8000;
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const router = useRouter();
   const [collapsed, setCollapsed] = useState(false);
+  // Separate from `collapsed` (a desktop-only icon-rail preference) -- below
+  // the md breakpoint the sidebar is an off-canvas drawer that's either
+  // fully open or fully closed, never a narrow icon rail.
+  const [mobileOpen, setMobileOpen] = useState(false);
   const [user, setUser] = useState<CurrentUser | null>(null);
   const [balanceCents, setBalanceCents] = useState<number | null>(null);
 
@@ -50,9 +54,16 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex flex-1 overflow-hidden">
-      <Sidebar collapsed={collapsed} onToggle={() => setCollapsed((c) => !c)} user={user} balanceCents={balanceCents} />
+      <Sidebar
+        collapsed={collapsed}
+        onToggle={() => setCollapsed((c) => !c)}
+        mobileOpen={mobileOpen}
+        onMobileClose={() => setMobileOpen(false)}
+        user={user}
+        balanceCents={balanceCents}
+      />
       <div className="flex flex-1 flex-col overflow-hidden">
-        <TopBar />
+        <TopBar onMenuClick={() => setMobileOpen(true)} />
         <main className="flex-1 overflow-y-auto">{children}</main>
       </div>
     </div>

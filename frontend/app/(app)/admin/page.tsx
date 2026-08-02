@@ -4,11 +4,11 @@ import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
 import Card from "@/components/Card";
-import { MicrophoneIcon, ShieldIcon, UsersIcon, VideoCameraIcon, WalletIcon } from "@/components/icons";
+import { GlobeIcon, MicrophoneIcon, ShieldIcon, UsersIcon, VideoCameraIcon, WalletIcon } from "@/components/icons";
 import { apiFetch, ApiError } from "@/lib/api";
 import { clearSession } from "@/lib/auth";
 import { formatCents } from "@/lib/billing";
-import { formatBytes } from "@/lib/jobs";
+import { formatBytes, formatDuration } from "@/lib/jobs";
 
 type AdminStats = {
   user_count: number;
@@ -16,7 +16,27 @@ type AdminStats = {
   total_spent_cents: number;
   job_counts: { video: number; audio: number; total: number };
   total_source_size_bytes: number;
+  trial_job_count: number;
   top_spenders: { id: string; email: string; display_name: string | null; spent_cents: number }[];
+};
+
+type AdminTrialJob = {
+  id: string;
+  job_type: "video" | "audio";
+  status: string;
+  duration_seconds: number | null;
+  source_size_bytes: number | null;
+  client_ip: string | null;
+  error_message: string | null;
+  created_at: string;
+};
+
+const TRIAL_STATUS_COLORS: Record<string, string> = {
+  queued: "text-status-info",
+  processing: "text-status-warning",
+  awaiting_review: "text-status-info",
+  done: "text-status-success",
+  failed: "text-status-error",
 };
 
 type AdminUser = {
@@ -56,6 +76,7 @@ export default function AdminPage() {
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [users, setUsers] = useState<AdminUser[] | null>(null);
   const [feedback, setFeedback] = useState<AdminFeedback[] | null>(null);
+  const [trialJobs, setTrialJobs] = useState<AdminTrialJob[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [togglingId, setTogglingId] = useState<string | null>(null);
 
@@ -81,6 +102,11 @@ export default function AdminPage() {
       });
     apiFetch<{ feedback: AdminFeedback[] }>("/api/admin/feedback")
       .then((data) => setFeedback(data.feedback))
+      .catch(() => {
+        // Non-critical for the rest of the page to render.
+      });
+    apiFetch<{ jobs: AdminTrialJob[] }>("/api/admin/trial-jobs")
+      .then((data) => setTrialJobs(data.jobs))
       .catch(() => {
         // Non-critical for the rest of the page to render.
       });
@@ -141,7 +167,7 @@ export default function AdminPage() {
             />
           </div>
 
-          <div className="mt-3 grid grid-cols-2 gap-3">
+          <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-3">
             <Card className="flex items-center gap-2 p-4">
               <VideoCameraIcon className="h-4 w-4 text-accent" />
               <span className="text-sm text-ink-soft">Video</span>
@@ -151,6 +177,11 @@ export default function AdminPage() {
               <MicrophoneIcon className="h-4 w-4 text-ink-soft" />
               <span className="text-sm text-ink-soft">Audio</span>
               <span className="ml-auto text-sm font-semibold text-ink">{stats.job_counts.audio.toLocaleString()}</span>
+            </Card>
+            <Card className="flex items-center gap-2 p-4">
+              <GlobeIcon className="h-4 w-4 text-ink-soft" />
+              <span className="text-sm text-ink-soft">Anonymous trials</span>
+              <span className="ml-auto text-sm font-semibold text-ink">{stats.trial_job_count.toLocaleString()}</span>
             </Card>
           </div>
 
@@ -215,6 +246,51 @@ export default function AdminPage() {
                       {u.is_admin ? "Admin" : "Make admin"}
                     </button>
                   </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      <h2 className="mt-8 font-mono text-sm font-semibold uppercase tracking-wide text-ink-soft">
+        Anonymous trial jobs
+      </h2>
+      {trialJobs === null ? (
+        <p className="mt-2 text-sm text-ink-soft">Loading...</p>
+      ) : trialJobs.length === 0 ? (
+        <p className="mt-2 text-sm text-ink-soft">No trial jobs yet.</p>
+      ) : (
+        <div className="mt-2 overflow-x-auto border-2 border-line bg-paper">
+          <table className="w-full text-left text-sm">
+            <thead>
+              <tr className="border-b border-line font-mono text-xs uppercase tracking-wide text-ink-soft">
+                <th className="px-4 py-3 font-medium">Status</th>
+                <th className="px-4 py-3 font-medium">Type</th>
+                <th className="px-4 py-3 font-medium">Duration</th>
+                <th className="px-4 py-3 font-medium">Size</th>
+                <th className="px-4 py-3 font-medium">IP</th>
+                <th className="px-4 py-3 font-medium">Submitted</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-line">
+              {trialJobs.map((j) => (
+                <tr key={j.id}>
+                  <td className="px-4 py-3">
+                    <span className={`font-mono text-xs font-semibold uppercase tracking-wide ${TRIAL_STATUS_COLORS[j.status] ?? "text-ink-soft"}`}>
+                      {j.status.replaceAll("_", " ")}
+                    </span>
+                    {j.status === "failed" && j.error_message && (
+                      <p className="mt-0.5 max-w-xs truncate text-xs text-status-error" title={j.error_message}>
+                        {j.error_message}
+                      </p>
+                    )}
+                  </td>
+                  <td className="px-4 py-3 capitalize text-ink-soft">{j.job_type}</td>
+                  <td className="px-4 py-3 text-ink-soft">{formatDuration(j.duration_seconds)}</td>
+                  <td className="px-4 py-3 text-ink-soft">{j.source_size_bytes ? formatBytes(j.source_size_bytes) : "—"}</td>
+                  <td className="px-4 py-3 font-mono text-xs text-ink-soft">{j.client_ip || "—"}</td>
+                  <td className="px-4 py-3 text-ink-soft">{new Date(j.created_at).toLocaleString()}</td>
                 </tr>
               ))}
             </tbody>

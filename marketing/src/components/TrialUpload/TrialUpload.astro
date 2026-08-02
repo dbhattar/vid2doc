@@ -1,0 +1,86 @@
+---
+import './trial-upload.css';
+
+const turnstileSiteKey = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY || '';
+---
+
+<section class="trial-upload" id="try-it-free">
+  <div class="container">
+    <p class="eyebrow">Try it yourself</p>
+    <h2>See it work on your own file</h2>
+    <p class="section-intro">
+      Upload a short video or audio clip and Framewrite turns it into a real document — free, no
+      account needed. It's the same pipeline your account would use, just capped shorter.
+    </p>
+
+    <div class="trial-card">
+      <form id="trial-form" data-panel="idle">
+        <label class="trial-dropzone" for="trial-file">
+          <span id="trial-file-label">Click to choose a video or audio file...</span>
+          <input type="file" id="trial-file" accept=".mp4,.mov,.mkv,.webm,.avi,.m4v,.mp3,.wav,.m4a,.aac,.flac,.ogg,.wma" />
+        </label>
+        <p class="trial-caps">Video up to 10 min &middot; audio up to 30 min &middot; 2 free tries a day</p>
+
+        <div class="trial-turnstile">
+          <div
+            class="cf-turnstile"
+            data-sitekey={turnstileSiteKey}
+            data-callback="onTrialTurnstileSuccess"
+            data-expired-callback="onTrialTurnstileExpired"
+          >
+          </div>
+        </div>
+        <p class="trial-turnstile-hint" id="trial-turnstile-hint" hidden>
+          Taking a while? A browser extension (ad blocker or privacy tool) may be blocking our
+          verification widget — try disabling it for this site, or use a different browser.
+        </p>
+
+        <button type="submit" class="btn-primary" id="trial-submit" disabled>Upload &amp; try it free</button>
+        <p class="trial-error" id="trial-error" hidden></p>
+      </form>
+
+      <div class="trial-processing" id="trial-processing" data-panel="processing" hidden>
+        <div class="trial-spinner" aria-hidden="true"></div>
+        <p class="trial-status" id="trial-status">Uploading...</p>
+        <button type="button" class="trial-start-over" id="trial-start-over">Not what you expected? Start over</button>
+      </div>
+
+      <div class="trial-result" id="trial-result" data-panel="done" hidden>
+        <p class="trial-result-title">Your document is ready.</p>
+        <div class="trial-result-actions" id="trial-downloads"></div>
+        <a href="https://app.framewrite.cc/login" class="btn-secondary" id="trial-cta">
+          Sign up for full control (and longer videos) &#8594;
+        </a>
+      </div>
+
+      <div class="trial-failed" id="trial-failed" data-panel="failed" hidden>
+        <p class="trial-failed-message" id="trial-failed-message"></p>
+        <button type="button" class="btn-primary" id="trial-retry">Try again</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<style>
+  .trial-upload {
+    padding: 56px 0 64px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  h2 {
+    font-size: var(--step-3);
+    margin: 0 0 12px;
+  }
+
+  .section-intro {
+    color: var(--ink-soft);
+    max-width: 60ch;
+    margin: 0 0 36px;
+    font-size: 1.02rem;
+  }
+</style>
+
+<script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
+<script>
+  import './trial-upload.ts';
+</script>

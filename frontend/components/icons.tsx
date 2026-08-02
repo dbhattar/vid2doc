@@ -6,8 +6,10 @@ import {
   FileJson,
   FileText,
   FileType2,
+  Globe,
   KeyRound,
   LayoutDashboard,
+  Menu,
   Mic,
   MessageSquare,
   Monitor,
@@ -18,6 +20,7 @@ import {
   Users,
   Video,
   Wallet,
+  X,
 } from "lucide-react";
 import { SiGoogledrive, SiMarkdown } from "react-icons/si";
 
@@ -61,6 +64,18 @@ export function VideoCameraIcon({ className }: IconProps) {
 
 export function MicrophoneIcon({ className }: IconProps) {
   return <Mic className={className} aria-hidden />;
+}
+
+export function GlobeIcon({ className }: IconProps) {
+  return <Globe className={className} aria-hidden />;
+}
+
+export function MenuIcon({ className }: IconProps) {
+  return <Menu className={className} aria-hidden />;
+}
+
+export function CloseIcon({ className }: IconProps) {
+  return <X className={className} aria-hidden />;
 }
 
 // File-type download icons. Markdown and Google Drive use their real,
