@@ -1,0 +1,194 @@
+---
+import MarketingLayout from '../layouts/MarketingLayout.astro';
+
+const lastUpdated = 'August 2, 2026';
+---
+
+<MarketingLayout
+  title="Privacy Policy — Framewrite"
+  description="How Framewrite collects, uses, and shares data -- for account holders and for the anonymous free-trial upload."
+  path="/privacy"
+>
+  <article class="legal">
+    <div class="container legal-inner">
+      <p class="legal-meta">Last updated {lastUpdated}</p>
+      <h1>Privacy Policy</h1>
+
+      <div class="legal-body">
+        <p>
+          This policy covers <strong>Framewrite</strong> (framewrite.cc and app.framewrite.cc) --
+          both accounts you sign up for and the anonymous, no-login free trial on this site. If
+          you have questions about anything here, email
+          <a href="mailto:contact@framewrite.cc">contact@framewrite.cc</a>.
+        </p>
+
+        <h2>What we collect</h2>
+        <p>
+          <strong>If you create an account</strong>, we collect your email address, display name,
+          and profile picture from Google Sign-In; any video or audio you upload and the
+          document/transcript we generate from it; API keys you create; feedback you submit; and,
+          if you connect Google Drive, an authorization token that lets us save documents there on
+          your behalf (kept encrypted, and only used for that purpose).
+        </p>
+        <p>
+          <strong>If you use the free trial</strong> (no account required), we collect the video
+          or audio file you upload, the document we generate from it, and your IP address --
+          the IP address is used only to enforce a daily limit on free trials and is not tied to
+          any account. See <a href="#turnstile">Cloudflare Turnstile</a> below for the bot-check
+          step the trial uses.
+        </p>
+        <p>
+          <strong>Billing</strong>: wallet top-ups are handled by Stripe. We never see or store
+          your card number -- we keep a Stripe customer ID and a ledger of charges/top-ups/refunds
+          in cents.
+        </p>
+        <p>
+          <strong>On this marketing site</strong>, we use Google Analytics to understand traffic
+          and which pages/features get used (page views and a small number of named events, like
+          starting or finishing a free-trial upload). No account-identifying information is sent
+          to Analytics from this site.
+        </p>
+
+        <h2>How your upload gets processed</h2>
+        <p>
+          Turning a video or audio file into a document requires sending parts of it to
+          specialized third-party services, whether you're signed in or using the free trial:
+        </p>
+        <ul>
+          <li>
+            <strong>Transcription</strong> -- your audio is sent to a speech-to-text/diarization
+            provider to produce a speaker-tagged transcript.
+          </li>
+          <li>
+            <strong>Frame analysis and document composition</strong> -- for video, extracted
+            frames (e.g. slides, diagrams, tables) are sent to AI providers to
+            classify what's on screen and to write the final document from your transcript.
+          </li>
+        </ul>
+        <p>
+          These providers process this data to perform the service on our behalf; we don't
+          authorize them to use it to train their own models beyond what their own terms specify
+          for API customers.
+        </p>
+
+        <h2>How long we keep things</h2>
+        <p>
+          <strong>Account documents</strong> are kept for 7 days after processing, after which the
+          file itself is deleted (your job history and billing record are kept, since that's part
+          of your account's usage history) -- download what you need before then.
+        </p>
+        <p>
+          <strong>Free-trial uploads and documents</strong> are deleted entirely, record and all,
+          within about 6 hours of submission. There's no way to retrieve a trial result after
+          that, and no way for us to look one up by request, since nothing ties it to you.
+        </p>
+
+        <h2 id="turnstile">Cloudflare Turnstile</h2>
+        <p>
+          The free trial's upload form is protected by
+          <a href="https://www.cloudflare.com/products/turnstile/" target="_blank" rel="noopener noreferrer">
+            Cloudflare Turnstile
+          </a>, which checks that a submission is coming from a real browser rather than a script,
+          without a visible puzzle in most cases. Using the trial sends some data about your
+          browser/device to Cloudflare for this check. Cloudflare's handling of that data is
+          governed by their own privacy policy and Turnstile-specific addendum, not by us:
+        </p>
+        <ul>
+          <li>
+            <a href="https://www.cloudflare.com/en-gb/turnstile-privacy-policy/" target="_blank" rel="noopener noreferrer">
+              Cloudflare Turnstile Privacy Policy Addendum
+            </a>
+          </li>
+          <li>
+            <a href="https://www.cloudflare.com/privacypolicy/" target="_blank" rel="noopener noreferrer">
+              Cloudflare Privacy Policy
+            </a>
+          </li>
+        </ul>
+
+        <h2>What we store in your browser</h2>
+        <p>
+          The app keeps your sign-in session in your browser's local storage (so you don't have to
+          log in every visit). The free-trial widget on this site saves the id of your most recent
+          trial upload locally, purely so reloading the page can show you its progress again
+          instead of losing track of it -- it's cleared automatically once that upload finishes or
+          expires. Neither of these are cookies, and neither is shared with anyone.
+        </p>
+
+        <h2>Your choices</h2>
+        <p>
+          You can download or delete your documents at any time from your dashboard. To request
+          deletion of your account and associated data, or to ask what data we hold about you,
+          email <a href="mailto:contact@framewrite.cc">contact@framewrite.cc</a>.
+        </p>
+
+        <h2>Children</h2>
+        <p>Framewrite isn't directed at, and isn't knowingly used by, children under 13.</p>
+
+        <h2>Changes to this policy</h2>
+        <p>
+          If this policy changes in a way that matters, we'll update the date at the top of this
+          page. Continued use of Framewrite after a change means you accept the update.
+        </p>
+
+        <h2>Contact</h2>
+        <p>
+          Questions, requests, or concerns about any of the above:
+          <a href="mailto:contact@framewrite.cc">contact@framewrite.cc</a>.
+        </p>
+      </div>
+    </div>
+  </article>
+</MarketingLayout>
+
+<style>
+  .legal {
+    padding: 56px 0 72px;
+  }
+
+  .legal-inner {
+    max-width: 720px;
+  }
+
+  .legal-meta {
+    font-family: var(--font-mono);
+    font-size: 0.8rem;
+    color: var(--ink-soft);
+    margin: 0 0 12px;
+  }
+
+  h1 {
+    font-size: var(--step-4);
+    margin: 0 0 32px;
+    padding-bottom: 32px;
+    border-bottom: var(--border-width) solid var(--ink);
+  }
+
+  .legal-body {
+    font-size: 1.02rem;
+    line-height: 1.75;
+    color: var(--ink);
+  }
+
+  .legal-body p,
+  .legal-body ul {
+    margin: 0 0 1.4em;
+  }
+
+  .legal-body ul {
+    padding-left: 1.3em;
+  }
+
+  .legal-body li {
+    margin-bottom: 0.6em;
+  }
+
+  .legal-body h2 {
+    font-size: var(--step-2);
+    margin: 1.6em 0 0.6em;
+  }
+
+  .legal-body a {
+    color: var(--accent);
+  }
+</style>

@@ -61,6 +61,26 @@
   text-align: center;
 }
 
+.trial-turnstile-notice {
+  margin: -8px 0 18px;
+  color: var(--ink-soft);
+  font-size: 0.72rem;
+  line-height: 1.5;
+  text-align: center;
+}
+
+.trial-turnstile-notice a {
+  color: var(--ink-soft);
+  text-decoration: underline;
+  text-decoration-color: var(--line);
+  text-underline-offset: 2px;
+}
+
+.trial-turnstile-notice a:hover {
+  color: var(--ink);
+  text-decoration-color: currentColor;
+}
+
 #trial-submit {
   width: 100%;
   border: none;

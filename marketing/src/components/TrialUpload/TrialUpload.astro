@@ -34,6 +34,13 @@ const turnstileSiteKey = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY || '';
           Taking a while? A browser extension (ad blocker or privacy tool) may be blocking our
           verification widget — try disabling it for this site, or use a different browser.
         </p>
+        <p class="trial-turnstile-notice">
+          This site is protected by Cloudflare Turnstile, subject to the Cloudflare
+          <a href="https://www.cloudflare.com/privacypolicy/" target="_blank" rel="noopener noreferrer">Privacy Policy</a>
+          and
+          <a href="https://www.cloudflare.com/website-terms/" target="_blank" rel="noopener noreferrer">Terms of Service</a>.
+          See our own <a href="/privacy#turnstile">Privacy Policy</a> for details.
+        </p>
 
         <button type="submit" class="btn-primary" id="trial-submit" disabled>Upload &amp; try it free</button>
         <p class="trial-error" id="trial-error" hidden></p>
