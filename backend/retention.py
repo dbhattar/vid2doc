@@ -5,9 +5,8 @@ row itself is kept (id, duration_seconds, user_id, billed_cents,
 timestamps) since usage/billing history still needs it -- only
 document_path is nulled (it's the one thing route handlers use to decide
 whether a document is servable) and deleted_at is set. source_path is left
-as a historical string, not nulled -- it's a NOT NULL column and nothing
-reads it once a job is done, so it's harmless as a record of where the
-upload used to live.
+as a historical string, not nulled -- nothing reads it once a job is done,
+so it's harmless as a record of where the upload used to live.
 
 `awaiting_review` jobs (a video paused for frame review, see pipeline.py) are
 swept too, but handled differently: since no usable document was ever

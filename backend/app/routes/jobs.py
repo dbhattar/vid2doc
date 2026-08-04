@@ -43,11 +43,23 @@ def retry_job(job_id: str, request: Request, current_user: dict = Depends(get_cu
     if job["duration_seconds"] is None:
         raise HTTPException(status_code=400, detail="Missing duration -- please upload it again")
 
-    source_path = Path(job["source_path"])
-    if not source_path.exists():
-        raise HTTPException(
-            status_code=400, detail=f"Original {job['job_type']} file is no longer available -- please upload it again"
-        )
+    # A direct upload (or a YouTube import that already finished downloading
+    # before some later stage failed) has source_path set -- reuse that file
+    # as-is. A YouTube import that failed before/during its own download has
+    # source_path=None and source_url set instead -- retry by re-queuing the
+    # download rather than requiring a re-upload (see pipeline.py's
+    # _download_if_needed).
+    new_source_path: str | None = None
+    if job["source_path"]:
+        source_path = Path(job["source_path"])
+        if not source_path.exists():
+            raise HTTPException(
+                status_code=400,
+                detail=f"Original {job['job_type']} file is no longer available -- please upload it again",
+            )
+        new_source_path = str(source_path)
+    elif not job["source_url"]:
+        raise HTTPException(status_code=400, detail="Missing source -- please upload it again")
 
     new_job_id = str(uuid.uuid4())
     try:
@@ -65,7 +77,8 @@ def retry_job(job_id: str, request: Request, current_user: dict = Depends(get_cu
 
     jobs.create_job(
         new_job_id,
-        str(source_path),
+        new_source_path,
+        source_url=job["source_url"] if not new_source_path else None,
         user_id=current_user["id"],
         duration_seconds=job["duration_seconds"],
         size_bytes=job["source_size_bytes"],
@@ -98,5 +111,10 @@ def delete_job(job_id: str, current_user: dict = Depends(get_current_user)):
         billing.refund_job_charge(job["user_id"], job_id, job["billed_cents"])
 
     shutil.rmtree(settings.OUTPUT_DIR / job_id, ignore_errors=True)
-    shutil.rmtree(Path(job["source_path"]).parent, ignore_errors=True)
+    # Derived from job_id, not job["source_path"] (which is None for a
+    # YouTube import that failed before ever downloading anything) -- every
+    # job's upload dir is always settings.UPLOADS_DIR/<job_id> by convention
+    # (see routes/convert.py, routes/audio.py, pipeline.py's
+    # _download_if_needed), so this works whether or not source_path is set.
+    shutil.rmtree(settings.UPLOADS_DIR / job_id, ignore_errors=True)
     jobs.delete_job(job_id)

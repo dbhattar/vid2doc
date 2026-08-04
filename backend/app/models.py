@@ -95,7 +95,12 @@ class Job(Base):
     # an LLM-generated title once compose_document runs (see pipeline.py) --
     # whichever is freshest is what list/detail views show.
     title: Mapped[str | None] = mapped_column(String, nullable=True)
-    source_path: Mapped[str] = mapped_column(String, nullable=False)
+    # Nullable: a job imported from YouTube (routes/youtube.py) is created
+    # with source_path=None and source_url set -- the worker downloads it
+    # (pipeline.py's _download_if_needed) and fills in source_path once that
+    # completes, same as every other job type has it set from the start.
+    source_path: Mapped[str | None] = mapped_column(String, nullable=True)
+    source_url: Mapped[str | None] = mapped_column(String, nullable=True)
     document_path: Mapped[str | None] = mapped_column(String, nullable=True)
     duration_seconds: Mapped[float | None] = mapped_column(Float, nullable=True)
     # Uploaded file size in bytes, captured at upload time (media.py's

@@ -26,8 +26,12 @@ async def convert_to_doc(video: UploadFile = File(...), current_user: dict = Dep
     upload_dir.mkdir(parents=True, exist_ok=True)
     dest_path = upload_dir / f"source{ext}"
 
+    # Admins bypass the duration cap entirely -- mainly so they can build
+    # longer showcase documents for demos without needing a real customer's
+    # wallet/limits.
+    max_duration = None if current_user.get("is_admin") else settings.MAX_DURATION_SECONDS
     duration, size_bytes = await save_upload(
-        video, upload_dir, dest_path, settings.MAX_UPLOAD_BYTES, settings.MAX_DURATION_SECONDS, kind="video"
+        video, upload_dir, dest_path, settings.MAX_UPLOAD_BYTES, max_duration, kind="video"
     )
 
     # Pay-as-you-go: $1/video-hour, charged up front. No plans/tiers -- the

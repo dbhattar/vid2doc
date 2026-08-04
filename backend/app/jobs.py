@@ -20,6 +20,7 @@ def _job_to_dict(job: Job) -> dict:
         "job_type": job.job_type,
         "title": job.title,
         "source_path": job.source_path,
+        "source_url": job.source_url,
         "document_path": job.document_path,
         "duration_seconds": job.duration_seconds,
         "source_size_bytes": job.source_size_bytes,
@@ -34,7 +35,7 @@ def _job_to_dict(job: Job) -> dict:
 
 def create_job(
     job_id: str,
-    source_path: str,
+    source_path: str | None,
     user_id: str | uuid.UUID | None = None,
     duration_seconds: float | None = None,
     size_bytes: int | None = None,
@@ -42,6 +43,7 @@ def create_job(
     title: str | None = None,
     job_type: str = "video",
     client_ip: str | None = None,
+    source_url: str | None = None,
 ) -> None:
     session = get_session()
     try:
@@ -51,6 +53,7 @@ def create_job(
                 user_id=user_id,
                 status="queued",
                 source_path=source_path,
+                source_url=source_url,
                 duration_seconds=duration_seconds,
                 source_size_bytes=size_bytes,
                 billed_cents=billed_cents,

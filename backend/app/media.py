@@ -37,13 +37,15 @@ async def save_upload(
     upload_dir: Path,
     dest_path: Path,
     max_upload_bytes: int,
-    max_duration_seconds: int,
+    max_duration_seconds: int | None,
     kind: str,
 ) -> tuple[float, int]:
     """Streams `upload` to `dest_path`, enforcing a byte cap while writing
     and a duration cap after probing. On any validation failure, removes
     `upload_dir` entirely and raises HTTPException. Returns (duration_seconds,
-    size_bytes) on success. `kind` ("video"/"audio") only affects error text."""
+    size_bytes) on success. `kind` ("video"/"audio") only affects error text.
+    `max_duration_seconds=None` skips the duration cap entirely (admin
+    bypass -- see routes/convert.py and routes/audio.py)."""
     size = 0
     try:
         with open(dest_path, "wb") as f:
@@ -69,7 +71,7 @@ async def save_upload(
         shutil.rmtree(upload_dir, ignore_errors=True)
         raise HTTPException(status_code=400, detail=f"Could not read {kind} file -- is it valid?")
 
-    if duration > max_duration_seconds:
+    if max_duration_seconds is not None and duration > max_duration_seconds:
         shutil.rmtree(upload_dir, ignore_errors=True)
         raise HTTPException(
             status_code=400,

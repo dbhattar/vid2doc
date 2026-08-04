@@ -31,6 +31,8 @@ export default function VideoPage() {
   const [retryError, setRetryError] = useState<string | null>(null);
   const [deletingJobId, setDeletingJobId] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [source, setSource] = useState<"file" | "youtube">("file");
+  const [youtubeUrl, setYoutubeUrl] = useState("");
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -89,6 +91,27 @@ export default function VideoPage() {
     }
   }
 
+  async function handleYoutubeSubmit(e: React.FormEvent) {
+    e.preventDefault();
+    const url = youtubeUrl.trim();
+    if (!url) return;
+
+    setUploading(true);
+    setUploadError(null);
+    setUploadBlockedByBilling(false);
+    try {
+      await apiFetch("/api/convert_from_youtube", { method: "POST", body: JSON.stringify({ url }) });
+      setYoutubeUrl("");
+      loadJobs();
+    } catch (err) {
+      if (handleAuthError(err)) return;
+      setUploadError(err instanceof ApiError ? err.message : "Import failed.");
+      setUploadBlockedByBilling(err instanceof ApiError && err.status === 402);
+    } finally {
+      setUploading(false);
+    }
+  }
+
   async function handleRetry(jobId: string) {
     setRetryingJobId(jobId);
     setRetryError(null);
@@ -132,24 +155,64 @@ export default function VideoPage() {
           up as one clean document -- you just pick which frames make the cut.
         </p>
 
-        <form onSubmit={handleUpload} className="mt-8 w-full max-w-md border-2 border-line bg-paper p-6 text-left">
-          <p className="text-xs text-ink-soft">MP4, MOV, MKV, WebM, AVI, or M4V, up to 90 minutes.</p>
-
-          <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-stretch">
-            <label className="flex flex-1 cursor-pointer items-center border-2 border-dashed border-line px-4 py-3 text-sm text-ink-soft transition-colors hover:border-accent hover:bg-accent-soft/40">
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept={ACCEPTED_EXTENSIONS}
-                onChange={(e) => setSelectedFileName(e.target.files?.[0]?.name ?? null)}
-                className="sr-only"
-              />
-              <span className="truncate">{selectedFileName ?? "Click to choose a video file..."}</span>
-            </label>
-            <Button type="submit" disabled={uploading || !selectedFileName} className="shrink-0 justify-center">
-              {uploading ? "Uploading..." : "Upload"}
-            </Button>
+        <form
+          onSubmit={source === "file" ? handleUpload : handleYoutubeSubmit}
+          className="mt-8 w-full max-w-md border-2 border-line bg-paper p-6 text-left"
+        >
+          <div className="flex gap-2 font-mono text-xs uppercase tracking-wide">
+            <button
+              type="button"
+              onClick={() => setSource("file")}
+              className={`border-2 px-3 py-1 transition-colors ${
+                source === "file" ? "border-ink bg-ink text-paper" : "border-line text-ink-soft hover:border-ink"
+              }`}
+            >
+              Upload file
+            </button>
+            <button
+              type="button"
+              onClick={() => setSource("youtube")}
+              className={`border-2 px-3 py-1 transition-colors ${
+                source === "youtube" ? "border-ink bg-ink text-paper" : "border-line text-ink-soft hover:border-ink"
+              }`}
+            >
+              YouTube link
+            </button>
           </div>
+
+          <p className="mt-3 text-xs text-ink-soft">MP4, MOV, MKV, WebM, AVI, or M4V, up to 90 minutes.</p>
+
+          {source === "file" ? (
+            <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-stretch">
+              <label className="flex flex-1 cursor-pointer items-center border-2 border-dashed border-line px-4 py-3 text-sm text-ink-soft transition-colors hover:border-accent hover:bg-accent-soft/40">
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept={ACCEPTED_EXTENSIONS}
+                  onChange={(e) => setSelectedFileName(e.target.files?.[0]?.name ?? null)}
+                  className="sr-only"
+                />
+                <span className="truncate">{selectedFileName ?? "Click to choose a video file..."}</span>
+              </label>
+              <Button type="submit" disabled={uploading || !selectedFileName} className="shrink-0 justify-center">
+                {uploading ? "Uploading..." : "Upload"}
+              </Button>
+            </div>
+          ) : (
+            <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-stretch">
+              <input
+                type="url"
+                value={youtubeUrl}
+                onChange={(e) => setYoutubeUrl(e.target.value)}
+                placeholder="https://www.youtube.com/watch?v=..."
+                className="flex-1 border-2 border-line bg-paper px-3 py-2 text-sm text-ink outline-none transition-shadow focus:border-accent focus:ring-2 focus:ring-accent-soft"
+              />
+              <Button type="submit" disabled={uploading || !youtubeUrl.trim()} className="shrink-0 justify-center">
+                {uploading ? "Importing..." : "Import"}
+              </Button>
+            </div>
+          )}
+
           {uploadError && (
             <p className="mt-2 text-sm text-status-error">
               {uploadError}

@@ -2,7 +2,7 @@ import json
 import os
 from pathlib import Path
 
-from . import billing, jobs
+from . import billing, jobs, users, youtube
 from .config import settings
 from .stages import assemble, audio, classify, compose, frames, transcribe
 
@@ -176,6 +176,33 @@ def _compose_and_finalize(job: dict, output_dir: Path, images_meta: list[dict], 
     _finalize_document(job, title, sections, images_meta, tables_meta)
 
 
+def _download_if_needed(job: dict) -> dict:
+    """A job imported from YouTube (routes/youtube.py) is created with
+    source_path=None and source_url set -- the actual download happens here,
+    in the worker, rather than in the API request that created the job (see
+    routes/youtube.py's docstring for why). No-op for every other job type,
+    which already has source_path set from the start. Re-derives the admin
+    duration-cap bypass fresh (rather than trusting a decision baked in at
+    job-creation time), since admin status could have changed since."""
+    if job.get("source_path"):
+        return job
+
+    job_id = job["id"]
+    jobs.update_job(job_id, progress_stage="downloading")
+    upload_dir = settings.UPLOADS_DIR / job_id
+    upload_dir.mkdir(parents=True, exist_ok=True)
+    dest_path = upload_dir / "source.mp4"
+
+    user = users.get_user_by_id(job["user_id"]) if job.get("user_id") else None
+    max_duration = None if (user and user.get("is_admin")) else settings.MAX_DURATION_SECONDS
+
+    duration, size_bytes = youtube.download_youtube_video(
+        job["source_url"], upload_dir, dest_path, max_duration, settings.MAX_UPLOAD_BYTES
+    )
+    jobs.update_job(job_id, source_path=str(dest_path), duration_seconds=duration, source_size_bytes=size_bytes)
+    return jobs.get_job(job_id)
+
+
 def resume_after_review(job: dict) -> None:
     """Picks up where run_job left off for a video job that paused at
     "awaiting_review" -- reads review.json (written once, at pause time,
@@ -215,6 +242,8 @@ def run_job(job: dict) -> None:
         if job.get("progress_stage") == "resuming_after_review":
             resume_after_review(job)
             return
+
+        job = _download_if_needed(job)
 
         if is_audio_job:
             # No frame capture, no classification, no LLM document
