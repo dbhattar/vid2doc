@@ -281,7 +281,7 @@ if (form) {
     fileLabel.textContent = 'Click to choose a video or audio file...';
     clearError();
     updateSubmitEnabled();
-    if (window.turnstile) window.turnstile.reset();
+    if (window.turnstile) window.turnstile.reset(turnstileContainer as HTMLElement);
     setPanel('idle');
   }
 
@@ -315,7 +315,7 @@ if (form) {
     } catch (err) {
       failedMessageEl.textContent = err instanceof Error ? err.message : 'Upload failed.';
       setPanel('failed');
-      if (window.turnstile) window.turnstile.reset();
+      if (window.turnstile) window.turnstile.reset(turnstileContainer as HTMLElement);
       turnstileToken = null;
     }
   });

@@ -51,9 +51,10 @@ type AdminUser = {
 
 type AdminFeedback = {
   id: string;
-  user_id: string;
-  email: string;
+  user_id: string | null;
+  email: string | null;
   display_name: string | null;
+  source: "app" | "marketing";
   message: string;
   created_at: string;
 };
@@ -308,7 +309,14 @@ export default function AdminPage() {
           {feedback.map((f) => (
             <li key={f.id} className="px-4 py-3">
               <div className="flex items-center justify-between gap-3">
-                <p className="text-sm font-medium text-ink">{f.display_name || f.email}</p>
+                <p className="text-sm font-medium text-ink">
+                  {f.display_name || f.email || "Anonymous"}
+                  {f.source === "marketing" && (
+                    <span className="ml-2 rounded-full bg-paper-shade px-2 py-0.5 text-xs font-normal text-ink-soft">
+                      marketing site
+                    </span>
+                  )}
+                </p>
                 <p className="shrink-0 text-xs text-ink-soft">{new Date(f.created_at).toLocaleString()}</p>
               </div>
               <p className="mt-1 whitespace-pre-wrap text-sm text-ink-soft">{f.message}</p>

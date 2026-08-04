@@ -1,0 +1,190 @@
+---
+const turnstileSiteKey = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY || '';
+---
+
+<div class="feedback-widget" data-state="closed">
+  <button type="button" class="feedback-fab" id="feedback-fab" aria-expanded="false" aria-label="Send feedback" title="Feedback / feature requests">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+      <path d="M21 11.5a8.38 8.38 0 0 1-.9 3.8 8.5 8.5 0 0 1-7.6 4.7 8.38 8.38 0 0 1-3.8-.9L3 21l1.9-5.7a8.38 8.38 0 0 1-.9-3.8 8.5 8.5 0 0 1 4.7-7.6 8.38 8.38 0 0 1 3.8-.9h.5a8.48 8.48 0 0 1 8 8v.5z"></path>
+    </svg>
+  </button>
+
+  <div class="feedback-panel" id="feedback-panel" data-panel="idle" hidden>
+    <button type="button" class="feedback-close" id="feedback-close" aria-label="Close">&times;</button>
+
+    <div class="feedback-panel-idle" data-panel-content="idle">
+      <p class="feedback-title">Feedback or feature request</p>
+      <p class="feedback-subtitle">Tell us what's working, what's not, or what you'd like to see.</p>
+
+      <form id="feedback-form">
+        <textarea
+          id="feedback-message"
+          rows="4"
+          placeholder="Type your feedback here..."
+          maxlength="4000"
+          required
+        ></textarea>
+        <input
+          type="email"
+          id="feedback-email"
+          placeholder="Email (optional, if you'd like a reply)"
+          maxlength="320"
+        />
+
+        <!-- No `cf-turnstile` class here on purpose: that class is what
+             Cloudflare's api.js auto-scans the whole page for at load and
+             renders into immediately -- including this container, which
+             starts out inside a `hidden` (display:none, zero-size) panel.
+             Rendering into a hidden container breaks that widget and, since
+             the homepage also has TrialUpload's real `cf-turnstile` div,
+             took that one down too. Instead this is rendered explicitly,
+             lazily, only once the panel is actually visible (see
+             feedback-widget.ts). -->
+        <div id="feedback-turnstile" data-sitekey={turnstileSiteKey}></div>
+
+        <p class="feedback-error" id="feedback-error" hidden></p>
+        <button type="submit" class="btn-primary feedback-submit" id="feedback-submit" disabled>Send feedback</button>
+      </form>
+    </div>
+
+    <div class="feedback-panel-sent" data-panel-content="sent" hidden>
+      <p class="feedback-title">Thanks for the feedback!</p>
+      <button type="button" class="feedback-close-link" id="feedback-close-sent">Close</button>
+    </div>
+  </div>
+</div>
+
+<style>
+  .feedback-widget {
+    position: fixed;
+    right: 20px;
+    bottom: 20px;
+    z-index: 50;
+  }
+
+  .feedback-fab {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 48px;
+    height: 48px;
+    border: 2px solid var(--ink);
+    background: var(--ink);
+    color: var(--paper);
+    cursor: pointer;
+    transition: background 150ms ease, border-color 150ms ease, transform 150ms ease;
+  }
+
+  .feedback-fab:hover {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--accent-ink);
+  }
+
+  .feedback-fab svg {
+    width: 22px;
+    height: 22px;
+  }
+
+  .feedback-panel {
+    position: absolute;
+    right: 0;
+    bottom: 60px;
+    width: min(320px, calc(100vw - 40px));
+    border: 2px solid var(--line);
+    background: var(--paper);
+    padding: 16px;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  }
+
+  .feedback-close {
+    position: absolute;
+    top: 8px;
+    right: 8px;
+    border: none;
+    background: none;
+    color: var(--ink-soft);
+    font-size: 1.2rem;
+    line-height: 1;
+    cursor: pointer;
+    padding: 4px;
+  }
+
+  .feedback-close:hover {
+    color: var(--ink);
+  }
+
+  .feedback-title {
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 1rem;
+    color: var(--ink);
+    margin: 0 0 4px;
+    padding-right: 20px;
+  }
+
+  .feedback-subtitle {
+    font-size: 0.8rem;
+    color: var(--ink-soft);
+    margin: 0 0 12px;
+  }
+
+  #feedback-form textarea,
+  #feedback-form input[type='email'] {
+    display: block;
+    width: 100%;
+    box-sizing: border-box;
+    border: 2px solid var(--line);
+    background: var(--paper);
+    color: var(--ink);
+    font-family: inherit;
+    font-size: 0.9rem;
+    padding: 8px 10px;
+    margin-bottom: 10px;
+    resize: none;
+  }
+
+  #feedback-form textarea:focus,
+  #feedback-form input[type='email']:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+
+  .cf-turnstile {
+    margin-bottom: 10px;
+  }
+
+  .feedback-error {
+    font-size: 0.8rem;
+    color: var(--accent);
+    margin: -2px 0 10px;
+  }
+
+  .feedback-submit {
+    width: 100%;
+    justify-content: center;
+    display: flex;
+  }
+
+  .feedback-panel-sent {
+    text-align: center;
+  }
+
+  .feedback-close-link {
+    margin-top: 8px;
+    border: none;
+    background: none;
+    color: var(--ink-soft);
+    font-size: 0.85rem;
+    cursor: pointer;
+  }
+
+  .feedback-close-link:hover {
+    color: var(--accent);
+    text-decoration: underline;
+  }
+</style>
+
+<script>
+  import './feedback-widget.ts';
+</script>
