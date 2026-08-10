@@ -1,0 +1,84 @@
+"use client";
+
+import { useEffect, useState } from "react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
+
+import AuthenticatedImage from "@/components/AuthenticatedImage";
+import { fetchAuthenticatedText } from "@/lib/api";
+
+/** Renders a finished job's document.md inline, so the result is visible
+ * without downloading anything first. Reused as-is on both the owner's job
+ * detail page and the public share page -- image resolution is pure
+ * relative-URL math against `markdownUrl`, and AuthenticatedImage only
+ * attaches a Bearer header when a token happens to exist, so nothing here
+ * needs to know whether the viewer is authenticated. */
+export default function DocumentPreview({ markdownUrl }: { markdownUrl: string }) {
+  const [markdown, setMarkdown] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    setMarkdown(null);
+    setError(null);
+    fetchAuthenticatedText(markdownUrl)
+      .then((text) => {
+        if (!cancelled) setMarkdown(text);
+      })
+      .catch(() => {
+        if (!cancelled) setError("Couldn't load the document preview.");
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [markdownUrl]);
+
+  if (error) return <p className="mt-6 text-sm text-status-error">{error}</p>;
+  if (markdown === null) return <p className="mt-6 text-sm text-ink-soft">Loading document...</p>;
+
+  return (
+    <div className="mt-6 border-t-2 border-line pt-6">
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        components={{
+          h1: ({ children }) => (
+            <h1 className="mb-4 border-b-2 border-line pb-2 font-display text-2xl font-bold tracking-tight text-ink">{children}</h1>
+          ),
+          h2: ({ children }) => <h2 className="mt-8 mb-3 font-display text-lg font-bold text-ink">{children}</h2>,
+          h3: ({ children }) => <h3 className="mt-6 mb-2 font-display text-base font-semibold text-ink">{children}</h3>,
+          p: ({ children }) => <p className="mb-4 text-sm leading-relaxed text-ink">{children}</p>,
+          a: ({ href, children }) => (
+            <a href={href} target="_blank" rel="noreferrer" className="text-accent underline hover:no-underline">
+              {children}
+            </a>
+          ),
+          em: ({ children }) => <em className="text-ink-soft">{children}</em>,
+          ul: ({ children }) => <ul className="mb-4 list-disc space-y-1 pl-5 text-sm text-ink">{children}</ul>,
+          ol: ({ children }) => <ol className="mb-4 list-decimal space-y-1 pl-5 text-sm text-ink">{children}</ol>,
+          blockquote: ({ children }) => (
+            <blockquote className="border-l-4 border-accent pl-4 italic text-ink-soft">{children}</blockquote>
+          ),
+          code: ({ children }) => <code className="border border-line bg-paper-shade px-1 py-0.5 font-mono text-xs">{children}</code>,
+          pre: ({ children }) => (
+            <pre className="mb-4 overflow-x-auto border-2 border-line bg-paper-shade p-3 font-mono text-xs">{children}</pre>
+          ),
+          table: ({ children }) => (
+            <div className="mb-4 overflow-x-auto">
+              <table className="w-full border-2 border-line text-sm">{children}</table>
+            </div>
+          ),
+          thead: ({ children }) => <thead className="bg-ink font-mono text-xs uppercase tracking-wide text-paper">{children}</thead>,
+          th: ({ children }) => <th className="border-2 border-line px-3 py-2 text-left">{children}</th>,
+          td: ({ children }) => <td className="border-2 border-line px-3 py-2 text-ink">{children}</td>,
+          img: ({ src, alt }) => {
+            if (!src || typeof src !== "string") return null;
+            const resolvedSrc = new URL(src, markdownUrl).toString();
+            return <AuthenticatedImage src={resolvedSrc} alt={alt || ""} className="w-full border-2 border-line" />;
+          },
+        }}
+      >
+        {markdown}
+      </ReactMarkdown>
+    </div>
+  );
+}

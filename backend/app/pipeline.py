@@ -2,7 +2,7 @@ import json
 import os
 from pathlib import Path
 
-from . import billing, jobs, users, youtube
+from . import billing, emails, jobs, users, youtube
 from .config import settings
 from .stages import assemble, audio, classify, compose, frames, transcribe
 
@@ -139,6 +139,7 @@ def _finalize_document(
         print(f"PDF export failed for job {job_id}: {e}", flush=True)
 
     jobs.update_job(job_id, status="done", progress_stage="done", document_path=str(doc_path))
+    emails.notify_job_status_change(job_id)
 
 
 def _transcribe_segments(job: dict, output_dir: Path) -> list[dict]:
@@ -318,3 +319,4 @@ def run_job(job: dict) -> None:
         jobs.update_job(job_id, status="failed", progress_stage=None, error_message=str(e))
         if job.get("user_id") and job.get("billed_cents"):
             billing.refund_job_charge(job["user_id"], job_id, job["billed_cents"])
+        emails.notify_job_status_change(job_id)

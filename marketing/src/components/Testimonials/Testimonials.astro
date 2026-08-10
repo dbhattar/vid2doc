@@ -1,0 +1,95 @@
+---
+---
+
+<section class="testimonials" id="testimonials" hidden>
+  <div class="container">
+    <p class="eyebrow">What people are saying</p>
+    <h2>Trusted by people turning video into documents</h2>
+
+    <div class="testimonial-grid" id="testimonial-grid"></div>
+  </div>
+</section>
+
+<style>
+  .testimonials {
+    padding: 56px 0 64px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  h2 {
+    font-size: var(--step-3);
+    max-width: 26ch;
+    margin: 0 0 36px;
+  }
+
+  .testimonial-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0;
+  }
+
+  @media (max-width: 640px) {
+    .testimonial-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+
+{/* Global, not scoped: the cards below are built by testimonials.ts via
+    document.createElement at runtime, so they never get Astro's
+    build-time scope class -- a scoped <style> here would silently never
+    match them. */}
+<style is:global>
+  .testimonial-card {
+    margin: 0;
+    padding: 28px 24px;
+    border: var(--border-width) solid var(--ink);
+    border-left-width: 0;
+  }
+
+  .testimonial-card:first-child {
+    border-left-width: var(--border-width);
+  }
+
+  .testimonial-card + .testimonial-card {
+    margin-left: -1px;
+  }
+
+  @media (max-width: 640px) {
+    .testimonial-card {
+      border-left-width: var(--border-width);
+    }
+    .testimonial-card + .testimonial-card {
+      margin-left: 0;
+      margin-top: -1px;
+    }
+  }
+
+  .testimonial-card--accent {
+    border-left: var(--rule-width) solid var(--accent);
+  }
+
+  .testimonial-quote {
+    font-size: 1rem;
+    line-height: 1.6;
+    color: var(--ink);
+    margin: 0 0 18px;
+  }
+
+  .testimonial-name {
+    display: block;
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--ink);
+  }
+
+  .testimonial-role {
+    display: block;
+    font-size: 0.82rem;
+    color: var(--ink-soft);
+  }
+</style>
+
+<script>
+  import './testimonials.ts';
+</script>

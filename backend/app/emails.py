@@ -1,6 +1,10 @@
 import html
+import logging
 
+from .config import settings
 from .mailgun_client import send_email
+
+logger = logging.getLogger(__name__)
 
 _DASHBOARD_URL = "https://app.framewrite.cc/dashboard"
 _LOGO_URL = "https://framewrite.cc/images/framewrite_logo.png"
@@ -124,3 +128,136 @@ def send_welcome_email(user: dict) -> None:
     )
 
     send_email(user["email"], subject, text, html=html_body)
+
+
+def _job_status_email_shell(eyebrow: str, heading: str, body_html: str, cta_label: str, cta_url: str, footer: str) -> str:
+    """Shared table/brand-token shell for send_job_done_email/send_job_failed_email
+    -- same structure as send_welcome_email's markup, just without the numbered
+    steps table (not relevant once a job has already finished)."""
+    return f"""\
+<!doctype html>
+<html>
+  <body style="margin:0;padding:32px 16px;background:{_BG};font-family:Arial,Helvetica,sans-serif;">
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="560" cellpadding="0" cellspacing="0" border="0"
+                 style="max-width:560px;width:100%;background:#ffffff;border:1px solid {_BORDER};
+                        border-radius:16px;overflow:hidden;">
+            <tr>
+              <td style="padding:32px 32px 0;">
+                <img src="{_LOGO_URL}" alt="Framewrite" height="22" style="display:block;height:22px;width:auto;" />
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:24px 32px 8px;">
+                <p style="margin:0 0 6px;font-size:11px;font-weight:700;letter-spacing:0.06em;text-transform:uppercase;
+                          color:{_NAVY};background:{_ACCENT_SOFT};display:inline-block;padding:4px 10px;border-radius:999px;">
+                  {eyebrow}
+                </p>
+                <h1 style="margin:14px 0 8px;font-size:22px;line-height:1.3;letter-spacing:-0.01em;color:{_NAVY};">
+                  {heading}
+                </h1>
+                {body_html}
+              </td>
+            </tr>
+            <tr>
+              <td align="center" style="padding:4px 32px 28px;">
+                <a href="{cta_url}"
+                   style="display:inline-block;background:{_NAVY};color:#ffffff;text-decoration:none;
+                          font-size:15px;font-weight:600;padding:13px 28px;border-radius:10px;">
+                  {cta_label}
+                </a>
+              </td>
+            </tr>
+            <tr>
+              <td style="padding:0 32px 28px;border-top:1px solid {_BORDER};">
+                <p style="margin:20px 0 0;font-size:13px;color:{_TEXT_MUTED};">
+                  {footer}
+                </p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>
+"""
+
+
+def send_job_done_email(user: dict, job: dict) -> None:
+    raw_name = user.get("display_name") or user["email"].split("@")[0]
+    name = html.escape(raw_name)
+    raw_title = job.get("title") or "Your document"
+    title = html.escape(raw_title)
+    job_url = f"{settings.FRONTEND_URL}/dashboard/jobs/{job['id']}"
+    subject = f'"{raw_title}" is ready'
+
+    body_html = f"""\
+                <p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:{_TEXT_MUTED};">
+                  Hi {name}, your document &ldquo;{title}&rdquo; is done processing and ready to view.
+                </p>"""
+    html_body = _job_status_email_shell(
+        "Done", f"&ldquo;{title}&rdquo; is ready", body_html, "View your document", job_url,
+        "Pay-as-you-go, no subscription -- $1/hour of video, $0.40/hour of audio.",
+    )
+    text = (
+        f"Hi {raw_name},\n\nYour document \"{raw_title}\" is ready.\n\n"
+        f"View it: {job_url}\n\n-- The Framewrite team"
+    )
+    send_email(user["email"], subject, text, html=html_body)
+
+
+def send_job_failed_email(user: dict, job: dict) -> None:
+    raw_name = user.get("display_name") or user["email"].split("@")[0]
+    name = html.escape(raw_name)
+    raw_title = job.get("title") or "Your document"
+    title = html.escape(raw_title)
+    job_url = f"{settings.FRONTEND_URL}/dashboard/jobs/{job['id']}"
+    subject = f'"{raw_title}" failed to process'
+
+    error_line = ""
+    if job.get("error_message"):
+        error_line = f"""<p style="margin:0 0 20px;font-size:14px;line-height:1.6;color:{_TEXT_MUTED};">{html.escape(job["error_message"])}</p>"""
+    body_html = f"""\
+                <p style="margin:0 0 12px;font-size:15px;line-height:1.6;color:{_TEXT_MUTED};">
+                  Hi {name}, your job &ldquo;{title}&rdquo; failed to process. You've been refunded if you were charged.
+                </p>
+                {error_line}"""
+    html_body = _job_status_email_shell(
+        "Failed", f"&ldquo;{title}&rdquo; couldn't be processed", body_html, "View details", job_url,
+        "If this keeps happening, reply to this email and we'll take a look.",
+    )
+    error_suffix = f": {job['error_message']}" if job.get("error_message") else "."
+    text = (
+        f"Hi {raw_name},\n\nYour job \"{raw_title}\" failed to process{error_suffix}\n\n"
+        f"You've been refunded if you were charged. Details: {job_url}\n\n-- The Framewrite team"
+    )
+    send_email(user["email"], subject, text, html=html_body)
+
+
+def notify_job_status_change(job_id: str) -> None:
+    """Best-effort job-completion/failure email -- skips anonymous/trial jobs
+    (user_id IS NULL, see routes/trial.py), and swallows every exception: a
+    broken/misconfigured mail provider must never fail, retry, or roll back
+    the job whose status transition triggered this. Call this immediately
+    after the jobs.update_job(...) call that actually flips status to
+    "done"/"failed" -- see pipeline.py's _finalize_document and run_job's
+    except block, and retention.py's stale-review sweep."""
+    from . import jobs, users  # local import: avoids a module-load-order
+                                # dependency between emails.py and jobs.py/users.py
+
+    try:
+        job = jobs.get_job(job_id)
+        if not job or not job.get("user_id") or job["status"] not in ("done", "failed"):
+            return
+        user = users.get_user_by_id(job["user_id"])
+        if not user or not user.get("email"):
+            return
+        if job["status"] == "done":
+            send_job_done_email(user, job)
+        else:
+            send_job_failed_email(user, job)
+    except Exception:
+        logger.exception("Failed to send job-status email for job %s", job_id)

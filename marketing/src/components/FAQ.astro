@@ -1,0 +1,128 @@
+---
+const faqs = [
+  {
+    q: 'How much does it cost?',
+    a: "$1.00/hour for video (full pipeline: diarized transcript, speaker labels, and slides/diagrams pulled into a formatted document) and $0.40/hour for audio-only (verbatim, speaker-tagged transcript, no document composition). No subscription, no plans — billed exactly proportional to length.",
+  },
+  {
+    q: 'What does the free trial actually let me do?',
+    a: 'No account needed. Video clips up to 10 minutes, audio up to 30 minutes, 2 free tries per day, protected by Cloudflare Turnstile to keep it human-only.',
+  },
+  {
+    q: 'What happens to my file afterward?',
+    a: "Free-trial uploads and their generated documents are deleted entirely within about 6 hours — there's no way to retrieve or look one up afterward, since nothing ties it to you. If you sign up, your documents are kept 7 days after processing so you can download them, then the file is deleted (your job history and billing record stay, as part of your account).",
+  },
+  {
+    q: 'What file types can I upload?',
+    a: 'Video: .mp4, .mov, .mkv, .webm, .avi, .m4v. Audio: .mp3, .wav, .m4a, .aac, .flac, .ogg, .wma. Or skip the upload entirely and paste a YouTube link instead.',
+  },
+  {
+    q: 'How accurate is it?',
+    a: 'Quality depends on audio clarity and how much cross-talk there is. The best way to check for your own use case is to run a real clip through the free trial before trusting it for something longer.',
+  },
+  {
+    q: "What do I get with an account that I don't get with the trial?",
+    a: 'Longer and larger files, documents kept for 7 days (not 6 hours), full billing history, and access to API keys and Google Drive export.',
+  },
+];
+---
+
+<section class="faq" id="faq">
+  <div class="container">
+    <p class="eyebrow">FAQ</p>
+    <h2>Questions people ask before trying it</h2>
+
+    <div class="faq-list">
+      {
+        faqs.map((item) => (
+          <details class="faq-item">
+            <summary>
+              {item.q}
+              <span class="faq-icon" aria-hidden="true" />
+            </summary>
+            <p class="faq-answer">{item.a}</p>
+          </details>
+        ))
+      }
+    </div>
+  </div>
+</section>
+
+<style>
+  .faq {
+    padding: 56px 0 64px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  h2 {
+    font-size: var(--step-3);
+    margin: 0 0 36px;
+  }
+
+  .faq-list {
+    border-top: var(--border-width) solid var(--ink);
+    max-width: 760px;
+  }
+
+  .faq-item {
+    border-bottom: 1px solid var(--line);
+  }
+
+  .faq-item summary {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 20px 0;
+    font-family: var(--font-display);
+    font-weight: 600;
+    font-size: 1.05rem;
+    cursor: pointer;
+    list-style: none;
+  }
+
+  .faq-item summary::-webkit-details-marker {
+    display: none;
+  }
+
+  .faq-icon {
+    position: relative;
+    flex-shrink: 0;
+    width: 16px;
+    height: 16px;
+  }
+
+  .faq-icon::before,
+  .faq-icon::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    background: var(--ink);
+    transition: transform 150ms ease;
+  }
+
+  .faq-icon::before {
+    width: 16px;
+    height: 2px;
+    transform: translate(-50%, -50%);
+  }
+
+  .faq-icon::after {
+    width: 2px;
+    height: 16px;
+    transform: translate(-50%, -50%);
+  }
+
+  .faq-item[open] .faq-icon::after {
+    transform: translate(-50%, -50%) rotate(90deg) scaleY(0);
+  }
+
+  .faq-answer {
+    padding: 0 0 20px;
+    max-width: 62ch;
+    color: var(--ink-soft);
+    font-size: 0.95rem;
+    line-height: 1.6;
+  }
+</style>

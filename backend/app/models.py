@@ -111,6 +111,13 @@ class Job(Base):
     # Only ever set for anonymous trial jobs (user_id IS NULL) -- the basis
     # for routes/trial.py's per-IP daily cap. Never set for real users.
     client_ip: Mapped[str | None] = mapped_column(String, nullable=True)
+    # Set when the owner turns on public sharing for this job (see
+    # routes/share.py) -- NULL means not shared, same nullable-as-signal
+    # convention as user_id for trial jobs (see this class's docstring).
+    # Stored in plaintext (unlike api_keys.key_hash): the raw value itself is
+    # what a share link must reproduce, and the only party who ever sees it
+    # back is the owner, through their own authenticated job responses.
+    share_token: Mapped[str | None] = mapped_column(String, unique=True, nullable=True, index=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
@@ -156,6 +163,22 @@ class Feedback(Base):
     message: Mapped[str] = mapped_column(Text, nullable=False)
     email: Mapped[str | None] = mapped_column(String, nullable=True)
     source: Mapped[str] = mapped_column(String, nullable=False, default="app")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class Testimonial(Base):
+    """Curated quotes shown on the marketing homepage (see
+    routes/testimonials.py's public list endpoint) -- there's no admin UI
+    for these yet, so rows are added directly (see that route module's
+    docstring for a one-off insert snippet). Every row is shown; there's no
+    draft/published flag since nothing writes one unpublished."""
+
+    __tablename__ = "testimonials"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    quote: Mapped[str] = mapped_column(Text, nullable=False)
+    author_name: Mapped[str] = mapped_column(String, nullable=False)
+    author_role: Mapped[str | None] = mapped_column(String, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 

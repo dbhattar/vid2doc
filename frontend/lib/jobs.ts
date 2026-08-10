@@ -18,6 +18,23 @@ export type Job = {
   document_transcript_json_url?: string;
   retention_expired?: boolean;
   error?: string;
+  share_url?: string | null;
+};
+
+/** Shape of GET /api/share/{token} -- the anonymous, read-only counterpart
+ * to Job for a shared document. Deliberately excludes anything owner-only:
+ * no status/billed_cents/error, no job_id (the token itself is the only
+ * identifier a visitor needs). */
+export type PublicJobView = {
+  title: string | null;
+  job_type: JobType;
+  duration_seconds: number | null;
+  created_at: string;
+  document_url?: string;
+  document_bundle_url?: string;
+  document_docx_url?: string;
+  document_pdf_url?: string;
+  document_transcript_json_url?: string;
 };
 
 /** One candidate frame surfaced during a video job's "awaiting_review" pause

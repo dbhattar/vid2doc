@@ -3,11 +3,14 @@ import MarketingLayout from '../layouts/MarketingLayout.astro';
 import Hero from '../components/Hero.astro';
 import Reveal from '../components/Reveal.astro';
 import TrialUpload from '../components/TrialUpload/TrialUpload.astro';
+import Testimonials from '../components/Testimonials/Testimonials.astro';
 import WhatsNewGrid from '../components/WhatsNewGrid.astro';
 import FeatureGrid from '../components/FeatureGrid.astro';
 import PricingTable from '../components/PricingTable.astro';
+import FAQ from '../components/FAQ.astro';
 import EnterpriseCta from '../components/EnterpriseCta.astro';
 import FinalCta from '../components/FinalCta.astro';
+import Newsletter from '../components/Newsletter/Newsletter.astro';
 ---
 
 <MarketingLayout
@@ -17,9 +20,16 @@ import FinalCta from '../components/FinalCta.astro';
 >
   <Hero />
   <Reveal><TrialUpload /></Reveal>
+  {/* Not wrapped in Reveal -- this section is `hidden` until client-side JS
+      confirms there's at least one real testimonial (see testimonials.ts),
+      and a hidden element never intersects the scroll observer that would
+      otherwise fade it in. */}
+  <Testimonials />
   <Reveal><WhatsNewGrid /></Reveal>
   <Reveal><FeatureGrid /></Reveal>
   <Reveal><PricingTable /></Reveal>
+  <Reveal><FAQ /></Reveal>
   <Reveal><EnterpriseCta /></Reveal>
   <Reveal><FinalCta /></Reveal>
+  <Reveal><Newsletter /></Reveal>
 </MarketingLayout>

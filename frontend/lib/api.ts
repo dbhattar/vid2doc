@@ -62,3 +62,17 @@ export async function downloadAuthenticated(url: string, filename: string): Prom
   a.click();
   URL.revokeObjectURL(objectUrl);
 }
+
+/** Same auth technique as downloadAuthenticated, but returns the response
+ * body as text instead of triggering a save dialog -- for rendering a
+ * document's raw Markdown inline (see DocumentPreview) rather than
+ * downloading it. `url` is an absolute URL already returned by the backend,
+ * not a path. */
+export async function fetchAuthenticatedText(url: string): Promise<string> {
+  const token = getToken();
+  const response = await fetch(url, {
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+  });
+  if (!response.ok) throw new ApiError(response.status, response.statusText);
+  return response.text();
+}

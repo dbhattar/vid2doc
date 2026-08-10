@@ -93,6 +93,11 @@ class Settings:
     # so you can iterate on copy/design without creating a fresh account each
     # time. Never enable in production.
     ALWAYS_SEND_WELCOME_EMAIL = os.environ.get("ALWAYS_SEND_WELCOME_EMAIL", "false").strip().lower() == "true"
+    # Mailgun mailing list (created once via the Mailgun dashboard, e.g.
+    # news@mg.framewrite.cc) the homepage newsletter signup adds addresses to
+    # (see mailgun_client.add_to_mailing_list). No-op (skipped, not an error)
+    # if unset, same as MAILGUN_API_KEY/DOMAIN above.
+    MAILGUN_NEWSLETTER_LIST = os.environ.get("MAILGUN_NEWSLETTER_LIST", "")
 
     # Anonymous "try it free" upload on the marketing site (routes/trial.py) --
     # no wallet/billing gate, so these caps plus Turnstile are what stand in

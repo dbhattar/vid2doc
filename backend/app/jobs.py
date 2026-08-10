@@ -26,6 +26,7 @@ def _job_to_dict(job: Job) -> dict:
         "source_size_bytes": job.source_size_bytes,
         "billed_cents": job.billed_cents,
         "client_ip": job.client_ip,
+        "share_token": job.share_token,
         "error_message": job.error_message,
         "deleted_at": job.deleted_at,
         "created_at": job.created_at,
@@ -71,6 +72,15 @@ def get_job(job_id: str) -> dict | None:
     session = get_session()
     try:
         job = session.get(Job, job_id)
+        return _job_to_dict(job) if job else None
+    finally:
+        session.close()
+
+
+def get_job_by_share_token(token: str) -> dict | None:
+    session = get_session()
+    try:
+        job = session.query(Job).filter_by(share_token=token).one_or_none()
         return _job_to_dict(job) if job else None
     finally:
         session.close()

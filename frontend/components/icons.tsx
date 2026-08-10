@@ -15,6 +15,7 @@ import {
   Monitor,
   Moon,
   ScrollText,
+  Share2,
   Shield,
   Sun,
   Users,
@@ -128,4 +129,8 @@ export function SystemThemeIcon({ className }: IconProps) {
 
 export function DriveIcon({ className }: IconProps) {
   return <SiGoogledrive className={className} aria-hidden />;
+}
+
+export function ShareIcon({ className }: IconProps) {
+  return <Share2 className={className} aria-hidden />;
 }

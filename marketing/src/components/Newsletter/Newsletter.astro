@@ -1,0 +1,75 @@
+---
+---
+
+<section class="newsletter">
+  <div class="container newsletter-inner">
+    <div>
+      <p class="eyebrow">Stay in the loop</p>
+      <h2>New features, straight to your inbox</h2>
+    </div>
+    <form id="newsletter-form" class="newsletter-form">
+      <input
+        type="email"
+        id="newsletter-email"
+        placeholder="you@company.com"
+        required
+        maxlength="320"
+      />
+      <button type="submit" class="btn-primary" id="newsletter-submit">Subscribe</button>
+    </form>
+    <p class="newsletter-status" id="newsletter-status" hidden></p>
+  </div>
+</section>
+
+<style>
+  .newsletter {
+    padding: 48px 0;
+    background: var(--paper-shade);
+    border-top: var(--rule-width) solid var(--ink);
+  }
+
+  .newsletter-inner {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 24px;
+    flex-wrap: wrap;
+  }
+
+  h2 {
+    font-size: var(--step-2);
+    margin: 10px 0 0;
+  }
+
+  .newsletter-form {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+
+  .newsletter-form input {
+    border: 2px solid var(--line);
+    background: var(--paper);
+    color: var(--ink);
+    font-family: inherit;
+    font-size: 0.9rem;
+    padding: 11px 14px;
+    min-width: 240px;
+  }
+
+  .newsletter-form input:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+
+  .newsletter-status {
+    width: 100%;
+    margin-top: 6px;
+    font-size: 0.85rem;
+    color: var(--ink-soft);
+  }
+</style>
+
+<script>
+  import './newsletter.ts';
+</script>

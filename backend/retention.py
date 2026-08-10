@@ -29,7 +29,7 @@ backend/README.md for the crontab line.
 import shutil
 from datetime import datetime, timedelta, timezone
 
-from app import billing, jobs
+from app import billing, emails, jobs
 from app.config import settings
 
 RETENTION_DAYS = 7
@@ -73,6 +73,7 @@ def main() -> None:
                 document_path=None,
                 deleted_at=datetime.now(timezone.utc),
             )
+            emails.notify_job_status_change(job_id)
         else:
             jobs.update_job(job_id, document_path=None, deleted_at=datetime.now(timezone.utc))
 

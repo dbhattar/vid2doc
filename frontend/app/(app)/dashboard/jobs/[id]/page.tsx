@@ -6,8 +6,10 @@ import { useCallback, useEffect, useState } from "react";
 
 import Button, { buttonClassName } from "@/components/Button";
 import Card from "@/components/Card";
+import DocumentPreview from "@/components/DocumentPreview";
 import FrameReviewPanel from "@/components/FrameReviewPanel";
 import { ArchiveIcon, DriveIcon, JsonFileIcon, MarkdownFileIcon, MicrophoneIcon, PdfFileIcon, VideoCameraIcon, WordFileIcon } from "@/components/icons";
+import ShareControl from "@/components/ShareControl";
 import TranscriptViewer from "@/components/TranscriptViewer";
 import { apiFetch, ApiError, downloadAuthenticated } from "@/lib/api";
 import { clearSession } from "@/lib/auth";
@@ -241,8 +243,14 @@ export default function JobDetailPage() {
           )}
           {driveError && <p className="mt-3 text-sm text-status-error">{driveError}</p>}
 
+          {job.status === "done" && !job.retention_expired && <ShareControl job={job} onUpdated={setJob} />}
+
           {job.job_type === "audio" && job.status === "done" && job.document_transcript_json_url && (
             <TranscriptViewer jobId={job.job_id} />
+          )}
+
+          {job.status === "done" && !job.retention_expired && job.document_url && (
+            <DocumentPreview markdownUrl={job.document_url} />
           )}
         </Card>
         )}
