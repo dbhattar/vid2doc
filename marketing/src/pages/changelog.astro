@@ -1,0 +1,136 @@
+---
+import MarketingLayout from '../layouts/MarketingLayout.astro';
+
+// Newest first. Add one entry per release, dated the day it shipped --
+// this is the durable record; the homepage no longer carries its own copy
+// of "recent" items, so this page is the only place these live now.
+const entries = [
+  {
+    date: 'August 10, 2026',
+    title: 'Get notified, preview it, and share it with a link',
+    bullets: [
+      "We'll email you the moment your video or audio finishes processing -- or if something went wrong, so you're never left wondering.",
+      'Every finished document now renders right on the page, images and all, so you can see the result before choosing a format to download.',
+      'Turn on a public link for any finished document and anyone can view it -- no login, no download required.',
+    ],
+  },
+  {
+    date: 'August 3, 2026',
+    title: 'Paste a YouTube link, skip the download',
+    bullets: [
+      "Got a video sitting on YouTube? Drop the link in instead of downloading and re-uploading the file yourself — Framewrite pulls it in directly and hands back the same transcript, speaker labels, and formatted document.",
+    ],
+  },
+  {
+    date: 'July 26, 2026',
+    title: 'Know exactly who said what, in seconds',
+    bullets: [
+      "Audio transcripts now identify every speaker automatically. Give them real names once, and it shows up everywhere — the document, the JSON export, and a live, color-coded transcript view that shows who's talking and for how long.",
+      'Every transcript also opens with a short, AI-written summary, so you know what was said before you read a single line of the full thing.',
+    ],
+  },
+  {
+    date: 'July 25, 2026',
+    title: 'Straight to your Google Drive',
+    bullets: [
+      'Connect your Google Drive once, then save any generated document there in a single click — fully organized in its own folder, no manual downloads.',
+    ],
+  },
+];
+---
+
+<MarketingLayout
+  title="Changelog — Framewrite"
+  description="What's new in Framewrite, in order -- every feature we've shipped and the date it landed."
+  path="/changelog"
+>
+  <section class="changelog">
+    <div class="container">
+      <p class="eyebrow">Changelog</p>
+      <h1>Fresh off the workbench</h1>
+      <p class="section-intro">Everything we've shipped, newest first.</p>
+
+      <div class="entry-list">
+        {
+          entries.map((entry) => (
+            <div class="entry-item">
+              <p class="entry-date">{entry.date}</p>
+              <div>
+                <h2 class="entry-title">{entry.title}</h2>
+                <ul class="entry-desc">
+                  {entry.bullets.map((bullet) => <li>{bullet}</li>)}
+                </ul>
+              </div>
+            </div>
+          ))
+        }
+      </div>
+    </div>
+  </section>
+</MarketingLayout>
+
+<style>
+  .changelog {
+    padding: 56px 0 72px;
+  }
+
+  h1 {
+    font-size: var(--step-5);
+    margin: 0 0 12px;
+  }
+
+  .section-intro {
+    color: var(--ink-soft);
+    max-width: 60ch;
+    margin: 0 0 40px;
+    font-size: 1.02rem;
+  }
+
+  .entry-list {
+    border-top: var(--border-width) solid var(--ink);
+  }
+
+  .entry-item {
+    display: grid;
+    grid-template-columns: 160px 1fr;
+    gap: 24px;
+    align-items: baseline;
+    padding: 24px 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  @media (max-width: 640px) {
+    .entry-item {
+      grid-template-columns: 1fr;
+      gap: 8px;
+    }
+  }
+
+  .entry-date {
+    font-family: var(--font-mono);
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: var(--accent);
+    margin: 0;
+  }
+
+  .entry-title {
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin: 0 0 8px;
+  }
+
+  .entry-desc {
+    font-size: 0.95rem;
+    line-height: 1.6;
+    color: var(--ink-soft);
+    margin: 0;
+    padding-left: 1.2em;
+    max-width: 62ch;
+  }
+
+  .entry-desc li + li {
+    margin-top: 6px;
+  }
+</style>
