@@ -54,13 +54,6 @@
   min-height: 65px;
 }
 
-.trial-turnstile-hint {
-  margin: -8px 0 18px;
-  color: var(--ink-soft);
-  font-size: 0.82rem;
-  text-align: center;
-}
-
 .trial-turnstile-notice {
   margin: -8px 0 18px;
   color: var(--ink-soft);

@@ -121,7 +121,6 @@ if (form) {
   const retryBtn = document.getElementById('trial-retry') as HTMLButtonElement;
   const startOverBtn = document.getElementById('trial-start-over');
   const ctaLink = document.getElementById('trial-cta');
-  const turnstileHintEl = document.getElementById('trial-turnstile-hint');
   const turnstileContainer = document.querySelector('.cf-turnstile');
 
   const panels: Record<string, HTMLElement> = {
@@ -164,7 +163,6 @@ if (form) {
 
   window.onTrialTurnstileSuccess = (token: string) => {
     turnstileToken = token;
-    if (turnstileHintEl) turnstileHintEl.hidden = true;
     updateSubmitEnabled();
   };
   window.onTrialTurnstileExpired = () => {
@@ -319,18 +317,6 @@ if (form) {
       turnstileToken = null;
     }
   });
-
-  // If the widget hasn't rendered an iframe after a few seconds, a browser
-  // extension (ad blocker/privacy tool) is very likely blocking
-  // challenges.cloudflare.com outright -- we can't force it through, but we
-  // can at least explain what's happening instead of leaving the submit
-  // button silently disabled forever with no clue why.
-  const TURNSTILE_RENDER_TIMEOUT_MS = 6000;
-  setTimeout(() => {
-    if (turnstileToken || !turnstileHintEl) return;
-    const rendered = turnstileContainer?.querySelector('iframe');
-    if (!rendered) turnstileHintEl.hidden = false;
-  }, TURNSTILE_RENDER_TIMEOUT_MS);
 
   // Resume a job that was still in flight the last time this page was open
   // (reload, closed tab, navigated away and came back) -- otherwise it'd
