@@ -7,7 +7,6 @@ import Testimonials from '../components/Testimonials/Testimonials.astro';
 import FeatureGrid from '../components/FeatureGrid.astro';
 import PricingTable from '../components/PricingTable.astro';
 import FAQ from '../components/FAQ.astro';
-import EnterpriseCta from '../components/EnterpriseCta.astro';
 import FinalCta from '../components/FinalCta.astro';
 import Newsletter from '../components/Newsletter/Newsletter.astro';
 ---
@@ -27,7 +26,7 @@ import Newsletter from '../components/Newsletter/Newsletter.astro';
   <Reveal><FeatureGrid /></Reveal>
   <Reveal><PricingTable /></Reveal>
   <Reveal><FAQ /></Reveal>
-  <Reveal><EnterpriseCta /></Reveal>
+  {/* EnterpriseCta unmounted for now, not deleted -- add back if there's enterprise traction. */}
   <Reveal><FinalCta /></Reveal>
   <Reveal><Newsletter /></Reveal>
 </MarketingLayout>
