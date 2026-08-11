@@ -9,16 +9,24 @@ const items = [
     body: 'Pulls out only the visuals that actually matter — slides, diagrams, key moments.',
   },
   {
+    title: 'You choose what makes the cut',
+    body: "Before your document is finalized, review every slide and diagram Framewrite pulled out — keep what matters, drop the rest. Nothing goes into your document without your say.",
+  },
+  {
     title: 'Real document formatting',
     body: 'Proper headings and sections, not a wall of raw text you have to clean up yourself.',
   },
   {
     title: 'Instantly searchable',
-    body: 'Find any topic in seconds — no more rewatching a video to find one moment.',
+    body: "It's just text — Ctrl+F straight to the moment you need, instead of scrubbing through the video to find it.",
   },
   {
     title: 'Export anywhere',
     body: 'Download your document as Markdown, PDF, or Word — whatever fits into your workflow.',
+  },
+  {
+    title: 'Preview, share, or save to Drive',
+    body: "See the finished document right in your dashboard before you download anything. Turn on a public link to hand it off with no login required, or send it straight to your Google Drive.",
   },
   {
     title: 'Just upload and go',
@@ -40,13 +48,12 @@ const items = [
     <p class="eyebrow">How it works</p>
     <h2>Framewrite watches and listens to your video so you don't have to do it again later.</h2>
 
-    <div class="index-list">
+    <div class="feature-grid">
       {
-        items.map((item, i) => (
-          <div class="index-item">
-            <div class="index-num">{String(i + 1).padStart(2, '0')}</div>
-            <div class="index-title">{item.title}</div>
-            <div class="index-desc">{item.body}</div>
+        items.map((item) => (
+          <div class="feature-card">
+            <h3 class="feature-title">{item.title}</h3>
+            <p class="feature-desc">{item.body}</p>
           </div>
         ))
       }
@@ -66,47 +73,46 @@ const items = [
     margin: 0 0 40px;
   }
 
-  .index-list {
-    border-top: var(--border-width) solid var(--ink);
-  }
-
-  .index-item {
+  /* Full-bordered grid with no doubled lines: the container supplies the
+     top/left edges, and each card supplies its own right/bottom edge --
+     together those form a complete grid regardless of row/column count. */
+  .feature-grid {
     display: grid;
-    grid-template-columns: 90px 1fr 1.1fr;
-    gap: 24px;
-    align-items: baseline;
-    padding: 26px 0;
-    border-bottom: 1px solid var(--line);
+    grid-template-columns: repeat(3, 1fr);
+    border-top: var(--border-width) solid var(--ink);
+    border-left: var(--border-width) solid var(--ink);
   }
 
-  @media (max-width: 780px) {
-    .index-item {
-      grid-template-columns: 48px 1fr;
-    }
-    .index-item .index-desc {
-      grid-column: 2;
-      margin-top: 6px;
+  @media (max-width: 900px) {
+    .feature-grid {
+      grid-template-columns: repeat(2, 1fr);
     }
   }
 
-  .index-num {
-    font-family: var(--font-display);
-    font-weight: 900;
-    font-size: 2rem;
-    color: var(--line);
-    line-height: 1;
+  @media (max-width: 640px) {
+    .feature-grid {
+      grid-template-columns: 1fr;
+    }
   }
 
-  .index-title {
+  .feature-card {
+    padding: 28px 24px;
+    border-right: var(--border-width) solid var(--ink);
+    border-bottom: var(--border-width) solid var(--ink);
+  }
+
+  .feature-title {
     font-family: var(--font-display);
     font-weight: 600;
-    font-size: 1.3rem;
+    font-size: 1.15rem;
     letter-spacing: -0.01em;
+    margin: 0 0 10px;
   }
 
-  .index-desc {
-    font-size: 0.95rem;
+  .feature-desc {
+    font-size: 0.92rem;
     line-height: 1.6;
     color: var(--ink-soft);
+    margin: 0;
   }
 </style>
