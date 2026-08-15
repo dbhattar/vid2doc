@@ -6,7 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import Card from "@/components/Card";
 import DocumentCard from "@/components/DocumentCard";
-import { MicrophoneIcon, VideoCameraIcon, WalletIcon } from "@/components/icons";
+import { ClapperboardIcon, MicrophoneIcon, VideoCameraIcon, WalletIcon } from "@/components/icons";
 import JobRow from "@/components/JobRow";
 import Pagination from "@/components/Pagination";
 import { apiFetch, ApiError } from "@/lib/api";
@@ -33,9 +33,12 @@ export default function DashboardPage() {
   const [retryError, setRetryError] = useState<string | null>(null);
   const [deletingJobId, setDeletingJobId] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [cancellingJobId, setCancellingJobId] = useState<string | null>(null);
+  const [cancelError, setCancelError] = useState<string | null>(null);
 
   const [videoCount, setVideoCount] = useState<number | null>(null);
   const [audioCount, setAudioCount] = useState<number | null>(null);
+  const [videoGenCount, setVideoGenCount] = useState<number | null>(null);
 
   const [documentsPage, setDocumentsPage] = useState(1);
   const [documents, setDocuments] = useState<Job[] | null>(null);
@@ -79,10 +82,12 @@ export default function DashboardPage() {
     Promise.all([
       apiFetch<{ total: number }>("/api/jobs?status=done&job_type=video&limit=1"),
       apiFetch<{ total: number }>("/api/jobs?status=done&job_type=audio&limit=1"),
+      apiFetch<{ total: number }>("/api/jobs?status=done&job_type=video_gen&limit=1"),
     ])
-      .then(([video, audio]) => {
+      .then(([video, audio, videoGen]) => {
         setVideoCount(video.total);
         setAudioCount(audio.total);
+        setVideoGenCount(videoGen.total);
       })
       .catch((err) => {
         handleAuthError(err);
@@ -159,16 +164,32 @@ export default function DashboardPage() {
     }
   }
 
+  async function handleCancel(job: Job) {
+    if (!confirm(`Cancel "${displayTitle(job)}"? Any charge for it will be refunded.`)) return;
+    setCancellingJobId(job.job_id);
+    setCancelError(null);
+    try {
+      await apiFetch(`/api/jobs/${job.job_id}/cancel`, { method: "POST" });
+      loadJobs();
+    } catch (err) {
+      if (handleAuthError(err)) return;
+      setCancelError(err instanceof ApiError ? err.message : "Cancel failed.");
+    } finally {
+      setCancellingJobId(null);
+    }
+  }
+
   const videoInProgress = jobs?.filter((j) => j.status !== "done" && j.job_type === "video") ?? null;
   const audioInProgress = jobs?.filter((j) => j.status !== "done" && j.job_type === "audio") ?? null;
-  const totalProcessed = (videoCount ?? 0) + (audioCount ?? 0);
+  const videoGenInProgress = jobs?.filter((j) => j.status !== "done" && j.job_type === "video_gen") ?? null;
+  const totalProcessed = (videoCount ?? 0) + (audioCount ?? 0) + (videoGenCount ?? 0);
 
   return (
     <div className="w-full px-6 py-10">
       <h1 className="font-display text-2xl font-bold tracking-tight text-ink">Dashboard</h1>
       <p className="mt-1 text-sm text-ink-soft">Everything happening across your videos and audio, at a glance.</p>
 
-      <div className="mt-8 grid grid-cols-1 gap-4 lg:grid-cols-3">
+      <div className="mt-8 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <Card className="p-5 lg:col-span-1">
           <div className="flex items-center gap-2 text-ink-soft">
             <WalletIcon className="h-4 w-4" />
@@ -204,18 +225,30 @@ export default function DashboardPage() {
             <p className="text-sm text-ink-soft">Audio transcripts</p>
           </div>
         </Card>
+        <Card className="flex items-center gap-4 p-5">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center bg-paper-shade text-ink-soft">
+            <ClapperboardIcon className="h-5 w-5" />
+          </span>
+          <div>
+            <p className="font-display text-2xl font-bold tracking-tight text-ink">{videoGenCount ?? "—"}</p>
+            <p className="text-sm text-ink-soft">Generated videos</p>
+          </div>
+        </Card>
       </div>
 
       {totalProcessed > 0 && (
         <p className="mt-3 text-xs text-ink-soft">{totalProcessed.toLocaleString()} document{totalProcessed === 1 ? "" : "s"} processed in total.</p>
       )}
 
-      {((videoInProgress && videoInProgress.length > 0) || (audioInProgress && audioInProgress.length > 0)) && (
+      {((videoInProgress && videoInProgress.length > 0) ||
+        (audioInProgress && audioInProgress.length > 0) ||
+        (videoGenInProgress && videoGenInProgress.length > 0)) && (
         <div className="mt-10">
           <h2 className="text-sm font-semibold text-ink">In progress</h2>
           {loadError && <p className="mt-2 text-sm text-status-error">{loadError}</p>}
           {retryError && <p className="mt-2 text-sm text-status-error">{retryError}</p>}
           {deleteError && <p className="mt-2 text-sm text-status-error">{deleteError}</p>}
+          {cancelError && <p className="mt-2 text-sm text-status-error">{cancelError}</p>}
 
           {videoInProgress && videoInProgress.length > 0 && (
             <div className="mt-3">
@@ -229,8 +262,10 @@ export default function DashboardPage() {
                     job={job}
                     onRetry={handleRetry}
                     onDelete={handleDelete}
+                    onCancel={handleCancel}
                     retryingJobId={retryingJobId}
                     deletingJobId={deletingJobId}
+                    cancellingJobId={cancellingJobId}
                   />
                 ))}
               </ul>
@@ -249,8 +284,32 @@ export default function DashboardPage() {
                     job={job}
                     onRetry={handleRetry}
                     onDelete={handleDelete}
+                    onCancel={handleCancel}
                     retryingJobId={retryingJobId}
                     deletingJobId={deletingJobId}
+                    cancellingJobId={cancellingJobId}
+                  />
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {videoGenInProgress && videoGenInProgress.length > 0 && (
+            <div className="mt-6">
+              <div className="flex items-center gap-2 font-mono text-xs font-medium uppercase tracking-wide text-ink-soft">
+                <ClapperboardIcon className="h-3.5 w-3.5" /> Video Gen
+              </div>
+              <ul className="mt-2 divide-y divide-line border-2 border-line bg-paper">
+                {videoGenInProgress.map((job) => (
+                  <JobRow
+                    key={job.job_id}
+                    job={job}
+                    onRetry={handleRetry}
+                    onDelete={handleDelete}
+                    onCancel={handleCancel}
+                    retryingJobId={retryingJobId}
+                    deletingJobId={deletingJobId}
+                    cancellingJobId={cancellingJobId}
                   />
                 ))}
               </ul>

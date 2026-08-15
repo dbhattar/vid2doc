@@ -85,7 +85,7 @@ class Job(Base):
     user_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True), ForeignKey("users.id"), nullable=True, index=True
     )
-    status: Mapped[str] = mapped_column(String, nullable=False, default="queued")  # queued|processing|done|failed
+    status: Mapped[str] = mapped_column(String, nullable=False, default="queued")  # queued|processing|awaiting_review|done|failed|cancelled
     progress_stage: Mapped[str | None] = mapped_column(String, nullable=True)
     # video: frame capture + composed document (routes/convert.py). audio:
     # verbatim speaker-tagged transcript only, no frames/composition
@@ -126,6 +126,15 @@ class Job(Base):
     aspect_ratio: Mapped[str] = mapped_column(String, nullable=False, default="16:9")
     video_template: Mapped[str | None] = mapped_column(String, nullable=True, default="highlight_card")
     stock_media_provider: Mapped[str | None] = mapped_column(String, nullable=True, default="pexels")
+    # Set by routes/jobs.py's cancel endpoint. The single worker can't
+    # interrupt a blocking call already in flight, so a "processing" job's
+    # cancellation is cooperative -- pipeline.py checks this at each stage
+    # boundary (see _check_not_cancelled) rather than being killed instantly.
+    # A "queued"/"awaiting_review" job has nothing actively running for it,
+    # so those cancel immediately regardless of this flag (see
+    # jobs.cancel_if_not_processing) -- it's set on them too, harmlessly,
+    # only for consistency/audit purposes.
+    cancel_requested: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

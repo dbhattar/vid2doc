@@ -10,6 +10,7 @@ import Card from "@/components/Card";
 import DocumentPreview from "@/components/DocumentPreview";
 import FrameReviewPanel from "@/components/FrameReviewPanel";
 import { ArchiveIcon, ClapperboardIcon, DriveIcon, JsonFileIcon, MarkdownFileIcon, MicrophoneIcon, PdfFileIcon, VideoCameraIcon, WordFileIcon } from "@/components/icons";
+import ProgressStepper from "@/components/ProgressStepper";
 import SceneReviewPanel from "@/components/SceneReviewPanel";
 import ShareControl from "@/components/ShareControl";
 import TranscriptViewer from "@/components/TranscriptViewer";
@@ -43,6 +44,8 @@ export default function JobDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [retrying, setRetrying] = useState(false);
   const [retryError, setRetryError] = useState<string | null>(null);
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
   const driveConnected = useDriveStatus();
   const [savingToDrive, setSavingToDrive] = useState(false);
   const [driveError, setDriveError] = useState<string | null>(null);
@@ -113,6 +116,25 @@ export default function JobDetailPage() {
     }
   }
 
+  async function handleCancel() {
+    if (!confirm("Cancel this job? Any charge for it will be refunded.")) return;
+    setCancelling(true);
+    setCancelError(null);
+    try {
+      const updated = await apiFetch<Job>(`/api/jobs/${params.id}/cancel`, { method: "POST" });
+      setJob(updated);
+    } catch (err) {
+      if (err instanceof ApiError && err.status === 401) {
+        clearSession();
+        router.replace("/login");
+        return;
+      }
+      setCancelError(err instanceof ApiError ? err.message : "Cancel failed.");
+    } finally {
+      setCancelling(false);
+    }
+  }
+
   return (
     <div className="w-full px-6 py-10">
       <div className="mx-auto max-w-2xl">
@@ -165,12 +187,6 @@ export default function JobDetailPage() {
               <dt className="text-ink-soft">Status</dt>
               <dd className="font-medium text-ink">{job.status.replaceAll("_", " ")}</dd>
             </div>
-            {job.status === "processing" && job.progress_stage && (
-              <div className="flex justify-between">
-                <dt className="text-ink-soft">Stage</dt>
-                <dd className="font-medium text-ink">{job.progress_stage.replaceAll("_", " ")}</dd>
-              </div>
-            )}
             <div className="flex justify-between">
               <dt className="text-ink-soft">Created</dt>
               <dd className="font-medium text-ink">{new Date(job.created_at).toLocaleString()}</dd>
@@ -196,6 +212,17 @@ export default function JobDetailPage() {
               <dd className="font-medium text-ink">{formatCents(job.billed_cents)}</dd>
             </div>
           </dl>
+
+          {job.status !== "done" && <ProgressStepper job={job} className="mt-6" />}
+
+          {(job.status === "queued" || job.status === "processing") && (
+            <div className="mt-4">
+              <Button variant="outline" onClick={handleCancel} disabled={cancelling}>
+                {cancelling ? "Cancelling..." : "Cancel job"}
+              </Button>
+              {cancelError && <p className="mt-2 text-sm text-status-error">{cancelError}</p>}
+            </div>
+          )}
 
           {job.status === "failed" && job.error && (
             <p className="mt-4 bg-status-error-soft p-3 text-sm text-status-error">{job.error}</p>

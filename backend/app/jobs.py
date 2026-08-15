@@ -1,7 +1,7 @@
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import func, select
+from sqlalchemy import func, select, update
 
 from .db import get_session
 from .models import Job
@@ -30,6 +30,7 @@ def _job_to_dict(job: Job) -> dict:
         "aspect_ratio": job.aspect_ratio,
         "video_template": job.video_template,
         "stock_media_provider": job.stock_media_provider,
+        "cancel_requested": job.cancel_requested,
         "error_message": job.error_message,
         "deleted_at": job.deleted_at,
         "created_at": job.created_at,
@@ -108,6 +109,66 @@ def claim_next_queued_job() -> dict | None:
         job.updated_at = _now()
         session.commit()
         return _job_to_dict(job)
+    finally:
+        session.close()
+
+
+def set_cancel_requested(job_id: str) -> None:
+    """Flags a job for cancellation -- pipeline.py's _check_not_cancelled
+    picks this up at the next stage boundary for a job actually being
+    processed. A no-op signal for a queued/awaiting_review job (nothing is
+    running yet to notice it), which is why routes/jobs.py's cancel endpoint
+    also calls cancel_if_not_processing for those statuses."""
+    session = get_session()
+    try:
+        job = session.get(Job, job_id)
+        if not job:
+            return
+        job.cancel_requested = True
+        job.updated_at = _now()
+        session.commit()
+    finally:
+        session.close()
+
+
+def cancel_if_not_processing(job_id: str) -> bool:
+    """Atomically flips a still-queued or awaiting-review job straight to
+    status="cancelled" -- returns True if this call actually made the
+    change. Both statuses mean nothing is actively running for this job
+    right now (the worker hasn't claimed a queued job yet, and never
+    touches an awaiting_review job until the user submits their review), so
+    there's no in-flight work to cooperatively wait out -- cancellation is
+    immediate. Returns False if the row had already moved on by the time
+    this ran (e.g. the worker claimed it in the same instant it was
+    queued) -- cancel_requested, set by the caller beforehand, covers that
+    race: pipeline.py's own checkpoints will catch it moments later."""
+    session = get_session()
+    try:
+        result = session.execute(
+            update(Job)
+            .where(Job.id == job_id, Job.status.in_(["queued", "awaiting_review"]))
+            .values(status="cancelled", updated_at=_now())
+        )
+        session.commit()
+        return result.rowcount > 0
+    finally:
+        session.close()
+
+
+def list_processing_jobs() -> list[dict]:
+    """Every job currently marked "processing" -- used by worker.py's
+    startup recovery sweep. In this single-worker-container deployment,
+    only the worker's own current job should ever be "processing", so
+    anything found here at startup was left behind by a previous worker
+    process that died mid-job (a crash, an OOM kill, or a redeploy/restart
+    while it had a job in flight) -- there's no live subprocess supervising
+    it anymore, and claim_next_queued_job will never reclaim it (it only
+    ever looks at "queued" rows), so without this sweep it would stay stuck
+    in "processing" forever, cancel_requested or not."""
+    session = get_session()
+    try:
+        rows = session.query(Job).filter(Job.status == "processing").all()
+        return [_job_to_dict(j) for j in rows]
     finally:
         session.close()
 

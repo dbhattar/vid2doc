@@ -1,6 +1,8 @@
 import {
+  Check,
   ChevronDown,
   ChevronLeft,
+  CircleAlert,
   Clapperboard,
   CreditCard,
   FileArchive,
@@ -46,6 +48,14 @@ export function BillingIcon({ className }: IconProps) {
 
 export function ChevronIcon({ className }: IconProps) {
   return <ChevronLeft className={className} aria-hidden />;
+}
+
+export function CheckIcon({ className }: IconProps) {
+  return <Check className={className} aria-hidden />;
+}
+
+export function AlertIcon({ className }: IconProps) {
+  return <CircleAlert className={className} aria-hidden />;
 }
 
 export function ChevronDownIcon({ className }: IconProps) {

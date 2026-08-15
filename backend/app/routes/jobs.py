@@ -4,7 +4,7 @@ from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
-from .. import billing, jobs
+from .. import billing, emails, jobs
 from ..config import settings
 from ..deps import get_current_user
 from .status import build_job_response
@@ -89,6 +89,42 @@ def retry_job(job_id: str, request: Request, current_user: dict = Depends(get_cu
     return build_job_response(jobs.get_job(new_job_id), request)
 
 
+@router.post("/api/jobs/{job_id}/cancel", status_code=202)
+def cancel_job(job_id: str, request: Request, current_user: dict = Depends(get_current_user)):
+    """Cancels a job that hasn't finished yet. Queued and awaiting-review
+    jobs stop immediately -- nothing is actively running for either (the
+    worker hasn't claimed a queued job yet, and never touches an
+    awaiting_review job until the user submits their review). A processing
+    job can't be interrupted mid-stage: the single worker has no way to
+    kill a blocking ffmpeg/LLM call already in flight, so it instead sets
+    cancel_requested and pipeline.py checks that flag at each stage
+    boundary (see _check_not_cancelled) -- cancellation takes effect within
+    one stage's duration, not instantly."""
+    job = jobs.get_job(job_id)
+    if not job or job["user_id"] != current_user["id"]:
+        raise HTTPException(status_code=404, detail="Job not found")
+    if job["status"] not in ("queued", "processing", "awaiting_review"):
+        raise HTTPException(
+            status_code=400, detail="Only queued, processing, or awaiting-review jobs can be cancelled"
+        )
+
+    jobs.set_cancel_requested(job_id)
+
+    if jobs.cancel_if_not_processing(job_id):
+        # Took effect immediately (was queued or awaiting_review) -- the
+        # worker will never touch this job again, so refund now rather than
+        # waiting for a pipeline checkpoint that isn't coming.
+        if job.get("user_id") and job.get("billed_cents"):
+            billing.refund_job_charge(job["user_id"], job_id, job["billed_cents"])
+        emails.notify_job_status_change(job_id)
+    # else: it was "processing" (never eligible for the instant path), or a
+    # race meant it moved on just before this ran -- either way,
+    # cancel_requested is set, and pipeline.py's next stage-boundary check
+    # will notice it and finalize the cancellation + refund from there.
+
+    return build_job_response(jobs.get_job(job_id), request)
+
+
 @router.delete("/api/jobs/{job_id}", status_code=204)
 def delete_job(job_id: str, current_user: dict = Depends(get_current_user)):
     """Removes a failed job -- it already refunded its charge in full (see
@@ -98,14 +134,18 @@ def delete_job(job_id: str, current_user: dict = Depends(get_current_user)):
     retention.py's 7-day sweep for an abandoned review: no usable document
     was ever produced, so this refunds the original charge too, rather than
     making "wait for the sweep" the only way to get money back for a job
-    you've decided not to finish. There's no risk of deleting a job someone's
-    still waiting on or a document someone still needs, since both statuses
-    mean nothing downstream depends on this job anymore."""
+    you've decided not to finish. Also allowed for "cancelled" (see
+    cancel_job above) -- already refunded there, same as failed. There's no
+    risk of deleting a job someone's still waiting on or a document someone
+    still needs, since none of these three statuses have anything
+    downstream depending on this job anymore."""
     job = jobs.get_job(job_id)
     if not job or job["user_id"] != current_user["id"]:
         raise HTTPException(status_code=404, detail="Job not found")
-    if job["status"] not in ("failed", "awaiting_review"):
-        raise HTTPException(status_code=400, detail="Only failed or awaiting-review jobs can be deleted")
+    if job["status"] not in ("failed", "awaiting_review", "cancelled"):
+        raise HTTPException(
+            status_code=400, detail="Only failed, cancelled, or awaiting-review jobs can be deleted"
+        )
 
     if job["status"] == "awaiting_review" and job.get("user_id") and job.get("billed_cents"):
         billing.refund_job_charge(job["user_id"], job_id, job["billed_cents"])

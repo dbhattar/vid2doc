@@ -3,13 +3,13 @@
 import Link from "next/link";
 import { useState } from "react";
 
-import { ArchiveIcon, DriveIcon, JsonFileIcon, MarkdownFileIcon, MicrophoneIcon, PdfFileIcon, VideoCameraIcon, WordFileIcon } from "@/components/icons";
+import { ArchiveIcon, ClapperboardIcon, DriveIcon, JsonFileIcon, MarkdownFileIcon, MicrophoneIcon, PdfFileIcon, VideoCameraIcon, WordFileIcon } from "@/components/icons";
 import { apiFetch, ApiError, downloadAuthenticated } from "@/lib/api";
 import { displayTitle, formatDuration, type Job } from "@/lib/jobs";
 import { useDriveStatus } from "@/lib/useDriveStatus";
 
 export default function DocumentCard({ job }: { job: Job }) {
-  const TypeIcon = job.job_type === "audio" ? MicrophoneIcon : VideoCameraIcon;
+  const TypeIcon = job.job_type === "audio" ? MicrophoneIcon : job.job_type === "video_gen" ? ClapperboardIcon : VideoCameraIcon;
   const driveConnected = useDriveStatus();
   const [savingToDrive, setSavingToDrive] = useState(false);
   const [driveError, setDriveError] = useState<string | null>(null);
@@ -42,7 +42,7 @@ export default function DocumentCard({ job }: { job: Job }) {
           className={`flex h-8 w-8 shrink-0 items-center justify-center ${
             job.job_type === "audio" ? "bg-paper-shade text-ink-soft" : "bg-accent-soft text-accent"
           }`}
-          title={job.job_type === "audio" ? "Audio transcript" : "Video document"}
+          title={job.job_type === "audio" ? "Audio transcript" : job.job_type === "video_gen" ? "Generated video" : "Video document"}
         >
           <TypeIcon className="h-4 w-4" />
         </span>
@@ -65,6 +65,16 @@ export default function DocumentCard({ job }: { job: Job }) {
 
       {!job.retention_expired && (
         <div className="mt-3 flex flex-wrap items-center gap-1.5 border-t border-line pt-3 text-ink-soft">
+          {job.video_url && (
+            <Link
+              href={`/dashboard/jobs/${job.job_id}`}
+              title="Watch video"
+              className="flex items-center gap-1.5 px-2 py-1.5 text-xs font-medium transition-colors hover:bg-paper-shade hover:text-accent"
+            >
+              <ClapperboardIcon className="h-4 w-4 text-accent" />
+              Watch
+            </Link>
+          )}
           {job.document_url && (
             <button
               onClick={() => downloadAuthenticated(job.document_url!, `${job.job_id}.md`)}
@@ -115,7 +125,7 @@ export default function DocumentCard({ job }: { job: Job }) {
               JSON
             </button>
           )}
-          {driveConnected ? (
+          {job.job_type !== "video_gen" && (driveConnected ? (
             <button
               onClick={handleSaveToDrive}
               disabled={savingToDrive}
@@ -134,7 +144,7 @@ export default function DocumentCard({ job }: { job: Job }) {
               <DriveIcon className="h-4 w-4" />
               Drive
             </Link>
-          )}
+          ))}
         </div>
       )}
       {driveError && <p className="mt-2 text-xs text-status-error">{driveError}</p>}

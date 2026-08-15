@@ -1,4 +1,4 @@
-export type JobStatus = "queued" | "processing" | "awaiting_review" | "done" | "failed";
+export type JobStatus = "queued" | "processing" | "awaiting_review" | "done" | "failed" | "cancelled";
 export type JobType = "video" | "audio" | "video_gen";
 
 export type Job = {

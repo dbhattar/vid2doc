@@ -29,6 +29,8 @@ export default function VideoGenPage() {
   const [retryError, setRetryError] = useState<string | null>(null);
   const [deletingJobId, setDeletingJobId] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [cancellingJobId, setCancellingJobId] = useState<string | null>(null);
+  const [cancelError, setCancelError] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
 
@@ -116,6 +118,21 @@ export default function VideoGenPage() {
     }
   }
 
+  async function handleCancel(job: Job) {
+    if (!confirm(`Cancel "${displayTitle(job)}"? Any charge for it will be refunded.`)) return;
+    setCancellingJobId(job.job_id);
+    setCancelError(null);
+    try {
+      await apiFetch(`/api/jobs/${job.job_id}/cancel`, { method: "POST" });
+      loadJobs();
+    } catch (err) {
+      if (handleAuthError(err)) return;
+      setCancelError(err instanceof ApiError ? err.message : "Cancel failed.");
+    } finally {
+      setCancellingJobId(null);
+    }
+  }
+
   const inProgress = jobs?.filter((j) => j.status !== "done") ?? null;
 
   return (
@@ -170,6 +187,7 @@ export default function VideoGenPage() {
           {loadError && <p className="mt-2 text-sm text-status-error">{loadError}</p>}
           {retryError && <p className="mt-2 text-sm text-status-error">{retryError}</p>}
           {deleteError && <p className="mt-2 text-sm text-status-error">{deleteError}</p>}
+          {cancelError && <p className="mt-2 text-sm text-status-error">{cancelError}</p>}
 
           <ul className="mt-2 divide-y divide-line border-2 border-line bg-paper">
             {inProgress.map((job) => (
@@ -178,8 +196,10 @@ export default function VideoGenPage() {
                 job={job}
                 onRetry={handleRetry}
                 onDelete={handleDelete}
+                onCancel={handleCancel}
                 retryingJobId={retryingJobId}
                 deletingJobId={deletingJobId}
+                cancellingJobId={cancellingJobId}
               />
             ))}
           </ul>

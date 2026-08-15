@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 
+import ProgressBar from "@/components/ProgressBar";
 import StatusBadge from "@/components/StatusBadge";
 import { displayTitle, formatDuration, type Job } from "@/lib/jobs";
 
@@ -12,14 +13,18 @@ export default function JobRow({
   job,
   onRetry,
   onDelete,
+  onCancel,
   retryingJobId,
   deletingJobId,
+  cancellingJobId,
 }: {
   job: Job;
   onRetry: (jobId: string) => void;
   onDelete: (job: Job) => void;
+  onCancel: (job: Job) => void;
   retryingJobId: string | null;
   deletingJobId: string | null;
+  cancellingJobId: string | null;
 }) {
   return (
     <li className="flex items-center justify-between px-4 py-3">
@@ -40,7 +45,7 @@ export default function JobRow({
         )}
       </div>
       <div className="flex items-center gap-3">
-        <StatusBadge job={job} />
+        {job.status === "processing" ? <ProgressBar job={job} className="w-32" /> : <StatusBadge job={job} />}
         {job.status === "awaiting_review" && (
           <Link href={`/dashboard/jobs/${job.job_id}`} className="text-sm text-accent hover:underline">
             {job.job_type === "video_gen" ? "Review scenes →" : "Review frames →"}
@@ -65,6 +70,15 @@ export default function JobRow({
               {deletingJobId === job.job_id ? "Deleting..." : "Delete"}
             </button>
           </>
+        )}
+        {(job.status === "queued" || job.status === "processing") && (
+          <button
+            onClick={() => onCancel(job)}
+            disabled={cancellingJobId === job.job_id}
+            className="text-sm text-ink-soft hover:text-status-error hover:underline disabled:cursor-default disabled:opacity-50"
+          >
+            {cancellingJobId === job.job_id ? "Cancelling..." : "Cancel"}
+          </button>
         )}
       </div>
     </li>

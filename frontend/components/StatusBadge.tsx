@@ -8,6 +8,7 @@ const STATUS_STYLES: Record<Job["status"], string> = {
   awaiting_review: "text-status-info",
   done: "text-status-success",
   failed: "text-status-error",
+  cancelled: "text-ink-soft",
 };
 
 const STATUS_LABELS: Partial<Record<Job["status"], string>> = {
