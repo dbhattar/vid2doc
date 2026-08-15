@@ -137,17 +137,15 @@ export default function VideoGenPage() {
 
   return (
     <div className="w-full px-6 py-10">
-      <div className="flex min-h-[65vh] flex-col items-center justify-center text-center">
-        <p className="font-mono text-xs font-semibold uppercase tracking-wide text-accent">Audio → Video</p>
-        <h1 className="mt-3 max-w-xl font-display text-4xl font-bold tracking-tight text-ink">
-          Turn narration into a finished video.
-        </h1>
-        <p className="mt-3 max-w-md text-sm text-ink-soft">
-          Upload a voiceover or podcast and get back a video: matched stock visuals, on-screen headlines, and
-          burned-in captions, timed to what&apos;s actually said.
-        </p>
+      <p className="font-mono text-xs font-semibold uppercase tracking-wide text-accent">Audio → Video</p>
+      <h1 className="mt-2 font-display text-2xl font-bold tracking-tight text-ink">Turn narration into a finished video.</h1>
+      <p className="mt-1 max-w-2xl text-sm text-ink-soft">
+        Upload a voiceover or podcast and get back a video: matched stock visuals, on-screen headlines, and burned-in
+        captions, timed to what&apos;s actually said.
+      </p>
 
-        <form onSubmit={handleUpload} className="mt-8 w-full max-w-md border-2 border-line bg-paper p-6 text-left">
+      <div className="mt-8 max-w-xl">
+        <form onSubmit={handleUpload} className="w-full border-2 border-line bg-paper p-6">
           <p className="text-xs text-ink-soft">MP3, WAV, M4A, AAC, FLAC, or OGG, up to 20 minutes.</p>
 
           <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-stretch">

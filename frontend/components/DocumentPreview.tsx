@@ -12,8 +12,14 @@ import { fetchAuthenticatedText } from "@/lib/api";
  * detail page and the public share page -- image resolution is pure
  * relative-URL math against `markdownUrl`, and AuthenticatedImage only
  * attaches a Bearer header when a token happens to exist, so nothing here
- * needs to know whether the viewer is authenticated. */
-export default function DocumentPreview({ markdownUrl }: { markdownUrl: string }) {
+ * needs to know whether the viewer is authenticated.
+ *
+ * `bordered` (default true) draws the top divider + spacing that make sense
+ * when this is appended after other content within the same card (the
+ * share page's single-card layout, e.g.) -- pass `false` when this is the
+ * sole content of its own fresh card, where a divider right under the
+ * card's own padding would just be a stray line floating in empty space. */
+export default function DocumentPreview({ markdownUrl, bordered = true }: { markdownUrl: string; bordered?: boolean }) {
   const [markdown, setMarkdown] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -33,11 +39,11 @@ export default function DocumentPreview({ markdownUrl }: { markdownUrl: string }
     };
   }, [markdownUrl]);
 
-  if (error) return <p className="mt-6 text-sm text-status-error">{error}</p>;
-  if (markdown === null) return <p className="mt-6 text-sm text-ink-soft">Loading document...</p>;
+  if (error) return <p className={`${bordered ? "mt-6" : ""} text-sm text-status-error`}>{error}</p>;
+  if (markdown === null) return <p className={`${bordered ? "mt-6" : ""} text-sm text-ink-soft`}>Loading document...</p>;
 
   return (
-    <div className="mt-6 border-t-2 border-line pt-6">
+    <div className={bordered ? "mt-6 border-t-2 border-line pt-6" : ""}>
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{

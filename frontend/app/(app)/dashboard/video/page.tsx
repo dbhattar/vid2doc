@@ -162,19 +162,17 @@ export default function VideoPage() {
 
   return (
     <div className="w-full px-6 py-10">
-      <div className="flex min-h-[65vh] flex-col items-center justify-center text-center">
-        <p className="font-mono text-xs font-semibold uppercase tracking-wide text-accent">Video → Document</p>
-        <h1 className="mt-3 max-w-xl font-display text-4xl font-bold tracking-tight text-ink">
-          Never rewatch a recording again.
-        </h1>
-        <p className="mt-3 max-w-md text-sm text-ink-soft">
-          Upload a video and Framewrite pulls the slides, diagrams, and tables out of it, then writes the whole thing
-          up as one clean document -- you just pick which frames make the cut.
-        </p>
+      <p className="font-mono text-xs font-semibold uppercase tracking-wide text-accent">Video → Document</p>
+      <h1 className="mt-2 font-display text-2xl font-bold tracking-tight text-ink">Never rewatch a recording again.</h1>
+      <p className="mt-1 max-w-2xl text-sm text-ink-soft">
+        Upload a video and Framewrite pulls the slides, diagrams, and tables out of it, then writes the whole thing up
+        as one clean document -- you just pick which frames make the cut.
+      </p>
 
+      <div className="mt-8 max-w-xl">
         <form
           onSubmit={source === "file" ? handleUpload : handleYoutubeSubmit}
-          className="mt-8 w-full max-w-md border-2 border-line bg-paper p-6 text-left"
+          className="w-full border-2 border-line bg-paper p-6"
         >
           <div className="flex gap-2 font-mono text-xs uppercase tracking-wide">
             <button

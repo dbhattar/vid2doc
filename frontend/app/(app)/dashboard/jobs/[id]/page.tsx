@@ -137,204 +137,215 @@ export default function JobDetailPage() {
 
   return (
     <div className="w-full px-6 py-10">
-      <div className="mx-auto max-w-2xl">
-        <div className="flex items-center gap-4">
-          <Link
-            href={`/dashboard/${dashboardPathFor(job?.job_type)}`}
-            className="text-sm text-ink-soft hover:text-accent hover:underline"
-          >
-            ← Back to {dashboardLabelFor(job?.job_type)}
+      <div className="flex items-center gap-4">
+        <Link
+          href={`/dashboard/${dashboardPathFor(job?.job_type)}`}
+          className="text-sm text-ink-soft hover:text-accent hover:underline"
+        >
+          ← Back to {dashboardLabelFor(job?.job_type)}
+        </Link>
+        {job && job.status === "done" && !job.retention_expired && job.job_type !== "video_gen" && (
+          <Link href="/documents" className="text-sm text-ink-soft hover:text-accent hover:underline">
+            All documents →
           </Link>
-          {job && job.status === "done" && !job.retention_expired && job.job_type !== "video_gen" && (
-            <Link href="/documents" className="text-sm text-ink-soft hover:text-accent hover:underline">
-              All documents →
-            </Link>
-          )}
-        </div>
+        )}
+      </div>
 
-        <div className="mt-4 flex items-center gap-2.5">
-          {job && (
-            <span
-              className={`flex h-8 w-8 shrink-0 items-center justify-center ${
-                job.job_type === "audio" ? "bg-paper-shade text-ink-soft" : "bg-accent-soft text-accent"
-              }`}
-              title={
-                job.job_type === "audio" ? "Audio transcript" : job.job_type === "video_gen" ? "Generated video" : "Video document"
-              }
-            >
-              {job.job_type === "audio" ? (
-                <MicrophoneIcon className="h-4 w-4" />
-              ) : job.job_type === "video_gen" ? (
-                <ClapperboardIcon className="h-4 w-4" />
-              ) : (
-                <VideoCameraIcon className="h-4 w-4" />
-              )}
-            </span>
-          )}
-          <h1 className="truncate font-display text-2xl font-bold tracking-tight text-ink">
-            {job ? displayTitle(job) : "Job detail"}
-          </h1>
-        </div>
-
-        {error && <p className="mt-4 text-sm text-status-error">{error}</p>}
-
-        {!error && !job && <p className="mt-4 text-sm text-ink-soft">Loading...</p>}
-
+      <div className="mt-4 flex items-center gap-2.5">
         {job && (
-          <Card className="mt-6 p-6">
-          <dl className="space-y-3 text-sm">
-            <div className="flex justify-between">
-              <dt className="text-ink-soft">Status</dt>
-              <dd className="font-medium text-ink">{job.status.replaceAll("_", " ")}</dd>
-            </div>
-            <div className="flex justify-between">
-              <dt className="text-ink-soft">Created</dt>
-              <dd className="font-medium text-ink">{new Date(job.created_at).toLocaleString()}</dd>
-            </div>
-            <div className="flex justify-between">
-              <dt className="text-ink-soft">Type</dt>
-              <dd className="font-medium text-ink">
-                {job.job_type === "video_gen" ? "Video Gen" : <span className="capitalize">{job.job_type}</span>}
-              </dd>
-            </div>
-            <div className="flex justify-between">
-              <dt className="text-ink-soft">{job.job_type === "video" ? "Video length" : "Audio length"}</dt>
-              <dd className="font-medium text-ink">{formatDuration(job.duration_seconds)}</dd>
-            </div>
-            {(job.status === "done" || job.status === "failed") && (
+          <span
+            className={`flex h-8 w-8 shrink-0 items-center justify-center ${
+              job.job_type === "audio" ? "bg-paper-shade text-ink-soft" : "bg-accent-soft text-accent"
+            }`}
+            title={
+              job.job_type === "audio" ? "Audio transcript" : job.job_type === "video_gen" ? "Generated video" : "Video document"
+            }
+          >
+            {job.job_type === "audio" ? (
+              <MicrophoneIcon className="h-4 w-4" />
+            ) : job.job_type === "video_gen" ? (
+              <ClapperboardIcon className="h-4 w-4" />
+            ) : (
+              <VideoCameraIcon className="h-4 w-4" />
+            )}
+          </span>
+        )}
+        <h1 className="truncate font-display text-2xl font-bold tracking-tight text-ink">
+          {job ? displayTitle(job) : "Job detail"}
+        </h1>
+      </div>
+
+      {error && <p className="mt-4 text-sm text-status-error">{error}</p>}
+
+      {!error && !job && <p className="mt-4 text-sm text-ink-soft">Loading...</p>}
+
+      {job && (
+        <div className="mt-6 grid grid-cols-1 gap-6 lg:grid-cols-3">
+          <Card className="p-6 lg:col-span-1">
+            <dl className="space-y-3 text-sm">
               <div className="flex justify-between">
-                <dt className="text-ink-soft">Took</dt>
-                <dd className="font-medium text-ink">{formatElapsed(job)}</dd>
+                <dt className="text-ink-soft">Status</dt>
+                <dd className="font-medium text-ink">{job.status.replaceAll("_", " ")}</dd>
+              </div>
+              <div className="flex justify-between">
+                <dt className="text-ink-soft">Created</dt>
+                <dd className="font-medium text-ink">{new Date(job.created_at).toLocaleString()}</dd>
+              </div>
+              <div className="flex justify-between">
+                <dt className="text-ink-soft">Type</dt>
+                <dd className="font-medium text-ink">
+                  {job.job_type === "video_gen" ? "Video Gen" : <span className="capitalize">{job.job_type}</span>}
+                </dd>
+              </div>
+              <div className="flex justify-between">
+                <dt className="text-ink-soft">{job.job_type === "video" ? "Video length" : "Audio length"}</dt>
+                <dd className="font-medium text-ink">{formatDuration(job.duration_seconds)}</dd>
+              </div>
+              {(job.status === "done" || job.status === "failed") && (
+                <div className="flex justify-between">
+                  <dt className="text-ink-soft">Took</dt>
+                  <dd className="font-medium text-ink">{formatElapsed(job)}</dd>
+                </div>
+              )}
+              <div className="flex justify-between">
+                <dt className="text-ink-soft">Cost</dt>
+                <dd className="font-medium text-ink">{formatCents(job.billed_cents)}</dd>
+              </div>
+            </dl>
+
+            {(job.status === "queued" || job.status === "processing") && (
+              <div className="mt-4">
+                <Button variant="outline" onClick={handleCancel} disabled={cancelling}>
+                  {cancelling ? "Cancelling..." : "Cancel job"}
+                </Button>
+                {cancelError && <p className="mt-2 text-sm text-status-error">{cancelError}</p>}
               </div>
             )}
-            <div className="flex justify-between">
-              <dt className="text-ink-soft">Cost</dt>
-              <dd className="font-medium text-ink">{formatCents(job.billed_cents)}</dd>
-            </div>
-          </dl>
 
-          {job.status !== "done" && <ProgressStepper job={job} className="mt-6" />}
+            {job.status === "failed" && job.error && (
+              <p className="mt-4 bg-status-error-soft p-3 text-sm text-status-error">{job.error}</p>
+            )}
 
-          {(job.status === "queued" || job.status === "processing") && (
-            <div className="mt-4">
-              <Button variant="outline" onClick={handleCancel} disabled={cancelling}>
-                {cancelling ? "Cancelling..." : "Cancel job"}
-              </Button>
-              {cancelError && <p className="mt-2 text-sm text-status-error">{cancelError}</p>}
-            </div>
-          )}
+            {job.status === "failed" && (
+              <div className="mt-4">
+                <Button onClick={handleRetry} disabled={retrying}>
+                  {retrying ? "Retrying..." : "Retry"}
+                </Button>
+                {retryError && <p className="mt-2 text-sm text-status-error">{retryError}</p>}
+              </div>
+            )}
 
-          {job.status === "failed" && job.error && (
-            <p className="mt-4 bg-status-error-soft p-3 text-sm text-status-error">{job.error}</p>
-          )}
+            {job.status === "done" && job.retention_expired && (
+              <p className="mt-4 bg-paper-shade p-3 text-sm text-ink-soft">
+                This document was deleted per the 7-day retention policy and can no longer be downloaded.
+              </p>
+            )}
 
-          {job.status === "failed" && (
-            <div className="mt-4">
-              <Button onClick={handleRetry} disabled={retrying}>
-                {retrying ? "Retrying..." : "Retry"}
-              </Button>
-              {retryError && <p className="mt-2 text-sm text-status-error">{retryError}</p>}
-            </div>
-          )}
-
-          {job.status === "done" && job.retention_expired && (
-            <p className="mt-4 bg-paper-shade p-3 text-sm text-ink-soft">
-              This document was deleted per the 7-day retention policy and can no longer be downloaded.
-            </p>
-          )}
-
-          {job.status === "done" && !job.retention_expired && job.job_type === "video_gen" && job.video_url && (
-            <div className="mt-6">
-              <AuthenticatedVideo src={job.video_url} className="w-full bg-ink" />
-              <div className="mt-3">
+            {job.status === "done" && !job.retention_expired && job.job_type === "video_gen" && job.video_url && (
+              <div className="mt-6">
                 <Button onClick={() => downloadAuthenticated(job.video_url!, `${job.job_id}.mp4`)}>
                   <ClapperboardIcon className="h-5 w-5" />
                   Download video
                 </Button>
               </div>
-            </div>
-          )}
+            )}
 
-          {job.status === "done" && !job.retention_expired && job.job_type !== "video_gen" && (
-            <div className="mt-6 flex flex-wrap gap-2">
-              {job.document_url && (
-                <Button onClick={() => downloadAuthenticated(job.document_url!, `${job.job_id}.md`)}>
-                  <MarkdownFileIcon className="h-5 w-5" />
-                  Download Markdown
-                </Button>
-              )}
-              {job.document_bundle_url && (
-                <Button variant="outline" onClick={() => downloadAuthenticated(job.document_bundle_url!, `${job.job_id}.zip`)}>
-                  <ArchiveIcon className="h-5 w-5 text-amber-600" />
-                  Download Markdown + images (.zip)
-                </Button>
-              )}
-              {job.document_docx_url && (
-                <Button variant="outline" onClick={() => downloadAuthenticated(job.document_docx_url!, `${job.job_id}.docx`)}>
-                  <WordFileIcon className="h-5 w-5 text-blue-700" />
-                  Download Word
-                </Button>
-              )}
-              {job.document_pdf_url && (
-                <Button variant="outline" onClick={() => downloadAuthenticated(job.document_pdf_url!, `${job.job_id}.pdf`)}>
-                  <PdfFileIcon className="h-5 w-5 text-ink-soft" />
-                  Download PDF
-                </Button>
-              )}
-              {job.document_transcript_json_url && (
-                <Button
-                  variant="outline"
-                  onClick={() => downloadAuthenticated(job.document_transcript_json_url!, `${job.job_id}.transcript.json`)}
-                >
-                  <JsonFileIcon className="h-5 w-5 text-emerald-600" />
-                  Download Transcript JSON
-                </Button>
-              )}
-              {driveConnected ? (
-                <Button variant="outline" onClick={handleSaveToDrive} disabled={savingToDrive}>
-                  <DriveIcon className="h-5 w-5" />
-                  {savingToDrive ? "Saving..." : "Save to Drive"}
-                </Button>
+            {job.status === "done" && !job.retention_expired && job.job_type !== "video_gen" && (
+              <div className="mt-6 flex flex-wrap gap-2">
+                {job.document_url && (
+                  <Button onClick={() => downloadAuthenticated(job.document_url!, `${job.job_id}.md`)}>
+                    <MarkdownFileIcon className="h-5 w-5" />
+                    Download Markdown
+                  </Button>
+                )}
+                {job.document_bundle_url && (
+                  <Button variant="outline" onClick={() => downloadAuthenticated(job.document_bundle_url!, `${job.job_id}.zip`)}>
+                    <ArchiveIcon className="h-5 w-5 text-amber-600" />
+                    Download Markdown + images (.zip)
+                  </Button>
+                )}
+                {job.document_docx_url && (
+                  <Button variant="outline" onClick={() => downloadAuthenticated(job.document_docx_url!, `${job.job_id}.docx`)}>
+                    <WordFileIcon className="h-5 w-5 text-blue-700" />
+                    Download Word
+                  </Button>
+                )}
+                {job.document_pdf_url && (
+                  <Button variant="outline" onClick={() => downloadAuthenticated(job.document_pdf_url!, `${job.job_id}.pdf`)}>
+                    <PdfFileIcon className="h-5 w-5 text-ink-soft" />
+                    Download PDF
+                  </Button>
+                )}
+                {job.document_transcript_json_url && (
+                  <Button
+                    variant="outline"
+                    onClick={() => downloadAuthenticated(job.document_transcript_json_url!, `${job.job_id}.transcript.json`)}
+                  >
+                    <JsonFileIcon className="h-5 w-5 text-emerald-600" />
+                    Download Transcript JSON
+                  </Button>
+                )}
+                {driveConnected ? (
+                  <Button variant="outline" onClick={handleSaveToDrive} disabled={savingToDrive}>
+                    <DriveIcon className="h-5 w-5" />
+                    {savingToDrive ? "Saving..." : "Save to Drive"}
+                  </Button>
+                ) : (
+                  <Link
+                    href="/settings/integrations"
+                    title="Connect Google Drive in Settings to enable this"
+                    className={buttonClassName("outline", "text-ink-soft")}
+                  >
+                    <DriveIcon className="h-5 w-5" />
+                    Save to Drive
+                  </Link>
+                )}
+              </div>
+            )}
+            {driveError && <p className="mt-3 text-sm text-status-error">{driveError}</p>}
+
+            {/* Public sharing (routes/share.py) only ever serves document_url --
+                video_gen jobs have no document, so the share link would 404.
+                Out of scope for this feature; revisit if/when video sharing
+                is added. */}
+            {job.status === "done" && !job.retention_expired && job.job_type !== "video_gen" && (
+              <ShareControl job={job} onUpdated={setJob} />
+            )}
+          </Card>
+
+          <div className="space-y-6 lg:col-span-2">
+            {job.status !== "done" && (
+              <Card className="p-6">
+                <ProgressStepper job={job} />
+              </Card>
+            )}
+
+            {job.status === "done" && !job.retention_expired && job.job_type === "video_gen" && job.video_url && (
+              <Card className="p-6">
+                <AuthenticatedVideo src={job.video_url} className="w-full bg-ink" />
+              </Card>
+            )}
+
+            {/* TranscriptViewer already renders its own full bordered card --
+                not wrapped in another Card here, that'd double up the
+                border/padding. */}
+            {job.job_type === "audio" && job.status === "done" && job.document_transcript_json_url && (
+              <TranscriptViewer jobId={job.job_id} />
+            )}
+
+            {job.status === "done" && !job.retention_expired && job.document_url && (
+              <Card className="p-6">
+                <DocumentPreview markdownUrl={job.document_url} bordered={false} />
+              </Card>
+            )}
+
+            {job.status === "awaiting_review" &&
+              (job.job_type === "video_gen" ? (
+                <SceneReviewPanel job={job} onSubmitted={setJob} />
               ) : (
-                <Link
-                  href="/settings/integrations"
-                  title="Connect Google Drive in Settings to enable this"
-                  className={buttonClassName("outline", "text-ink-soft")}
-                >
-                  <DriveIcon className="h-5 w-5" />
-                  Save to Drive
-                </Link>
-              )}
-            </div>
-          )}
-          {driveError && <p className="mt-3 text-sm text-status-error">{driveError}</p>}
-
-          {/* Public sharing (routes/share.py) only ever serves document_url --
-              video_gen jobs have no document, so the share link would 404.
-              Out of scope for this feature; revisit if/when video sharing
-              is added. */}
-          {job.status === "done" && !job.retention_expired && job.job_type !== "video_gen" && (
-            <ShareControl job={job} onUpdated={setJob} />
-          )}
-
-          {job.job_type === "audio" && job.status === "done" && job.document_transcript_json_url && (
-            <TranscriptViewer jobId={job.job_id} />
-          )}
-
-          {job.status === "done" && !job.retention_expired && job.document_url && (
-            <DocumentPreview markdownUrl={job.document_url} />
-          )}
-        </Card>
-        )}
-      </div>
-
-      {job && job.status === "awaiting_review" && (
-        <div className="mt-6">
-          {job.job_type === "video_gen" ? (
-            <SceneReviewPanel job={job} onSubmitted={setJob} />
-          ) : (
-            <FrameReviewPanel job={job} onSubmitted={setJob} />
-          )}
+                <FrameReviewPanel job={job} onSubmitted={setJob} />
+              ))}
+          </div>
         </div>
       )}
     </div>
