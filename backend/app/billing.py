@@ -17,13 +17,12 @@ SECONDS_PER_CENT = 36
 # call still happens, see pipeline.py/compose.generate_summary), so they're
 # priced lower to match.
 SECONDS_PER_CENT_AUDIO = 90
-# $3.00/video-hour for generated video (job_type == "video_gen") -- higher
-# than the plain video rate because ffmpeg rendering is real CPU-seconds on
-# the shared worker (not just 3rd-party API cost like the other two rates),
-# plus the extra LLM calls for scene segmentation and headline generation.
-# PLACEHOLDER: needs real measurement from a beta/pilot pass before launch,
-# not just this proportional-to-duration guess.
-SECONDS_PER_CENT_VIDEO_GEN = 12
+# 3 cents/minute ($1.80/video-hour) for generated video (job_type ==
+# "video_gen") -- higher than the plain video rate because ffmpeg rendering
+# is real CPU-seconds on the shared worker (not just 3rd-party API cost like
+# the other two rates), plus the extra LLM calls for scene segmentation and
+# headline generation.
+SECONDS_PER_CENT_VIDEO_GEN = 20
 
 
 class InsufficientBalanceError(Exception):

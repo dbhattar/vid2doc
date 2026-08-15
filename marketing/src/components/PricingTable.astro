@@ -12,6 +12,12 @@ const tiers = [
     unit: '/hour',
     body: 'Verbatim, speaker-tagged transcript only — no document composition, priced lower to match.',
   },
+  {
+    label: 'Video Gen',
+    price: '$1.80',
+    unit: '/hour',
+    body: 'Turn narration into a finished video — matched visuals, on-screen headlines, and burned-in captions.',
+  },
 ];
 ---
 
@@ -60,9 +66,9 @@ const tiers = [
 
   .pricing-grid {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(3, 1fr);
     gap: 0;
-    max-width: 760px;
+    max-width: 1040px;
     border: var(--border-width) solid var(--ink);
   }
 
@@ -76,12 +82,12 @@ const tiers = [
     padding: 32px 28px;
   }
 
-  .pricing-card:first-child {
+  .pricing-card:not(:last-child) {
     border-right: var(--border-width) solid var(--ink);
   }
 
   @media (max-width: 640px) {
-    .pricing-card:first-child {
+    .pricing-card:not(:last-child) {
       border-right: none;
       border-bottom: var(--border-width) solid var(--ink);
     }
