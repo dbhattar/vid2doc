@@ -4,11 +4,13 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
+import AuthenticatedVideo from "@/components/AuthenticatedVideo";
 import Button, { buttonClassName } from "@/components/Button";
 import Card from "@/components/Card";
 import DocumentPreview from "@/components/DocumentPreview";
 import FrameReviewPanel from "@/components/FrameReviewPanel";
-import { ArchiveIcon, DriveIcon, JsonFileIcon, MarkdownFileIcon, MicrophoneIcon, PdfFileIcon, VideoCameraIcon, WordFileIcon } from "@/components/icons";
+import { ArchiveIcon, ClapperboardIcon, DriveIcon, JsonFileIcon, MarkdownFileIcon, MicrophoneIcon, PdfFileIcon, VideoCameraIcon, WordFileIcon } from "@/components/icons";
+import SceneReviewPanel from "@/components/SceneReviewPanel";
 import ShareControl from "@/components/ShareControl";
 import TranscriptViewer from "@/components/TranscriptViewer";
 import { apiFetch, ApiError, downloadAuthenticated } from "@/lib/api";
@@ -18,6 +20,21 @@ import { displayTitle, formatDuration, formatElapsed, isActiveJob, type Job } fr
 import { useDriveStatus } from "@/lib/useDriveStatus";
 
 const POLL_INTERVAL_MS = 3000;
+
+/** Which dashboard a job's "Back to ..." link/label points at -- one more
+ * branch than job_type strictly needs today, but keeps the three job types
+ * equally first-class instead of "video" as an implicit fallback. */
+function dashboardPathFor(jobType: Job["job_type"] | undefined): string {
+  if (jobType === "audio") return "audio";
+  if (jobType === "video_gen") return "video-gen";
+  return "video";
+}
+
+function dashboardLabelFor(jobType: Job["job_type"] | undefined): string {
+  if (jobType === "audio") return "Audio";
+  if (jobType === "video_gen") return "Video Gen";
+  return "Video";
+}
 
 export default function JobDetailPage() {
   const router = useRouter();
@@ -101,12 +118,12 @@ export default function JobDetailPage() {
       <div className="mx-auto max-w-2xl">
         <div className="flex items-center gap-4">
           <Link
-            href={`/dashboard/${job?.job_type === "audio" ? "audio" : "video"}`}
+            href={`/dashboard/${dashboardPathFor(job?.job_type)}`}
             className="text-sm text-ink-soft hover:text-accent hover:underline"
           >
-            ← Back to {job?.job_type === "audio" ? "Audio" : "Video"}
+            ← Back to {dashboardLabelFor(job?.job_type)}
           </Link>
-          {job && job.status === "done" && !job.retention_expired && (
+          {job && job.status === "done" && !job.retention_expired && job.job_type !== "video_gen" && (
             <Link href="/documents" className="text-sm text-ink-soft hover:text-accent hover:underline">
               All documents →
             </Link>
@@ -119,9 +136,17 @@ export default function JobDetailPage() {
               className={`flex h-8 w-8 shrink-0 items-center justify-center ${
                 job.job_type === "audio" ? "bg-paper-shade text-ink-soft" : "bg-accent-soft text-accent"
               }`}
-              title={job.job_type === "audio" ? "Audio transcript" : "Video document"}
+              title={
+                job.job_type === "audio" ? "Audio transcript" : job.job_type === "video_gen" ? "Generated video" : "Video document"
+              }
             >
-              {job.job_type === "audio" ? <MicrophoneIcon className="h-4 w-4" /> : <VideoCameraIcon className="h-4 w-4" />}
+              {job.job_type === "audio" ? (
+                <MicrophoneIcon className="h-4 w-4" />
+              ) : job.job_type === "video_gen" ? (
+                <ClapperboardIcon className="h-4 w-4" />
+              ) : (
+                <VideoCameraIcon className="h-4 w-4" />
+              )}
             </span>
           )}
           <h1 className="truncate font-display text-2xl font-bold tracking-tight text-ink">
@@ -152,10 +177,12 @@ export default function JobDetailPage() {
             </div>
             <div className="flex justify-between">
               <dt className="text-ink-soft">Type</dt>
-              <dd className="font-medium text-ink capitalize">{job.job_type}</dd>
+              <dd className="font-medium text-ink">
+                {job.job_type === "video_gen" ? "Video Gen" : <span className="capitalize">{job.job_type}</span>}
+              </dd>
             </div>
             <div className="flex justify-between">
-              <dt className="text-ink-soft">{job.job_type === "audio" ? "Audio length" : "Video length"}</dt>
+              <dt className="text-ink-soft">{job.job_type === "video" ? "Video length" : "Audio length"}</dt>
               <dd className="font-medium text-ink">{formatDuration(job.duration_seconds)}</dd>
             </div>
             {(job.status === "done" || job.status === "failed") && (
@@ -189,7 +216,19 @@ export default function JobDetailPage() {
             </p>
           )}
 
-          {job.status === "done" && !job.retention_expired && (
+          {job.status === "done" && !job.retention_expired && job.job_type === "video_gen" && job.video_url && (
+            <div className="mt-6">
+              <AuthenticatedVideo src={job.video_url} className="w-full bg-ink" />
+              <div className="mt-3">
+                <Button onClick={() => downloadAuthenticated(job.video_url!, `${job.job_id}.mp4`)}>
+                  <ClapperboardIcon className="h-5 w-5" />
+                  Download video
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {job.status === "done" && !job.retention_expired && job.job_type !== "video_gen" && (
             <div className="mt-6 flex flex-wrap gap-2">
               {job.document_url && (
                 <Button onClick={() => downloadAuthenticated(job.document_url!, `${job.job_id}.md`)}>
@@ -243,7 +282,13 @@ export default function JobDetailPage() {
           )}
           {driveError && <p className="mt-3 text-sm text-status-error">{driveError}</p>}
 
-          {job.status === "done" && !job.retention_expired && <ShareControl job={job} onUpdated={setJob} />}
+          {/* Public sharing (routes/share.py) only ever serves document_url --
+              video_gen jobs have no document, so the share link would 404.
+              Out of scope for this feature; revisit if/when video sharing
+              is added. */}
+          {job.status === "done" && !job.retention_expired && job.job_type !== "video_gen" && (
+            <ShareControl job={job} onUpdated={setJob} />
+          )}
 
           {job.job_type === "audio" && job.status === "done" && job.document_transcript_json_url && (
             <TranscriptViewer jobId={job.job_id} />
@@ -258,7 +303,11 @@ export default function JobDetailPage() {
 
       {job && job.status === "awaiting_review" && (
         <div className="mt-6">
-          <FrameReviewPanel job={job} onSubmitted={setJob} />
+          {job.job_type === "video_gen" ? (
+            <SceneReviewPanel job={job} onSubmitted={setJob} />
+          ) : (
+            <FrameReviewPanel job={job} onSubmitted={setJob} />
+          )}
         </div>
       )}
     </div>

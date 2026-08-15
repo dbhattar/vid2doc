@@ -43,7 +43,7 @@ export default function JobRow({
         <StatusBadge job={job} />
         {job.status === "awaiting_review" && (
           <Link href={`/dashboard/jobs/${job.job_id}`} className="text-sm text-accent hover:underline">
-            Review frames →
+            {job.job_type === "video_gen" ? "Review scenes →" : "Review frames →"}
           </Link>
         )}
         {(job.status === "failed" || job.status === "awaiting_review") && (

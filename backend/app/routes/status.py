@@ -26,6 +26,10 @@ def build_job_response(job: dict, request: Request) -> dict:
         # Retention swept the files (see retention.py) -- still "done" in
         # the sense that conversion succeeded, but nothing left to serve.
         response["retention_expired"] = True
+    elif job["status"] == "done" and job["job_type"] == "video_gen":
+        base = str(request.base_url).rstrip("/")
+        response["video_url"] = f"{base}/api/videos/{job['id']}/output.mp4"
+        response["thumbnail_url"] = f"{base}/api/videos/{job['id']}/thumbnail.jpg"
     elif job["status"] == "done":
         base = f"{str(request.base_url).rstrip('/')}/api/documents/{job['id']}"
         doc_dir = settings.OUTPUT_DIR / job["id"] / "document"

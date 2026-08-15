@@ -4,7 +4,7 @@ from pathlib import Path
 
 from . import billing, emails, jobs, users, youtube
 from .config import settings
-from .stages import assemble, audio, classify, compose, frames, transcribe
+from .stages import assemble, assemble_video, audio, classify, compose, frames, highlights, render_scene, scenes, stock_media, transcribe
 
 
 def _resolve_engine() -> str:
@@ -228,10 +228,71 @@ def resume_after_review(job: dict) -> None:
     _compose_and_finalize(job, output_dir, images_meta, tables_meta)
 
 
+def _transcribe_and_segment_scenes(job: dict, output_dir: Path) -> None:
+    """video_gen jobs: transcribe, segment into scenes, generate on-screen
+    headlines, fetch stock media candidates, then pause for review -- mirrors
+    the video pipeline's frame-review pause above. Unlike that pause,
+    transcription can't be deferred past it here, since scene segmentation
+    depends on it; the genuinely expensive step (ffmpeg rendering) is still
+    deferred to resume_after_scene_review, preserving the same
+    don't-pay-for-abandoned-jobs philosophy."""
+    job_id = job["id"]
+    segments = _transcribe_segments(job, output_dir)
+
+    jobs.update_job(job_id, progress_stage="segmenting_scenes")
+    scene_list = scenes.segment_scenes(segments)
+
+    jobs.update_job(job_id, progress_stage="generating_headlines")
+    scene_list = highlights.generate_headlines(scene_list, segments)
+
+    jobs.update_job(job_id, progress_stage="fetching_stock_media")
+    media_dir = output_dir / "stock_media"
+    for scene in scene_list:
+        scene.update(stock_media.fetch_scene_media(scene, media_dir))
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    (output_dir / "scenes.json").write_text(json.dumps({"scenes": scene_list, "segments": segments}, indent=2))
+    jobs.update_job(job_id, status="awaiting_review", progress_stage="awaiting_scene_review")
+
+
+def resume_after_scene_review(job: dict) -> None:
+    """Picks up where _transcribe_and_segment_scenes left off for a video_gen
+    job that paused at "awaiting_review" -- reads scenes.json (already
+    containing the user's edited headlines and chosen stock candidate,
+    written by routes/scene_review.py's submit endpoint), renders each scene,
+    then assembles the final video. Mirrors resume_after_review's reuse of a
+    persisted intermediate artifact for a cheap resume."""
+    job_id = job["id"]
+    output_dir = settings.OUTPUT_DIR / job_id
+    data = json.loads((output_dir / "scenes.json").read_text())
+    scene_list = data["scenes"]
+    segments = data["segments"]
+
+    jobs.update_job(job_id, progress_stage="rendering_scenes")
+    clips_dir = output_dir / "scene_clips"
+    clip_paths = []
+    for scene in scene_list:
+        candidates = scene.get("candidates") or []
+        chosen_index = scene.get("chosen_index", 0)
+        media_path = candidates[chosen_index] if chosen_index < len(candidates) else None
+        clip_paths.append(
+            render_scene.render_scene_clip(scene, media_path, clips_dir / f"scene_{scene['id']}.mp4")
+        )
+
+    jobs.update_job(job_id, progress_stage="assembling_video")
+    final_path = assemble_video.render_final_video(
+        clip_paths, segments, output_dir / "audio.wav", output_dir / "video"
+    )
+
+    jobs.update_job(job_id, status="done", progress_stage="done", document_path=str(final_path))
+    emails.notify_job_status_change(job_id)
+
+
 def run_job(job: dict) -> None:
     job_id = job["id"]
     output_dir = settings.OUTPUT_DIR / job_id
     is_audio_job = job.get("job_type") == "audio"
+    is_video_gen_job = job.get("job_type") == "video_gen"
 
     try:
         # A job coming back from the frame-review pause -- routes/review.py's
@@ -244,7 +305,17 @@ def run_job(job: dict) -> None:
             resume_after_review(job)
             return
 
+        # Same idea, for a video_gen job coming back from the scene-review
+        # pause (routes/scene_review.py's submit endpoint).
+        if job.get("progress_stage") == "resuming_after_scene_review":
+            resume_after_scene_review(job)
+            return
+
         job = _download_if_needed(job)
+
+        if is_video_gen_job:
+            _transcribe_and_segment_scenes(job, output_dir)
+            return
 
         if is_audio_job:
             # No frame capture, no classification, no LLM document

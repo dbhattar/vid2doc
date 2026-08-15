@@ -76,3 +76,16 @@ export async function fetchAuthenticatedText(url: string): Promise<string> {
   if (!response.ok) throw new ApiError(response.status, response.statusText);
   return response.text();
 }
+
+/** Same auth technique again, but returns the response body as a Blob --
+ * for a <video src> that needs the file itself rather than triggering a
+ * download (see the job detail page's video_gen playback). Caller is
+ * responsible for URL.createObjectURL/revokeObjectURL around the result. */
+export async function fetchAuthenticatedBlob(url: string): Promise<Blob> {
+  const token = getToken();
+  const response = await fetch(url, {
+    headers: token ? { Authorization: `Bearer ${token}` } : undefined,
+  });
+  if (!response.ok) throw new ApiError(response.status, response.statusText);
+  return response.blob();
+}

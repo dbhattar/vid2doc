@@ -1,5 +1,5 @@
 export type JobStatus = "queued" | "processing" | "awaiting_review" | "done" | "failed";
-export type JobType = "video" | "audio";
+export type JobType = "video" | "audio" | "video_gen";
 
 export type Job = {
   job_id: string;
@@ -16,6 +16,10 @@ export type Job = {
   document_docx_url?: string;
   document_pdf_url?: string;
   document_transcript_json_url?: string;
+  // job_type === "video_gen" only, once status === "done" -- see
+  // backend/app/routes/video_output.py.
+  video_url?: string;
+  thumbnail_url?: string;
   retention_expired?: boolean;
   error?: string;
   share_url?: string | null;
@@ -51,6 +55,20 @@ export type ReviewItem = {
   headers?: string[];
   rows?: string[][];
   included: boolean;
+};
+
+/** One scene surfaced during a video_gen job's "awaiting_review" pause --
+ * see backend/app/routes/scene_review.py. `candidate_count` stock media
+ * candidates were downloaded for this scene (never the raw file paths --
+ * the frontend fetches each one by index via the dedicated media route). */
+export type SceneReviewItem = {
+  id: number;
+  start_ts: number;
+  end_ts: number;
+  headline: string;
+  media_kind: "video" | "photo" | "none";
+  candidate_count: number;
+  chosen_index: number;
 };
 
 export type TranscriptSegment = { speaker: string; text: string; start_ts: number; end_ts: number };

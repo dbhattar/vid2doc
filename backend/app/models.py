@@ -118,6 +118,14 @@ class Job(Base):
     # what a share link must reproduce, and the only party who ever sees it
     # back is the owner, through their own authenticated job responses.
     share_token: Mapped[str | None] = mapped_column(String, unique=True, nullable=True, index=True)
+    # The following three are only meaningful for job_type == "video_gen"
+    # (audio -> generated video, routes/video_gen.py). Only "16:9" /
+    # "highlight_card" / "pexels" are actually implemented in v1 -- these
+    # columns exist now so a future aspect ratio or visual style doesn't
+    # need a second migration.
+    aspect_ratio: Mapped[str] = mapped_column(String, nullable=False, default="16:9")
+    video_template: Mapped[str | None] = mapped_column(String, nullable=True, default="highlight_card")
+    stock_media_provider: Mapped[str | None] = mapped_column(String, nullable=True, default="pexels")
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

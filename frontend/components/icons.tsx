@@ -1,6 +1,7 @@
 import {
   ChevronDown,
   ChevronLeft,
+  Clapperboard,
   CreditCard,
   FileArchive,
   FileJson,
@@ -61,6 +62,10 @@ export function FeedbackIcon({ className }: IconProps) {
 
 export function VideoCameraIcon({ className }: IconProps) {
   return <Video className={className} aria-hidden />;
+}
+
+export function ClapperboardIcon({ className }: IconProps) {
+  return <Clapperboard className={className} aria-hidden />;
 }
 
 export function MicrophoneIcon({ className }: IconProps) {

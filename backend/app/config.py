@@ -112,5 +112,16 @@ class Settings:
     # rather than silently unprotected in an environment that forgot to set it.
     TURNSTILE_SECRET_KEY = os.environ.get("TURNSTILE_SECRET_KEY", "")
 
+    # Audio -> generated video (routes/video_gen.py, job_type == "video_gen").
+    # Pexels: free API, both photo and video search, permissive commercial
+    # license (see stages/stock_media.py). No SDK -- plain requests calls.
+    PEXELS_API_KEY = os.environ.get("PEXELS_API_KEY", "")
+    STOCK_MEDIA_PROVIDER = os.environ.get("STOCK_MEDIA_PROVIDER", "pexels")
+    # Stricter than MAX_DURATION_SECONDS above -- ffmpeg rendering is far more
+    # CPU/wall-clock-heavy than the mostly I/O-bound video/audio pipelines,
+    # and worker.py has no concurrency, so one long video_gen job would tie
+    # up every other queued job behind it.
+    VIDEO_GEN_MAX_DURATION_SECONDS = int(os.environ.get("VIDEO_GEN_MAX_DURATION_SECONDS", 20 * 60))
+
 
 settings = Settings()

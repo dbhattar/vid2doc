@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect } from "react";
 
-import { BillingIcon, ChevronIcon, CloseIcon, DashboardIcon, DocumentIcon, DriveIcon, KeyIcon, MicrophoneIcon, ShieldIcon, VideoCameraIcon, WalletIcon } from "@/components/icons";
+import { BillingIcon, ChevronIcon, ClapperboardIcon, CloseIcon, DashboardIcon, DocumentIcon, DriveIcon, KeyIcon, MicrophoneIcon, ShieldIcon, VideoCameraIcon, WalletIcon } from "@/components/icons";
 import ThemeToggle from "@/components/ThemeToggle";
 import UserMenu from "@/components/UserMenu";
 import type { CurrentUser } from "@/lib/auth";
@@ -15,6 +15,7 @@ const PRIMARY_NAV_LINKS = [
   { href: "/dashboard", label: "Dashboard", Icon: DashboardIcon },
   { href: "/dashboard/video", label: "Video", Icon: VideoCameraIcon },
   { href: "/dashboard/audio", label: "Audio", Icon: MicrophoneIcon },
+  { href: "/dashboard/video-gen", label: "Video Gen", Icon: ClapperboardIcon },
   { href: "/documents", label: "Documents", Icon: DocumentIcon },
 ];
 
