@@ -93,7 +93,7 @@ export default function IntegrationsPage() {
 
       <Card className="mt-8 flex items-center justify-between p-6">
         <div className="flex items-center gap-3">
-          <span className="flex h-10 w-10 shrink-0 items-center justify-center bg-paper-shade text-ink-soft">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-paper-shade text-ink-soft">
             <DriveIcon className="h-5 w-5" />
           </span>
           <div>

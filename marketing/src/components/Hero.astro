@@ -2,6 +2,7 @@
 ---
 
 <section class="hero">
+  <div class="hero-glow" aria-hidden="true"></div>
   <div class="container hero-grid">
     <div>
       <p class="eyebrow" data-reveal><span class="rec-dot"></span> Now live</p>
@@ -30,10 +31,43 @@
 
 <style>
   .hero {
-    border-bottom: var(--rule-width) solid var(--ink);
+    position: relative;
+    overflow: hidden;
+    border-bottom: 1px solid var(--line);
+  }
+
+  /* Blurred gradient-orb backdrop -- the low-cost way to read as
+     "colorful/energetic" without custom illustration (see
+     plan/ui-redesign-plan.md's Phase 4). Two soft blobs in the brand's
+     primary/secondary hues, positioned behind the copy, never behind the
+     transcript-sample mock (which needs a legible flat background). */
+  .hero-glow {
+    position: absolute;
+    inset: -20% -10% auto -10%;
+    height: 130%;
+    pointer-events: none;
+    background: radial-gradient(circle at 15% 20%, color-mix(in srgb, var(--accent) 30%, transparent), transparent 55%),
+      radial-gradient(circle at 75% 0%, color-mix(in srgb, var(--secondary) 22%, transparent), transparent 50%);
+    filter: blur(60px);
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .hero-glow {
+      animation: hero-glow-drift 18s ease-in-out infinite alternate;
+    }
+  }
+
+  @keyframes hero-glow-drift {
+    from {
+      transform: translate(0, 0) scale(1);
+    }
+    to {
+      transform: translate(2%, 3%) scale(1.05);
+    }
   }
 
   .hero-grid {
+    position: relative;
     display: grid;
     grid-template-columns: 1.55fr 1fr;
     gap: 40px;
@@ -76,14 +110,14 @@
 
   .hero h1 {
     font-size: var(--step-6);
-    line-height: 0.98;
+    line-height: 1.03;
     margin: 0 0 0 -3px;
   }
 
   .hero h1 em {
     font-family: var(--font-display);
     font-style: italic;
-    font-weight: 500;
+    font-weight: 800;
     color: var(--accent);
   }
 
@@ -111,8 +145,11 @@
   }
 
   .transcript-sample {
-    border: var(--border-width) solid var(--ink);
-    background: var(--paper-shade);
+    position: relative;
+    border: var(--border-width) solid var(--line);
+    border-radius: var(--radius-md);
+    background: var(--paper);
+    box-shadow: var(--shadow-md);
     padding: 16px 18px;
     font-family: var(--font-mono);
     font-size: 0.78rem;

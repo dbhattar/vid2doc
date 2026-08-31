@@ -21,7 +21,7 @@ export default function StatusBadge({ job }: { job: Job }) {
       ? job.progress_stage.replaceAll("_", " ")
       : STATUS_LABELS[job.status] ?? job.status;
   return (
-    <span className={`font-mono text-xs font-semibold uppercase tracking-wide ${STATUS_STYLES[job.status]}`}>
+    <span className={`font-sans text-xs font-semibold ${STATUS_STYLES[job.status]}`}>
       {label}
     </span>
   );

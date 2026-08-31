@@ -50,7 +50,7 @@ function NavLink({
       href={href}
       onClick={onNavigate}
       title={collapsed ? label : undefined}
-      className={`flex items-center gap-3 px-3 py-2 text-sm font-medium transition-colors ${
+      className={`flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors ${
         collapsed ? "md:justify-center" : ""
       } ${active ? "bg-accent-soft text-accent" : "text-ink-soft hover:bg-paper-shade hover:text-ink"}`}
     >
@@ -108,7 +108,7 @@ export default function Sidebar({
         <div className={`flex h-16 shrink-0 items-center justify-between px-4 ${collapsed ? "md:justify-center md:px-0" : ""}`}>
           <Link href="/dashboard" className="flex items-center gap-2.5 overflow-hidden">
             <Image src="/logo-icon.png" alt="" width={28} height={28} className="shrink-0" priority />
-            <span className={`whitespace-nowrap font-mono text-base font-semibold tracking-tight ${labelClass(collapsed)}`}>
+            <span className={`whitespace-nowrap font-display text-lg font-extrabold tracking-tight ${labelClass(collapsed)}`}>
               <span className="text-ink">FRAME</span>
               <span className="text-accent">WRITE</span>
             </span>
@@ -116,7 +116,7 @@ export default function Sidebar({
           <button
             onClick={onMobileClose}
             aria-label="Close menu"
-            className="p-1 text-ink-soft transition-colors hover:text-ink md:hidden"
+            className="rounded-md p-1 text-ink-soft transition-colors hover:bg-paper-shade hover:text-ink md:hidden"
           >
             <CloseIcon className="h-5 w-5" />
           </button>
@@ -153,7 +153,7 @@ export default function Sidebar({
           <Link
             href="/settings/billing"
             title={collapsed ? (balanceCents === null ? "Wallet balance" : formatCents(balanceCents)) : undefined}
-            className={`flex items-center gap-2.5 px-3 pt-3 text-sm text-ink-soft transition-colors hover:text-ink ${
+            className={`flex items-center gap-2.5 rounded-md px-3 pb-1 pt-3 text-sm text-ink-soft transition-colors hover:bg-paper-shade hover:text-ink ${
               collapsed ? "md:justify-center" : ""
             }`}
           >
@@ -168,13 +168,13 @@ export default function Sidebar({
           </div>
 
           <div className={`mx-3 mb-3 flex gap-2 ${collapsed ? "md:flex-col" : ""}`}>
-            <div className="flex-1 border-2 border-line">
+            <div className="flex-1 rounded-md border border-line">
               <ThemeToggle collapsed={collapsed} />
             </div>
             <button
               onClick={onToggle}
               aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-              className="hidden items-center justify-center border-2 border-line p-2 text-ink-soft transition-colors hover:bg-paper-shade hover:text-ink md:flex"
+              className="hidden items-center justify-center rounded-md border border-line p-2 text-ink-soft transition-colors hover:bg-paper-shade hover:text-ink md:flex"
             >
               <ChevronIcon className={`h-4 w-4 transition-transform ${collapsed ? "rotate-180" : ""}`} />
             </button>

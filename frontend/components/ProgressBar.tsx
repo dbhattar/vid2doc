@@ -1,9 +1,8 @@
 import { getStageStatuses } from "@/lib/jobStages";
 import type { Job } from "@/lib/jobs";
 
-/** Compact segmented progress bar for list views (JobRow) -- sharp-edged
- * segments, no rounded corners, matching the brand's blocky border-2
- * aesthetic rather than a soft rounded-pill loading bar. Flavor text surfaces
+/** Compact segmented progress bar for list views (JobRow) -- rounded pill
+ * segments matching the app's soft/rounded aesthetic. Flavor text surfaces
  * as a native title tooltip rather than a second visible line: a dense list
  * row shouldn't grow a permanent line of prose per processing job -- the
  * full always-visible flavor treatment lives in ProgressStepper instead. */
@@ -17,7 +16,7 @@ export default function ProgressBar({ job, className = "" }: { job: Job; classNa
         {statuses.map(({ stage, status }) => (
           <div
             key={stage.key}
-            className={`h-1.5 flex-1 ${
+            className={`h-1.5 flex-1 rounded-full ${
               status === "done" || status === "current" || status === "awaiting-input"
                 ? "bg-status-warning"
                 : status === "failed"
@@ -28,7 +27,7 @@ export default function ProgressBar({ job, className = "" }: { job: Job; classNa
         ))}
       </div>
       {current && (
-        <p className="mt-1 font-mono text-xs font-semibold uppercase tracking-wide text-status-warning">
+        <p className="mt-1 font-sans text-xs font-semibold text-status-warning">
           {current.stage.label}
         </p>
       )}

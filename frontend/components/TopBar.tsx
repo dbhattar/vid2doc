@@ -13,7 +13,7 @@ export default function TopBar({ onMenuClick }: { onMenuClick: () => void }) {
       <button
         onClick={onMenuClick}
         aria-label="Open menu"
-        className="flex items-center justify-center p-2 text-ink-soft transition-colors hover:text-ink md:hidden"
+        className="flex items-center justify-center rounded-md p-2 text-ink-soft transition-colors hover:bg-paper-shade hover:text-ink md:hidden"
       >
         <MenuIcon className="h-5 w-5" />
       </button>

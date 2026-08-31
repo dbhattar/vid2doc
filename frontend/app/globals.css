@@ -1,21 +1,33 @@
 @import "tailwindcss";
 
+/* Design tokens for the "bold, colorful, modern SaaS" direction approved
+   2026-08-31 (see plan/ui-redesign-plan.md) -- mirrors marketing/'s
+   tokens.css (same rationale lives there in full); keep the two in lockstep
+   whenever one changes. Every color pairing here has been checked against
+   WCAG AA -- keep new ones checked too, don't just eyeball it. */
 :root {
   --paper: #ffffff;
-  --paper-shade: #f2f0ec;
-  --ink: #14120f;
-  --ink-soft: #56514a;
-  --line: #dedbd4;
-  --accent: #c81e3a;
-  --accent-ink: #ffffff;
-  /* A light tint of --accent -- used for active/highlighted states a dashboard
-     needs that a static marketing page doesn't (e.g. the active sidebar item).
-     Not part of marketing/'s token set, but derived the same way its old
-     --accent-soft was: a light wash of the brand accent. */
-  --accent-soft: #fbe3e6;
+  --paper-shade: #f1f0f7;
+  --ink: #14131a;
+  --ink-soft: #5b5a66;
+  --line: #e4e3ed;
 
-  /* Separate from --accent on purpose -- a failed-job badge must never read
-     as a CTA just because both happen to be "red". */
+  --accent: #5b4fe9;
+  --accent-ink: #ffffff;
+  --accent-soft: #eeecfc;
+
+  /* Warm counterpart to --accent -- gradients, secondary CTAs, highlights.
+     --secondary itself is too light for AA-safe text either on white or as
+     a white-on-fill button -- pair it with --secondary-ink (not white) for
+     text ON a --secondary fill, and use --secondary-strong for the
+     white-on-fill / text-on-white cases. */
+  --secondary: #ff6b4a;
+  --secondary-ink: #14131a;
+  --secondary-strong: #c93a1d;
+  --secondary-soft: #ffede7;
+
+  /* Separate from --accent/--secondary on purpose -- a failed-job badge
+     must never read as a CTA just because it happens to share a hue. */
   --status-success: #1f7a4d;
   --status-success-soft: #e4f2ea;
   --status-error: #b3141f;
@@ -24,18 +36,36 @@
   --status-warning-soft: #fbe9cf;
   --status-info: #2b3a67;
   --status-info-soft: #eef1f5;
+
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 20px;
+  --radius-full: 9999px;
+
+  --shadow-sm: 0 1px 2px rgba(20, 19, 26, 0.06), 0 1px 1px rgba(20, 19, 26, 0.04);
+  --shadow-md: 0 4px 12px rgba(20, 19, 26, 0.08), 0 2px 4px rgba(20, 19, 26, 0.04);
+  --shadow-lg: 0 12px 32px rgba(20, 19, 26, 0.14);
+  --shadow-accent: 0 8px 24px rgba(91, 79, 233, 0.28);
+
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1); /* small elements only (buttons/cards) -- overshoot reads jarring on large text blocks */
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --paper: #121110;
-    --paper-shade: #1c1a17;
-    --ink: #f4f1ea;
-    --ink-soft: #b6afa4;
-    --line: #35312b;
-    --accent: #ff6248;
-    --accent-ink: #14120f;
-    --accent-soft: #3a1f20;
+    --paper: #121016;
+    --paper-shade: #1c1a24;
+    --ink: #f4f3f8;
+    --ink-soft: #a7a5b4;
+    --line: #322f3d;
+
+    --accent: #9c90ff;
+    --accent-ink: #14131a;
+    --accent-soft: #28223d;
+
+    --secondary: #ff8a6b;
+    --secondary-ink: #14131a;
+    --secondary-strong: #ff8a6b; /* already AA-safe both ways at this lightness, no separate value needed */
+    --secondary-soft: #3a241e;
 
     --status-success: #4fae7c;
     --status-success-soft: #16281f;
@@ -45,6 +75,13 @@
     --status-warning-soft: #322613;
     --status-info: #8a9bce;
     --status-info-soft: #1c2233;
+
+    /* Dark-on-dark drop shadows read as mud -- lean on a lighter/tinted
+       glow instead of a literal shadow. */
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.45);
+    --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.5);
+    --shadow-accent: 0 8px 28px rgba(156, 144, 255, 0.35);
   }
 }
 
@@ -52,14 +89,20 @@
    win over the prefers-color-scheme block above in both directions, since
    the whole point is letting a user pick a theme against  their OS setting. */
 :root[data-theme='dark'] {
-  --paper: #121110;
-  --paper-shade: #1c1a17;
-  --ink: #f4f1ea;
-  --ink-soft: #b6afa4;
-  --line: #35312b;
-  --accent: #ff6248;
-  --accent-ink: #14120f;
-  --accent-soft: #3a1f20;
+  --paper: #121016;
+  --paper-shade: #1c1a24;
+  --ink: #f4f3f8;
+  --ink-soft: #a7a5b4;
+  --line: #322f3d;
+
+  --accent: #9c90ff;
+  --accent-ink: #14131a;
+  --accent-soft: #28223d;
+
+  --secondary: #ff8a6b;
+  --secondary-ink: #14131a;
+  --secondary-strong: #ff8a6b;
+  --secondary-soft: #3a241e;
 
   --status-success: #4fae7c;
   --status-success-soft: #16281f;
@@ -69,16 +112,27 @@
   --status-warning-soft: #322613;
   --status-info: #8a9bce;
   --status-info-soft: #1c2233;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.5);
+  --shadow-accent: 0 8px 28px rgba(156, 144, 255, 0.35);
 }
 :root[data-theme='light'] {
   --paper: #ffffff;
-  --paper-shade: #f2f0ec;
-  --ink: #14120f;
-  --ink-soft: #56514a;
-  --line: #dedbd4;
-  --accent: #c81e3a;
+  --paper-shade: #f1f0f7;
+  --ink: #14131a;
+  --ink-soft: #5b5a66;
+  --line: #e4e3ed;
+
+  --accent: #5b4fe9;
   --accent-ink: #ffffff;
-  --accent-soft: #fbe3e6;
+  --accent-soft: #eeecfc;
+
+  --secondary: #ff6b4a;
+  --secondary-ink: #14131a;
+  --secondary-strong: #c93a1d;
+  --secondary-soft: #ffede7;
 
   --status-success: #1f7a4d;
   --status-success-soft: #e4f2ea;
@@ -88,6 +142,11 @@
   --status-warning-soft: #fbe9cf;
   --status-info: #2b3a67;
   --status-info-soft: #eef1f5;
+
+  --shadow-sm: 0 1px 2px rgba(20, 19, 26, 0.06), 0 1px 1px rgba(20, 19, 26, 0.04);
+  --shadow-md: 0 4px 12px rgba(20, 19, 26, 0.08), 0 2px 4px rgba(20, 19, 26, 0.04);
+  --shadow-lg: 0 12px 32px rgba(20, 19, 26, 0.14);
+  --shadow-accent: 0 8px 24px rgba(91, 79, 233, 0.28);
 }
 
 @theme inline {
@@ -99,6 +158,10 @@
   --color-accent: var(--accent);
   --color-accent-ink: var(--accent-ink);
   --color-accent-soft: var(--accent-soft);
+  --color-secondary: var(--secondary);
+  --color-secondary-ink: var(--secondary-ink);
+  --color-secondary-strong: var(--secondary-strong);
+  --color-secondary-soft: var(--secondary-soft);
 
   --color-status-success: var(--status-success);
   --color-status-success-soft: var(--status-success-soft);
@@ -109,9 +172,9 @@
   --color-status-info: var(--status-info);
   --color-status-info-soft: var(--status-info-soft);
 
-  --font-display: var(--font-fraunces);
+  --font-display: var(--font-display-sans);
+  --font-sans: var(--font-inter);
   --font-mono: var(--font-plex-mono);
-  --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif;
 }
 
 body {

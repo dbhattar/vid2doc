@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Fraunces, IBM_Plex_Mono } from "next/font/google";
+import { Bricolage_Grotesque, IBM_Plex_Mono, Inter } from "next/font/google";
 import Script from "next/script";
 
 import GoogleAnalytics from "@/components/GoogleAnalytics";
@@ -7,10 +7,21 @@ import { THEME_INIT_SCRIPT } from "@/lib/theme";
 
 import "./globals.css";
 
-const fraunces = Fraunces({
-  variable: "--font-fraunces",
-  weight: ["600", "900"],
-  style: ["normal", "italic"],
+// Bricolage Grotesque replaces Fraunces as the display face (see
+// plan/ui-redesign-plan.md) -- a bold geometric grotesque with personality,
+// matching the marketing site's choice for the same reason (see that
+// project's base.css: Cabinet Grotesk, the plan's original pick, isn't
+// cleanly self-hostable). Inter is new (body/UI text, replacing the plain
+// system-sans stack); IBM Plex Mono stays for genuinely monospace content.
+const displayFont = Bricolage_Grotesque({
+  variable: "--font-display-sans",
+  weight: ["700", "800"],
+  subsets: ["latin"],
+});
+
+const inter = Inter({
+  variable: "--font-inter",
+  weight: ["400", "500", "600"],
   subsets: ["latin"],
 });
 
@@ -33,7 +44,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${fraunces.variable} ${plexMono.variable} h-full antialiased`}
+      className={`${displayFont.variable} ${inter.variable} ${plexMono.variable} h-full antialiased`}
     >
       {/* h-full, not min-h-full -- this must be capped at exactly the
           viewport height, not just floored at it, or it grows with page

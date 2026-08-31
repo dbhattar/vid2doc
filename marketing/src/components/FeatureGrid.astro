@@ -57,14 +57,10 @@ const items = [
     margin: 0 0 40px;
   }
 
-  /* Full-bordered grid with no doubled lines: the container supplies the
-     top/left edges, and each card supplies its own right/bottom edge --
-     together those form a complete grid regardless of row/column count. */
   .feature-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    border-top: var(--border-width) solid var(--ink);
-    border-left: var(--border-width) solid var(--ink);
+    gap: 20px;
   }
 
   @media (max-width: 900px) {
@@ -81,13 +77,21 @@ const items = [
 
   .feature-card {
     padding: 28px 24px;
-    border-right: var(--border-width) solid var(--ink);
-    border-bottom: var(--border-width) solid var(--ink);
+    border: var(--border-width) solid var(--line);
+    border-radius: var(--radius-lg);
+    background: var(--paper);
+    box-shadow: var(--shadow-sm);
+    transition: transform var(--duration-fast) var(--ease-spring), box-shadow var(--duration-fast) var(--ease);
+  }
+
+  .feature-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-md);
   }
 
   .feature-title {
     font-family: var(--font-display);
-    font-weight: 600;
+    font-weight: 700;
     font-size: 1.15rem;
     letter-spacing: -0.01em;
     margin: 0 0 10px;

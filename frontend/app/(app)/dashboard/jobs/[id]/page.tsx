@@ -154,7 +154,7 @@ export default function JobDetailPage() {
       <div className="mt-4 flex items-center gap-2.5">
         {job && (
           <span
-            className={`flex h-8 w-8 shrink-0 items-center justify-center ${
+            className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
               job.job_type === "audio" ? "bg-paper-shade text-ink-soft" : "bg-accent-soft text-accent"
             }`}
             title={
@@ -223,7 +223,7 @@ export default function JobDetailPage() {
             )}
 
             {job.status === "failed" && job.error && (
-              <p className="mt-4 bg-status-error-soft p-3 text-sm text-status-error">{job.error}</p>
+              <p className="mt-4 rounded-md bg-status-error-soft p-3 text-sm text-status-error">{job.error}</p>
             )}
 
             {job.status === "failed" && (
@@ -236,7 +236,7 @@ export default function JobDetailPage() {
             )}
 
             {job.status === "done" && job.retention_expired && (
-              <p className="mt-4 bg-paper-shade p-3 text-sm text-ink-soft">
+              <p className="mt-4 rounded-md bg-paper-shade p-3 text-sm text-ink-soft">
                 This document was deleted per the 7-day retention policy and can no longer be downloaded.
               </p>
             )}

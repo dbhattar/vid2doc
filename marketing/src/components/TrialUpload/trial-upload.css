@@ -1,6 +1,8 @@
 .trial-card {
   background: var(--paper);
-  border: var(--border-width) solid var(--ink);
+  border: var(--border-width) solid var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
   padding: 32px 28px;
   max-width: 480px;
   margin: 0 auto;
@@ -16,9 +18,8 @@
 .trial-caps {
   margin: 10px 0 20px;
   color: var(--ink-soft);
-  font-family: var(--font-mono);
-  font-size: 0.78rem;
-  letter-spacing: 0.02em;
+  font-family: var(--font-body);
+  font-size: 0.8rem;
 }
 
 .trial-dropzone {
@@ -28,6 +29,7 @@
   min-height: 64px;
   padding: 14px 16px;
   border: 1px dashed var(--line);
+  border-radius: var(--radius-md);
   color: var(--ink-soft);
   font-size: 0.92rem;
   cursor: pointer;
@@ -88,8 +90,9 @@
 .trial-error {
   margin: 12px 0 0;
   color: var(--accent);
-  font-family: var(--font-mono);
-  font-size: 0.8rem;
+  font-family: var(--font-body);
+  font-weight: 500;
+  font-size: 0.85rem;
 }
 
 .trial-processing {
@@ -118,8 +121,8 @@
 }
 
 .trial-status {
-  font-family: var(--font-mono);
-  font-size: 0.85rem;
+  font-family: var(--font-body);
+  font-size: 0.9rem;
   color: var(--ink-soft);
   margin: 0;
 }
@@ -131,8 +134,8 @@
   border: none;
   padding: 0;
   color: var(--ink-soft);
-  font-family: var(--font-mono);
-  font-size: 0.76rem;
+  font-family: var(--font-body);
+  font-size: 0.8rem;
   text-decoration: underline;
   text-decoration-color: var(--line);
   text-underline-offset: 3px;
@@ -147,7 +150,7 @@
 .trial-result-title {
   font-family: var(--font-display);
   font-size: 1.4rem;
-  font-weight: 900;
+  font-weight: 800;
   color: var(--ink);
   margin: 0 0 20px;
 }
@@ -161,18 +164,23 @@
 }
 
 .trial-result-actions a {
-  font-family: var(--font-mono);
-  font-size: 0.8rem;
+  font-family: var(--font-body);
+  font-weight: 500;
+  font-size: 0.85rem;
   color: var(--ink);
   border: var(--border-width) solid var(--line);
+  border-radius: var(--radius-md);
   padding: 8px 14px;
   text-decoration: none;
-  transition: border-color var(--duration-fast) var(--ease), color var(--duration-fast) var(--ease);
+  transition: transform var(--duration-fast) var(--ease-spring), border-color var(--duration-fast) var(--ease),
+    color var(--duration-fast) var(--ease), box-shadow var(--duration-fast) var(--ease);
 }
 
 .trial-result-actions a:hover {
+  transform: translateY(-2px);
   border-color: var(--accent);
   color: var(--accent);
+  box-shadow: var(--shadow-sm);
 }
 
 .trial-failed-message {

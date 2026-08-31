@@ -1,7 +1,17 @@
-/* Self-hosted font faces -- only the weights/styles actually used. */
-@import '@fontsource/fraunces/600.css';
-@import '@fontsource/fraunces/900.css';
-@import '@fontsource/fraunces/500-italic.css';
+/* Self-hosted font faces -- only the weights/styles actually used.
+   Bricolage Grotesque replaces Fraunces as the display face (see
+   plan/ui-redesign-plan.md) -- picked over the plan's original suggestion,
+   Cabinet Grotesk, because Cabinet Grotesk isn't published as a Fontsource
+   package (no clean self-hosted install without hand-fetching files from
+   Fontshare), while Bricolage Grotesque is an OFL-licensed Google Fonts
+   family with the same "bold geometric grotesque with personality" quality
+   the plan called for. Inter is new (body/UI text); IBM Plex Mono stays,
+   narrower role (mono content only, not the default label voice anymore). */
+@import '@fontsource/bricolage-grotesque/700.css';
+@import '@fontsource/bricolage-grotesque/800.css';
+@import '@fontsource/inter/400.css';
+@import '@fontsource/inter/500.css';
+@import '@fontsource/inter/600.css';
 @import '@fontsource/ibm-plex-mono/400.css';
 @import '@fontsource/ibm-plex-mono/500.css';
 @import '@fontsource/ibm-plex-mono/600.css';
@@ -57,8 +67,8 @@ h1,
 h2,
 h3 {
   font-family: var(--font-display);
-  font-weight: 900;
-  letter-spacing: -0.01em;
+  font-weight: 800;
+  letter-spacing: -0.02em;
   margin: 0;
   text-wrap: balance;
 }
@@ -90,30 +100,30 @@ button:focus-visible {
 }
 
 .btn-primary {
-  font-family: var(--font-mono);
-  font-size: 0.85rem;
-  font-weight: 500;
-  text-transform: uppercase;
-  letter-spacing: 0.04em;
-  background: var(--ink);
-  color: var(--paper);
-  border: var(--border-width) solid var(--ink);
-  padding: 13px 22px;
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  font-weight: 600;
+  background: var(--accent);
+  color: var(--accent-ink);
+  border: var(--border-width) solid var(--accent);
+  border-radius: var(--radius-md);
+  padding: 13px 24px;
   text-decoration: none;
   display: inline-block;
-  transition: background var(--duration-fast) var(--ease), border-color var(--duration-fast) var(--ease),
-    color var(--duration-fast) var(--ease);
+  box-shadow: var(--shadow-accent);
+  transition: transform var(--duration-fast) var(--ease-spring), box-shadow var(--duration-fast) var(--ease),
+    background var(--duration-fast) var(--ease);
 }
 
 .btn-primary:hover {
-  background: var(--accent);
-  border-color: var(--accent);
-  color: var(--accent-ink);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-lg);
 }
 
 .btn-secondary {
-  font-family: var(--font-mono);
-  font-size: 0.85rem;
+  font-family: var(--font-body);
+  font-size: 0.95rem;
+  font-weight: 500;
   color: var(--ink);
   text-decoration: underline;
   text-decoration-color: var(--line);

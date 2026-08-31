@@ -164,7 +164,7 @@ export default function LivePage() {
 
   return (
     <div className="w-full px-6 py-10">
-      <p className="font-mono text-xs font-semibold uppercase tracking-wide text-accent">Live → Transcript</p>
+      <p className="font-sans text-xs font-semibold text-accent">Live → Transcript</p>
       <h1 className="mt-2 font-display text-2xl font-bold tracking-tight text-ink">
         Record live, see who said what as it happens.
       </h1>
@@ -173,7 +173,7 @@ export default function LivePage() {
         is sent anywhere, and only if you choose to save it.
       </p>
 
-      <div className="mt-8 max-w-2xl border-2 border-line bg-paper p-6">
+      <div className="mt-8 max-w-2xl rounded-lg border border-line bg-paper p-6 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <label className="flex items-center gap-2 text-sm text-ink">
             <input
@@ -203,7 +203,7 @@ export default function LivePage() {
       </div>
 
       {(turns.length > 0 || partialText || isRecording) && (
-        <div className="mt-6 max-w-2xl border-2 border-line bg-paper p-6">
+        <div className="mt-6 max-w-2xl rounded-lg border border-line bg-paper p-6 shadow-sm">
           <h2 className="font-display text-lg font-bold text-ink">Transcript</h2>
           <div className="mt-4 max-h-[28rem] space-y-3 overflow-y-auto pr-1">
             {turns.map((turn, i) => {

@@ -80,19 +80,19 @@ function BillingPageContent() {
       </p>
 
       {checkoutStatus === "success" && (
-        <p className="mt-4 bg-status-success-soft p-3 text-sm text-status-success">
+        <p className="mt-4 rounded-md bg-status-success-soft p-3 text-sm text-status-success">
           Payment received. Your balance may take a few seconds to update below.
         </p>
       )}
       {checkoutStatus === "cancelled" && (
-        <p className="mt-4 bg-paper-shade p-3 text-sm text-ink-soft">
+        <p className="mt-4 rounded-md bg-paper-shade p-3 text-sm text-ink-soft">
           Checkout was cancelled -- no changes were made.
         </p>
       )}
       {error && <p className="mt-4 text-sm text-status-error">{error}</p>}
 
       {!paymentsEnabled && (
-        <p className="mt-4 bg-status-warning-soft p-3 text-sm text-status-warning">
+        <p className="mt-4 rounded-md bg-status-warning-soft p-3 text-sm text-status-warning">
           Payments are temporarily unavailable while we resolve an issue with our payment provider. Your
           existing balance and job processing are unaffected -- please check back soon.
         </p>
@@ -115,7 +115,7 @@ function BillingPageContent() {
                   setCustomAmount("");
                 }}
                 disabled={!paymentsEnabled}
-                className={`border-2 px-4 py-2 text-sm font-medium transition-colors disabled:cursor-default disabled:opacity-50 ${
+                className={`rounded-md border px-4 py-2 text-sm font-medium transition-all duration-150 ease-[var(--ease-spring)] hover:-translate-y-0.5 disabled:cursor-default disabled:opacity-50 ${
                   selectedPreset === cents && !customAmount
                     ? "border-ink bg-ink text-paper"
                     : "border-line text-ink hover:bg-paper-shade"
@@ -136,7 +136,7 @@ function BillingPageContent() {
                 setSelectedPreset(null);
               }}
               disabled={!paymentsEnabled}
-              className="w-28 border-2 border-line bg-paper px-3 py-2 text-sm outline-none transition-shadow focus:border-accent focus:ring-2 focus:ring-accent-soft disabled:cursor-default disabled:opacity-50"
+              className="w-28 rounded-md border border-line bg-paper px-3 py-2 text-sm outline-none transition-shadow focus:border-accent focus:ring-2 focus:ring-accent-soft disabled:cursor-default disabled:opacity-50"
             />
           </div>
           <Button onClick={handleAddFunds} disabled={busy || !paymentsEnabled} className="mt-4">

@@ -61,12 +61,12 @@ const posts = allPosts.sort((a, b) => b.data.publishDate.valueOf() - a.data.publ
 
   .empty {
     color: var(--ink-soft);
-    font-family: var(--font-mono);
-    font-size: 0.9rem;
+    font-family: var(--font-body);
+    font-size: 0.95rem;
   }
 
   .post-list {
-    border-top: var(--border-width) solid var(--ink);
+    border-top: 1px solid var(--line);
   }
 
   .post-item {
@@ -78,10 +78,9 @@ const posts = allPosts.sort((a, b) => b.data.publishDate.valueOf() - a.data.publ
   }
 
   .post-item-date {
-    font-family: var(--font-mono);
-    font-size: 0.78rem;
-    text-transform: uppercase;
-    letter-spacing: 0.05em;
+    font-family: var(--font-body);
+    font-size: 0.85rem;
+    font-weight: 600;
     color: var(--accent);
     margin: 0 0 8px;
   }

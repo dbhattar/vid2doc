@@ -1,23 +1,35 @@
 /*
-  Design tokens for the "bold & editorial" direction approved 2026-07-28.
-  Concept: recording -> transcript -> document, made literal (masthead/rule/
-  index-list language, a monospace "REC" voice) rather than decorative.
-  One loud accent (recording red) against a near-monochrome ink/paper field.
+  Design tokens for the "bold, colorful, modern SaaS" direction approved
+  2026-08-31 (see plan/ui-redesign-plan.md), replacing the earlier "bold &
+  editorial" system (2026-07-28): an indigo/violet primary instead of the
+  old single crimson accent, a warm coral secondary for energy/gradients,
+  cooler neutrals to harmonize with the indigo, soft rounded corners and a
+  real shadow scale (both were explicitly zero before), and a bold
+  geometric display sans replacing the serif display face.
   Swap values here, never hardcode a color/space/font in a component.
+  Every color pairing below has been checked against WCAG AA -- keep new
+  ones checked too, don't just eyeball it.
 */
 
 :root {
   --paper: #ffffff;
-  --paper-shade: #f2f0ec;
-  --ink: #14120f;
-  --ink-soft: #56514a;
-  --line: #dedbd4;
-  --accent: #c81e3a;
-  --accent-ink: #ffffff;
+  --paper-shade: #f1f0f7;
+  --ink: #14131a;
+  --ink-soft: #5b5a66;
+  --line: #e4e3ed;
 
-  --font-display: 'Fraunces', Georgia, serif;
+  --accent: #5b4fe9;
+  --accent-ink: #ffffff;
+  --accent-soft: #eeecfc;
+
+  --secondary: #ff6b4a;
+  --secondary-ink: #14131a; /* text color to put ON a --secondary fill -- not white, see tokens.css header note */
+  --secondary-strong: #c93a1d; /* AA-safe for white-on-fill or secondary-strong-on-white text use; --secondary itself is too light for either */
+  --secondary-soft: #ffede7;
+
+  --font-display: 'Bricolage Grotesque', ui-sans-serif, system-ui, sans-serif;
+  --font-body: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
   --font-mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
-  --font-body: -apple-system, BlinkMacSystemFont, 'Segoe UI', Helvetica, Arial, sans-serif;
 
   /* Fluid type scale -- clamp(min, preferred, max) */
   --step-0: clamp(1rem, 0.95rem + 0.25vw, 1.125rem);
@@ -38,43 +50,89 @@
   --space-8: 4rem;
   --space-9: 6rem;
 
-  --radius-sm: 0; /* sharp corners are part of the direction, not an oversight */
-  --border-width: 2px;
-  --rule-width: 3px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 20px;
+  --radius-full: 9999px;
 
-  --shadow-sm: none; /* rules/borders carry separation, not soft shadows */
+  --border-width: 1px; /* shadows carry separation now, not heavy rules -- was 2px */
+  --rule-width: 2px; /* major structural dividers (header/footer) only -- was 3px */
+
+  --shadow-sm: 0 1px 2px rgba(20, 19, 26, 0.06), 0 1px 1px rgba(20, 19, 26, 0.04);
+  --shadow-md: 0 4px 12px rgba(20, 19, 26, 0.08), 0 2px 4px rgba(20, 19, 26, 0.04);
+  --shadow-lg: 0 12px 32px rgba(20, 19, 26, 0.14);
+  --shadow-accent: 0 8px 24px rgba(91, 79, 233, 0.28);
 
   --ease: cubic-bezier(0.16, 1, 0.3, 1);
+  --ease-spring: cubic-bezier(0.34, 1.56, 0.64, 1); /* small elements only (buttons/cards) -- overshoot reads jarring on large text blocks */
   --duration-fast: 150ms;
   --duration-base: 400ms;
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --paper: #121110;
-    --paper-shade: #1c1a17;
-    --ink: #f4f1ea;
-    --ink-soft: #b6afa4;
-    --line: #35312b;
-    --accent: #ff6248;
-    --accent-ink: #14120f;
+    --paper: #121016;
+    --paper-shade: #1c1a24;
+    --ink: #f4f3f8;
+    --ink-soft: #a7a5b4;
+    --line: #322f3d;
+
+    --accent: #9c90ff;
+    --accent-ink: #14131a;
+    --accent-soft: #28223d;
+
+    --secondary: #ff8a6b;
+    --secondary-ink: #14131a;
+    --secondary-strong: #ff8a6b; /* already AA-safe both ways at this lightness, no separate value needed */
+    --secondary-soft: #3a241e;
+
+    /* Dark-on-dark drop shadows read as mud -- lean on a lighter/tinted
+       glow instead of a literal shadow. */
+    --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+    --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.45);
+    --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.5);
+    --shadow-accent: 0 8px 28px rgba(156, 144, 255, 0.35);
   }
 }
 :root[data-theme='dark'] {
-  --paper: #121110;
-  --paper-shade: #1c1a17;
-  --ink: #f4f1ea;
-  --ink-soft: #b6afa4;
-  --line: #35312b;
-  --accent: #ff6248;
-  --accent-ink: #14120f;
+  --paper: #121016;
+  --paper-shade: #1c1a24;
+  --ink: #f4f3f8;
+  --ink-soft: #a7a5b4;
+  --line: #322f3d;
+
+  --accent: #9c90ff;
+  --accent-ink: #14131a;
+  --accent-soft: #28223d;
+
+  --secondary: #ff8a6b;
+  --secondary-ink: #14131a;
+  --secondary-strong: #ff8a6b;
+  --secondary-soft: #3a241e;
+
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.4);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.45);
+  --shadow-lg: 0 16px 40px rgba(0, 0, 0, 0.5);
+  --shadow-accent: 0 8px 28px rgba(156, 144, 255, 0.35);
 }
 :root[data-theme='light'] {
   --paper: #ffffff;
-  --paper-shade: #f2f0ec;
-  --ink: #14120f;
-  --ink-soft: #56514a;
-  --line: #dedbd4;
-  --accent: #c81e3a;
+  --paper-shade: #f1f0f7;
+  --ink: #14131a;
+  --ink-soft: #5b5a66;
+  --line: #e4e3ed;
+
+  --accent: #5b4fe9;
   --accent-ink: #ffffff;
+  --accent-soft: #eeecfc;
+
+  --secondary: #ff6b4a;
+  --secondary-ink: #14131a;
+  --secondary-strong: #c93a1d;
+  --secondary-soft: #ffede7;
+
+  --shadow-sm: 0 1px 2px rgba(20, 19, 26, 0.06), 0 1px 1px rgba(20, 19, 26, 0.04);
+  --shadow-md: 0 4px 12px rgba(20, 19, 26, 0.08), 0 2px 4px rgba(20, 19, 26, 0.04);
+  --shadow-lg: 0 12px 32px rgba(20, 19, 26, 0.14);
+  --shadow-accent: 0 8px 24px rgba(91, 79, 233, 0.28);
 }

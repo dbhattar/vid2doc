@@ -14,7 +14,7 @@
 
 <style>
   .site-footer {
-    border-top: var(--rule-width) solid var(--ink);
+    border-top: 1px solid var(--line);
     padding: 28px 0;
   }
 
@@ -24,20 +24,22 @@
     justify-content: space-between;
     flex-wrap: wrap;
     gap: 12px;
-    font-family: var(--font-mono);
-    font-size: 0.8rem;
+    font-family: var(--font-body);
+    font-size: 0.85rem;
     color: var(--ink-soft);
   }
 
   .footer-inner .wordmark {
-    font-weight: 500;
-    letter-spacing: 0.02em;
-    text-transform: uppercase;
+    font-family: var(--font-display);
+    font-weight: 800;
+    font-size: 1rem;
+    letter-spacing: -0.01em;
     color: var(--ink);
   }
 
   .footer-inner .wordmark b {
     color: var(--accent);
+    font-weight: 800;
   }
 
   .footer-inner p {

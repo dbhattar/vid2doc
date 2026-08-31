@@ -139,7 +139,7 @@ export default function AudioPage() {
 
   return (
     <div className="w-full px-6 py-10">
-      <p className="font-mono text-xs font-semibold uppercase tracking-wide text-accent">Audio → Transcript</p>
+      <p className="font-sans text-xs font-semibold text-accent">Audio → Transcript</p>
       <h1 className="mt-2 font-display text-2xl font-bold tracking-tight text-ink">Every word, perfectly on the record.</h1>
       <p className="mt-1 max-w-2xl text-sm text-ink-soft">
         Upload an audio file and get back a verbatim, speaker-tagged transcript -- no rewatching, no scrubbing through
@@ -147,11 +147,11 @@ export default function AudioPage() {
       </p>
 
       <div className="mt-8 max-w-xl">
-        <form onSubmit={handleUpload} className="w-full border-2 border-line bg-paper p-6">
+        <form onSubmit={handleUpload} className="w-full rounded-lg border border-line bg-paper p-6 shadow-sm">
           <p className="text-xs text-ink-soft">MP3, WAV, M4A, AAC, FLAC, or OGG, up to 90 minutes.</p>
 
           <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-stretch">
-            <label className="flex flex-1 cursor-pointer items-center border-2 border-dashed border-line px-4 py-3 text-sm text-ink-soft transition-colors hover:border-accent hover:bg-accent-soft/40">
+            <label className="flex flex-1 cursor-pointer items-center rounded-md border border-dashed border-line px-4 py-3 text-sm text-ink-soft transition-colors hover:border-accent hover:bg-accent-soft/40">
               <input
                 ref={fileInputRef}
                 type="file"
@@ -189,7 +189,7 @@ export default function AudioPage() {
           {deleteError && <p className="mt-2 text-sm text-status-error">{deleteError}</p>}
           {cancelError && <p className="mt-2 text-sm text-status-error">{cancelError}</p>}
 
-          <ul className="mt-2 divide-y divide-line border-2 border-line bg-paper">
+          <ul className="mt-2 divide-y divide-line overflow-hidden rounded-lg border border-line bg-paper shadow-sm">
             {inProgress.map((job) => (
               <JobRow
                 key={job.job_id}

@@ -64,7 +64,7 @@ function StatCard({ icon, label, value, sub }: { icon: React.ReactNode; label: s
     <Card className="p-4">
       <div className="flex items-center gap-2 text-ink-soft">
         {icon}
-        <span className="font-mono text-xs font-medium uppercase tracking-wide">{label}</span>
+        <span className="font-sans text-xs font-medium">{label}</span>
       </div>
       <p className="mt-2 font-display text-2xl font-bold text-ink">{value}</p>
       {sub && <p className="mt-0.5 text-xs text-ink-soft">{sub}</p>}
@@ -186,11 +186,11 @@ export default function AdminPage() {
             </Card>
           </div>
 
-          <h2 className="mt-8 font-mono text-sm font-semibold uppercase tracking-wide text-ink-soft">Top 5 spenders</h2>
+          <h2 className="mt-8 font-sans text-sm font-semibold text-ink-soft">Top 5 spenders</h2>
           {stats.top_spenders.length === 0 ? (
             <p className="mt-2 text-sm text-ink-soft">No spending yet.</p>
           ) : (
-            <ul className="mt-2 divide-y divide-line border-2 border-line bg-paper">
+            <ul className="mt-2 divide-y divide-line overflow-hidden rounded-lg border border-line bg-paper shadow-sm">
               {stats.top_spenders.map((u, i) => (
                 <li key={u.id} className="flex items-center justify-between px-4 py-3">
                   <div className="flex items-center gap-3">
@@ -208,19 +208,19 @@ export default function AdminPage() {
         </>
       )}
 
-      <h2 className="mt-8 font-mono text-sm font-semibold uppercase tracking-wide text-ink-soft">All users</h2>
+      <h2 className="mt-8 font-sans text-sm font-semibold text-ink-soft">All users</h2>
       {users === null ? (
         <p className="mt-2 text-sm text-ink-soft">Loading...</p>
       ) : (
-        <div className="mt-2 overflow-x-auto border-2 border-line bg-paper">
+        <div className="mt-2 overflow-x-auto rounded-lg border border-line bg-paper shadow-sm">
           <table className="w-full text-left text-sm">
             <thead>
-              <tr className="border-b border-line font-mono text-xs uppercase tracking-wide text-ink-soft">
-                <th className="px-4 py-3 font-medium">User</th>
-                <th className="px-4 py-3 font-medium">Joined</th>
-                <th className="px-4 py-3 font-medium">Jobs</th>
-                <th className="px-4 py-3 font-medium">Spent</th>
-                <th className="px-4 py-3 font-medium">Admin</th>
+              <tr className="border-b border-line font-sans text-xs text-ink-soft">
+                <th className="px-4 py-3 font-semibold">User</th>
+                <th className="px-4 py-3 font-semibold">Joined</th>
+                <th className="px-4 py-3 font-semibold">Jobs</th>
+                <th className="px-4 py-3 font-semibold">Spent</th>
+                <th className="px-4 py-3 font-semibold">Admin</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-line">
@@ -237,7 +237,7 @@ export default function AdminPage() {
                     <button
                       onClick={() => handleToggleAdmin(u)}
                       disabled={togglingId === u.id}
-                      className={`flex items-center gap-1.5 border-2 px-2.5 py-1 text-xs font-medium transition-colors disabled:cursor-default disabled:opacity-50 ${
+                      className={`flex items-center gap-1.5 rounded-md border px-2.5 py-1 text-xs font-medium transition-all duration-150 ease-[var(--ease-spring)] hover:-translate-y-0.5 disabled:cursor-default disabled:opacity-50 ${
                         u.is_admin
                           ? "border-accent bg-accent-soft text-accent hover:bg-accent/20"
                           : "border-line text-ink-soft hover:bg-paper-shade hover:text-ink"
@@ -254,7 +254,7 @@ export default function AdminPage() {
         </div>
       )}
 
-      <h2 className="mt-8 font-mono text-sm font-semibold uppercase tracking-wide text-ink-soft">
+      <h2 className="mt-8 font-sans text-sm font-semibold text-ink-soft">
         Anonymous trial jobs
       </h2>
       {trialJobs === null ? (
@@ -262,23 +262,23 @@ export default function AdminPage() {
       ) : trialJobs.length === 0 ? (
         <p className="mt-2 text-sm text-ink-soft">No trial jobs yet.</p>
       ) : (
-        <div className="mt-2 overflow-x-auto border-2 border-line bg-paper">
+        <div className="mt-2 overflow-x-auto rounded-lg border border-line bg-paper shadow-sm">
           <table className="w-full text-left text-sm">
             <thead>
-              <tr className="border-b border-line font-mono text-xs uppercase tracking-wide text-ink-soft">
-                <th className="px-4 py-3 font-medium">Status</th>
-                <th className="px-4 py-3 font-medium">Type</th>
-                <th className="px-4 py-3 font-medium">Duration</th>
-                <th className="px-4 py-3 font-medium">Size</th>
-                <th className="px-4 py-3 font-medium">IP</th>
-                <th className="px-4 py-3 font-medium">Submitted</th>
+              <tr className="border-b border-line font-sans text-xs text-ink-soft">
+                <th className="px-4 py-3 font-semibold">Status</th>
+                <th className="px-4 py-3 font-semibold">Type</th>
+                <th className="px-4 py-3 font-semibold">Duration</th>
+                <th className="px-4 py-3 font-semibold">Size</th>
+                <th className="px-4 py-3 font-semibold">IP</th>
+                <th className="px-4 py-3 font-semibold">Submitted</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-line">
               {trialJobs.map((j) => (
                 <tr key={j.id}>
                   <td className="px-4 py-3">
-                    <span className={`font-mono text-xs font-semibold uppercase tracking-wide ${TRIAL_STATUS_COLORS[j.status] ?? "text-ink-soft"}`}>
+                    <span className={`font-sans text-xs font-semibold ${TRIAL_STATUS_COLORS[j.status] ?? "text-ink-soft"}`}>
                       {j.status.replaceAll("_", " ")}
                     </span>
                     {j.status === "failed" && j.error_message && (
@@ -299,13 +299,13 @@ export default function AdminPage() {
         </div>
       )}
 
-      <h2 className="mt-8 font-mono text-sm font-semibold uppercase tracking-wide text-ink-soft">Recent feedback</h2>
+      <h2 className="mt-8 font-sans text-sm font-semibold text-ink-soft">Recent feedback</h2>
       {feedback === null ? (
         <p className="mt-2 text-sm text-ink-soft">Loading...</p>
       ) : feedback.length === 0 ? (
         <p className="mt-2 text-sm text-ink-soft">No feedback yet.</p>
       ) : (
-        <ul className="mt-2 divide-y divide-line border-2 border-line bg-paper">
+        <ul className="mt-2 divide-y divide-line overflow-hidden rounded-lg border border-line bg-paper shadow-sm">
           {feedback.map((f) => (
             <li key={f.id} className="px-4 py-3">
               <div className="flex items-center justify-between gap-3">

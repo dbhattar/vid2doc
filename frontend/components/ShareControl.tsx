@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+import { buttonClassName } from "@/components/Button";
 import { ShareIcon } from "@/components/icons";
 import { apiFetch, ApiError } from "@/lib/api";
 import type { Job } from "@/lib/jobs";
@@ -54,11 +55,7 @@ export default function ShareControl({ job, onUpdated }: { job: Job; onUpdated: 
   if (!job.share_url) {
     return (
       <div className="mt-4">
-        <button
-          onClick={handleEnable}
-          disabled={busy}
-          className="inline-flex items-center gap-2 border-2 border-line px-3 py-1.5 text-sm font-mono uppercase tracking-wide text-ink transition-colors hover:border-ink hover:bg-paper-shade disabled:cursor-default disabled:opacity-50"
-        >
+        <button onClick={handleEnable} disabled={busy} className={buttonClassName("outline")}>
           <ShareIcon className="h-4 w-4" />
           {busy ? "Sharing..." : "Share"}
         </button>
@@ -68,14 +65,11 @@ export default function ShareControl({ job, onUpdated }: { job: Job; onUpdated: 
   }
 
   return (
-    <div className="mt-4 border-2 border-line bg-paper-shade p-4">
+    <div className="mt-4 rounded-lg border border-line bg-paper-shade p-4">
       <p className="text-sm text-ink">This document is publicly viewable at:</p>
       <div className="mt-2 flex items-center gap-2">
-        <code className="flex-1 overflow-x-auto border border-line bg-paper px-3 py-2 text-sm">{job.share_url}</code>
-        <button
-          onClick={handleCopy}
-          className="shrink-0 border-2 border-line px-3 py-2 text-sm font-medium text-ink transition-colors hover:bg-paper"
-        >
+        <code className="flex-1 overflow-x-auto rounded-md border border-line bg-paper px-3 py-2 text-sm">{job.share_url}</code>
+        <button onClick={handleCopy} className={buttonClassName("outline", "shrink-0")}>
           {copied ? "Copied" : "Copy"}
         </button>
       </div>

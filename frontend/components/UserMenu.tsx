@@ -60,7 +60,7 @@ export default function UserMenu({ user, collapsed }: { user: CurrentUser | null
       </button>
 
       {open && (
-        <div className="absolute bottom-full left-0 z-20 mb-2 w-56 border-2 border-line bg-paper p-1.5">
+        <div className="absolute bottom-full left-0 z-20 mb-2 w-56 rounded-lg border border-line bg-paper p-1.5 shadow-md">
           <div className="border-b border-line px-3 py-2">
             <p className="truncate text-sm font-medium text-ink">{name}</p>
             {user?.email && <p className="truncate text-xs text-ink-soft">{user.email}</p>}

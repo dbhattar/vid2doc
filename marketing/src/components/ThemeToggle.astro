@@ -12,16 +12,18 @@
     justify-content: center;
     width: 32px;
     height: 32px;
-    border: 2px solid var(--line);
+    border: 1px solid var(--line);
+    border-radius: var(--radius-md);
     background: var(--paper);
     color: var(--ink-soft);
     cursor: pointer;
-    transition: color 150ms ease, border-color 150ms ease;
+    transition: color 150ms ease, border-color 150ms ease, background 150ms ease;
   }
 
   .theme-toggle:hover {
     color: var(--ink);
     border-color: var(--ink);
+    background: var(--paper-shade);
   }
 
   .theme-toggle-icon {

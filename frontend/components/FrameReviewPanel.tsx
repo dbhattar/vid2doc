@@ -122,7 +122,7 @@ export default function FrameReviewPanel({ job, onSubmitted }: { job: Job; onSub
               <div className="flex flex-wrap gap-2">
                 <button
                   onClick={() => setFilter("all")}
-                  className={`border-2 px-3 py-1 font-mono text-xs font-medium uppercase tracking-wide ${
+                  className={`rounded-md border px-3 py-1 font-sans text-xs font-medium transition-all duration-150 ease-[var(--ease-spring)] hover:-translate-y-0.5 ${
                     filter === "all" ? "border-ink bg-ink text-paper" : "border-line text-ink-soft hover:border-ink"
                   }`}
                 >
@@ -132,7 +132,7 @@ export default function FrameReviewPanel({ job, onSubmitted }: { job: Job; onSub
                   <button
                     key={type}
                     onClick={() => setFilter(type)}
-                    className={`border-2 px-3 py-1 font-mono text-xs font-medium uppercase tracking-wide ${
+                    className={`rounded-md border px-3 py-1 font-sans text-xs font-medium transition-all duration-150 ease-[var(--ease-spring)] hover:-translate-y-0.5 ${
                       filter === type ? "border-ink bg-ink text-paper" : "border-line text-ink-soft hover:border-ink"
                     }`}
                   >
@@ -165,7 +165,7 @@ export default function FrameReviewPanel({ job, onSubmitted }: { job: Job; onSub
                 <div className="space-y-2 p-3">
                   <div className="flex items-center justify-between text-xs text-ink-soft">
                     <span className="font-mono">{formatTimestamp(item.timestamp)}</span>
-                    <span className="font-mono uppercase tracking-wide">{CONTENT_TYPE_LABELS[contentTypeOf(item)] ?? item.kind}</span>
+                    <span className="font-sans font-medium">{CONTENT_TYPE_LABELS[contentTypeOf(item)] ?? item.kind}</span>
                   </div>
                   <div className="flex items-center justify-between">
                     <label className="flex items-center gap-2 text-sm text-ink">

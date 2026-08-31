@@ -154,7 +154,7 @@ export default function SceneReviewPanel({ job, onSubmitted }: { job: Job; onSub
                     type="text"
                     value={scene.headline}
                     onChange={(e) => setHeadline(scene.id, e.target.value)}
-                    className="w-full border-2 border-line bg-paper px-2 py-1 text-sm text-ink"
+                    className="w-full rounded-md border border-line bg-paper px-2 py-1 text-sm text-ink outline-none transition-shadow focus:border-accent focus:ring-2 focus:ring-accent-soft"
                   />
                 </div>
               </Card>

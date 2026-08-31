@@ -43,12 +43,12 @@ export default function DocumentPreview({ markdownUrl, bordered = true }: { mark
   if (markdown === null) return <p className={`${bordered ? "mt-6" : ""} text-sm text-ink-soft`}>Loading document...</p>;
 
   return (
-    <div className={bordered ? "mt-6 border-t-2 border-line pt-6" : ""}>
+    <div className={bordered ? "mt-6 border-t border-line pt-6" : ""}>
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
           h1: ({ children }) => (
-            <h1 className="mb-4 border-b-2 border-line pb-2 font-display text-2xl font-bold tracking-tight text-ink">{children}</h1>
+            <h1 className="mb-4 border-b border-line pb-2 font-display text-2xl font-bold tracking-tight text-ink">{children}</h1>
           ),
           h2: ({ children }) => <h2 className="mt-8 mb-3 font-display text-lg font-bold text-ink">{children}</h2>,
           h3: ({ children }) => <h3 className="mt-6 mb-2 font-display text-base font-semibold text-ink">{children}</h3>,
@@ -64,22 +64,22 @@ export default function DocumentPreview({ markdownUrl, bordered = true }: { mark
           blockquote: ({ children }) => (
             <blockquote className="border-l-4 border-accent pl-4 italic text-ink-soft">{children}</blockquote>
           ),
-          code: ({ children }) => <code className="border border-line bg-paper-shade px-1 py-0.5 font-mono text-xs">{children}</code>,
+          code: ({ children }) => <code className="rounded-sm border border-line bg-paper-shade px-1 py-0.5 font-mono text-xs">{children}</code>,
           pre: ({ children }) => (
-            <pre className="mb-4 overflow-x-auto border-2 border-line bg-paper-shade p-3 font-mono text-xs">{children}</pre>
+            <pre className="mb-4 overflow-x-auto rounded-md border border-line bg-paper-shade p-3 font-mono text-xs">{children}</pre>
           ),
           table: ({ children }) => (
             <div className="mb-4 overflow-x-auto">
-              <table className="w-full border-2 border-line text-sm">{children}</table>
+              <table className="w-full border border-line text-sm">{children}</table>
             </div>
           ),
-          thead: ({ children }) => <thead className="bg-ink font-mono text-xs uppercase tracking-wide text-paper">{children}</thead>,
-          th: ({ children }) => <th className="border-2 border-line px-3 py-2 text-left">{children}</th>,
-          td: ({ children }) => <td className="border-2 border-line px-3 py-2 text-ink">{children}</td>,
+          thead: ({ children }) => <thead className="bg-ink font-sans text-xs font-semibold text-paper">{children}</thead>,
+          th: ({ children }) => <th className="border border-line px-3 py-2 text-left">{children}</th>,
+          td: ({ children }) => <td className="border border-line px-3 py-2 text-ink">{children}</td>,
           img: ({ src, alt }) => {
             if (!src || typeof src !== "string") return null;
             const resolvedSrc = new URL(src, markdownUrl).toString();
-            return <AuthenticatedImage src={resolvedSrc} alt={alt || ""} className="w-full border-2 border-line" />;
+            return <AuthenticatedImage src={resolvedSrc} alt={alt || ""} className="w-full rounded-md border border-line" />;
           },
         }}
       >

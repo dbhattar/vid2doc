@@ -67,9 +67,8 @@ const tiers = [
   .pricing-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 0;
+    gap: 20px;
     max-width: 1040px;
-    border: var(--border-width) solid var(--ink);
   }
 
   @media (max-width: 640px) {
@@ -80,39 +79,36 @@ const tiers = [
 
   .pricing-card {
     padding: 32px 28px;
+    border: var(--border-width) solid var(--line);
+    border-radius: var(--radius-lg);
+    background: var(--paper);
+    box-shadow: var(--shadow-sm);
+    transition: transform var(--duration-fast) var(--ease-spring), box-shadow var(--duration-fast) var(--ease);
   }
 
-  .pricing-card:not(:last-child) {
-    border-right: var(--border-width) solid var(--ink);
-  }
-
-  @media (max-width: 640px) {
-    .pricing-card:not(:last-child) {
-      border-right: none;
-      border-bottom: var(--border-width) solid var(--ink);
-    }
+  .pricing-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-md);
   }
 
   .pricing-label {
-    font-family: var(--font-mono);
-    font-size: 0.76rem;
+    font-family: var(--font-body);
+    font-size: 0.85rem;
     font-weight: 600;
-    text-transform: uppercase;
-    letter-spacing: 0.06em;
     color: var(--accent);
     margin: 0 0 14px;
   }
 
   .pricing-amount {
     font-family: var(--font-display);
-    font-weight: 900;
+    font-weight: 800;
     font-size: 2.6rem;
     letter-spacing: -0.02em;
     margin: 0 0 14px;
   }
 
   .pricing-amount span {
-    font-family: var(--font-mono);
+    font-family: var(--font-body);
     font-size: 1rem;
     font-weight: 500;
     color: var(--ink-soft);

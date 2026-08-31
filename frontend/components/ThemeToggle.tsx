@@ -50,7 +50,7 @@ export default function ThemeToggle({ collapsed }: { collapsed?: boolean }) {
       onClick={handleClick}
       title={`Theme: ${label} (click to change)`}
       aria-label={`Theme: ${label}. Click to switch.`}
-      className={`flex items-center justify-center p-2 text-ink-soft transition-colors hover:bg-paper-shade hover:text-ink ${
+      className={`flex items-center justify-center rounded-md p-2 text-ink-soft transition-colors hover:bg-paper-shade hover:text-ink ${
         collapsed ? "w-full" : ""
       }`}
     >

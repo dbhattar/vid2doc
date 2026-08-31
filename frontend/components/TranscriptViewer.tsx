@@ -53,18 +53,18 @@ export default function TranscriptViewer({ jobId }: { jobId: string }) {
   const totalTime = Object.values(totalsBySpeaker).reduce((a, b) => a + b, 0) || 1;
 
   return (
-    <div className="mt-6 border-2 border-line bg-paper p-6">
+    <div className="mt-6 rounded-lg border border-line bg-paper p-6 shadow-sm">
       <h2 className="font-display text-lg font-bold text-ink">Transcript</h2>
 
       {data.summary && (
-        <div className="mt-3 bg-paper-shade p-3 text-sm text-ink">
-          <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-ink-soft">Summary</p>
+        <div className="mt-3 rounded-md bg-paper-shade p-3 text-sm text-ink">
+          <p className="mb-1 text-xs font-semibold text-ink-soft">Summary</p>
           <p>{data.summary}</p>
         </div>
       )}
 
       {data.speakers.length > 1 && (
-        <div className="mt-4 flex h-2 overflow-hidden bg-paper-shade">
+        <div className="mt-4 flex h-2 overflow-hidden rounded-full bg-paper-shade">
           {data.speakers.map((speaker, i) => {
             const pct = ((totalsBySpeaker[speaker] ?? 0) / totalTime) * 100;
             if (pct <= 0) return null;
@@ -93,7 +93,7 @@ export default function TranscriptViewer({ jobId }: { jobId: string }) {
               value={names[speaker] ?? ""}
               placeholder={speaker}
               onChange={(e) => setNames((prev) => ({ ...prev, [speaker]: e.target.value }))}
-              className="w-32 border-2 border-line bg-paper px-2 py-1 text-sm outline-none transition-shadow focus:border-accent focus:ring-2 focus:ring-accent-soft"
+              className="w-32 rounded-md border border-line bg-paper px-2 py-1 text-sm outline-none transition-shadow focus:border-accent focus:ring-2 focus:ring-accent-soft"
             />
           </div>
         ))}

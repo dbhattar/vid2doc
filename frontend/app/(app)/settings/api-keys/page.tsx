@@ -89,17 +89,17 @@ export default function ApiKeysPage() {
       <p className="mt-1 text-sm text-ink-soft">Use a key with the <code>X-API-Key</code> header to call the API directly.</p>
 
       {revealedKey && (
-        <div className="mt-6 border-2 border-accent bg-accent-soft p-4">
+        <div className="mt-6 rounded-lg border border-accent bg-accent-soft p-4">
           <p className="text-sm font-medium text-accent">
             Copy this key now -- you won&apos;t be able to see it again.
           </p>
           <div className="mt-2 flex items-center gap-2">
-            <code className="flex-1 overflow-x-auto border border-line bg-paper px-3 py-2 text-sm">
+            <code className="flex-1 overflow-x-auto rounded-md border border-line bg-paper px-3 py-2 text-sm">
               {revealedKey}
             </code>
             <button
               onClick={handleCopy}
-              className="shrink-0 border-2 border-accent px-3 py-2 text-sm font-medium text-accent transition-colors hover:bg-paper/60"
+              className="shrink-0 rounded-md border border-accent px-3 py-2 text-sm font-medium text-accent transition-all duration-150 ease-[var(--ease-spring)] hover:-translate-y-0.5 hover:bg-paper/60"
             >
               {copied ? "Copied" : "Copy"}
             </button>
@@ -119,7 +119,7 @@ export default function ApiKeysPage() {
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="Key name (e.g. CI pipeline)"
-          className="flex-1 border-2 border-line bg-paper px-3 py-2 text-sm outline-none transition-shadow focus:border-accent focus:ring-2 focus:ring-accent-soft"
+          className="flex-1 rounded-md border border-line bg-paper px-3 py-2 text-sm outline-none transition-shadow focus:border-accent focus:ring-2 focus:ring-accent-soft"
         />
         <Button type="submit" disabled={creating || !name.trim()}>
           {creating ? "Creating..." : "Create key"}
@@ -132,11 +132,11 @@ export default function ApiKeysPage() {
         {keys === null ? (
           <p className="text-sm text-ink-soft">Loading...</p>
         ) : keys.length === 0 ? (
-          <p className="border-2 border-dashed border-line p-6 text-center text-sm text-ink-soft">
+          <p className="rounded-lg border border-dashed border-line p-6 text-center text-sm text-ink-soft">
             No API keys yet -- create one above.
           </p>
         ) : (
-          <ul className="divide-y divide-line border-2 border-line bg-paper">
+          <ul className="divide-y divide-line overflow-hidden rounded-lg border border-line bg-paper shadow-sm">
             {keys.map((key) => (
               <li key={key.id} className="flex items-center justify-between px-4 py-3">
                 <div>

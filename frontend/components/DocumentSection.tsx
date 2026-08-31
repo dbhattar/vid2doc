@@ -60,7 +60,7 @@ export default function DocumentSection({
     <div className="mt-10">
       <div className="flex items-center gap-2.5">
         <span
-          className={`flex h-8 w-8 shrink-0 items-center justify-center ${
+          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
             jobType === "audio" ? "bg-paper-shade text-ink-soft" : "bg-accent-soft text-accent"
           }`}
         >
@@ -76,7 +76,7 @@ export default function DocumentSection({
       {jobs === null ? (
         <p className="mt-3 text-sm text-ink-soft">Loading...</p>
       ) : jobs.length === 0 ? (
-        <p className="mt-3 border-2 border-dashed border-line p-6 text-center text-sm text-ink-soft">
+        <p className="mt-3 rounded-lg border border-dashed border-line p-6 text-center text-sm text-ink-soft">
           No {title.toLowerCase()} yet.
         </p>
       ) : (

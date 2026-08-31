@@ -36,10 +36,10 @@ export default function DocumentCard({ job }: { job: Job }) {
   }
 
   return (
-    <div className="flex flex-col border-2 border-line bg-paper p-4 transition-colors hover:border-accent">
+    <div className="flex flex-col rounded-lg border border-line bg-paper p-4 shadow-sm transition-all duration-150 ease-[var(--ease-spring)] hover:-translate-y-0.5 hover:border-accent hover:shadow-md">
       <div className="flex items-start justify-between gap-2">
         <span
-          className={`flex h-8 w-8 shrink-0 items-center justify-center ${
+          className={`flex h-8 w-8 shrink-0 items-center justify-center rounded-full ${
             job.job_type === "audio" ? "bg-paper-shade text-ink-soft" : "bg-accent-soft text-accent"
           }`}
           title={job.job_type === "audio" ? "Audio transcript" : job.job_type === "video_gen" ? "Generated video" : "Video document"}
@@ -69,7 +69,7 @@ export default function DocumentCard({ job }: { job: Job }) {
             <Link
               href={`/dashboard/jobs/${job.job_id}`}
               title="Watch video"
-              className="flex items-center gap-1.5 px-2 py-1.5 text-xs font-medium transition-colors hover:bg-paper-shade hover:text-accent"
+              className="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium transition-colors hover:bg-paper-shade hover:text-accent"
             >
               <ClapperboardIcon className="h-4 w-4 text-accent" />
               Watch
@@ -79,7 +79,7 @@ export default function DocumentCard({ job }: { job: Job }) {
             <button
               onClick={() => downloadAuthenticated(job.document_url!, `${job.job_id}.md`)}
               title="Download Markdown"
-              className="flex items-center gap-1.5 px-2 py-1.5 text-xs font-medium transition-colors hover:bg-paper-shade hover:text-accent"
+              className="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium transition-colors hover:bg-paper-shade hover:text-accent"
             >
               <MarkdownFileIcon className="h-4 w-4 text-ink" />
               Markdown
@@ -89,7 +89,7 @@ export default function DocumentCard({ job }: { job: Job }) {
             <button
               onClick={() => downloadAuthenticated(job.document_bundle_url!, `${job.job_id}.zip`)}
               title="Download Markdown + images (.zip)"
-              className="flex items-center gap-1.5 px-2 py-1.5 text-xs font-medium transition-colors hover:bg-paper-shade hover:text-accent"
+              className="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium transition-colors hover:bg-paper-shade hover:text-accent"
             >
               <ArchiveIcon className="h-4 w-4 text-amber-600" />
               ZIP
@@ -99,7 +99,7 @@ export default function DocumentCard({ job }: { job: Job }) {
             <button
               onClick={() => downloadAuthenticated(job.document_docx_url!, `${job.job_id}.docx`)}
               title="Download Word"
-              className="flex items-center gap-1.5 px-2 py-1.5 text-xs font-medium transition-colors hover:bg-paper-shade hover:text-accent"
+              className="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium transition-colors hover:bg-paper-shade hover:text-accent"
             >
               <WordFileIcon className="h-4 w-4 text-blue-700" />
               Word
@@ -109,7 +109,7 @@ export default function DocumentCard({ job }: { job: Job }) {
             <button
               onClick={() => downloadAuthenticated(job.document_pdf_url!, `${job.job_id}.pdf`)}
               title="Download PDF"
-              className="flex items-center gap-1.5 px-2 py-1.5 text-xs font-medium transition-colors hover:bg-paper-shade hover:text-accent"
+              className="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium transition-colors hover:bg-paper-shade hover:text-accent"
             >
               <PdfFileIcon className="h-4 w-4 text-ink-soft" />
               PDF
@@ -119,7 +119,7 @@ export default function DocumentCard({ job }: { job: Job }) {
             <button
               onClick={() => downloadAuthenticated(job.document_transcript_json_url!, `${job.job_id}.transcript.json`)}
               title="Download Transcript JSON"
-              className="flex items-center gap-1.5 px-2 py-1.5 text-xs font-medium transition-colors hover:bg-paper-shade hover:text-accent"
+              className="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium transition-colors hover:bg-paper-shade hover:text-accent"
             >
               <JsonFileIcon className="h-4 w-4 text-emerald-600" />
               JSON
@@ -130,7 +130,7 @@ export default function DocumentCard({ job }: { job: Job }) {
               onClick={handleSaveToDrive}
               disabled={savingToDrive}
               title="Save to Google Drive"
-              className="flex items-center gap-1.5 px-2 py-1.5 text-xs font-medium transition-colors hover:bg-paper-shade hover:text-accent disabled:cursor-default disabled:opacity-50"
+              className="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium transition-colors hover:bg-paper-shade hover:text-accent disabled:cursor-default disabled:opacity-50"
             >
               <DriveIcon className="h-4 w-4" />
               {savingToDrive ? "Saving..." : "Drive"}
@@ -139,7 +139,7 @@ export default function DocumentCard({ job }: { job: Job }) {
             <Link
               href="/settings/integrations"
               title="Connect Google Drive in Settings to enable this"
-              className="flex items-center gap-1.5 px-2 py-1.5 text-xs font-medium text-ink-soft/40 transition-colors hover:bg-paper-shade"
+              className="flex items-center gap-1.5 rounded-md px-2 py-1.5 text-xs font-medium text-ink-soft/40 transition-colors hover:bg-paper-shade"
             >
               <DriveIcon className="h-4 w-4" />
               Drive

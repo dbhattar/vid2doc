@@ -8,34 +8,34 @@ import { useElapsedSeconds } from "@/lib/useElapsedSeconds";
 function Indicator({ status }: { status: StageStatus }) {
   if (status === "done") {
     return (
-      <span className="flex h-5 w-5 shrink-0 items-center justify-center bg-status-success text-paper">
+      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-status-success text-paper">
         <CheckIcon className="h-3.5 w-3.5" />
       </span>
     );
   }
   if (status === "failed") {
     return (
-      <span className="flex h-5 w-5 shrink-0 items-center justify-center text-status-error">
+      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-status-error">
         <AlertIcon className="h-5 w-5" />
       </span>
     );
   }
   if (status === "cancelled") {
     return (
-      <span className="flex h-5 w-5 shrink-0 items-center justify-center text-ink-soft">
+      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-ink-soft">
         <CloseIcon className="h-4 w-4" />
       </span>
     );
   }
   if (status === "current") {
-    return <span className="h-2.5 w-2.5 shrink-0 bg-status-warning stage-pulse" />;
+    return <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-status-warning stage-pulse" />;
   }
   if (status === "awaiting-input") {
     // Deliberately not animated -- a pulse reads as "the system is working,"
     // which is wrong when it's actually idle waiting on the user.
-    return <span className="h-2.5 w-2.5 shrink-0 bg-accent" />;
+    return <span className="h-2.5 w-2.5 shrink-0 rounded-full bg-accent" />;
   }
-  return <span className="h-2.5 w-2.5 shrink-0 border border-line" />;
+  return <span className="h-2.5 w-2.5 shrink-0 rounded-full border border-line" />;
 }
 
 const LABEL_CLASSES: Record<StageStatus, string> = {
@@ -63,9 +63,9 @@ export default function ProgressStepper({ job, className = "" }: { job: Job; cla
           <li
             key={stage.key}
             className={`flex items-start gap-3 ${
-              status === "awaiting-input" ? "border-2 border-accent bg-accent-soft p-3" : ""
-            } ${status === "failed" ? "bg-status-error-soft p-3" : ""} ${
-              status === "cancelled" ? "bg-paper-shade p-3" : ""
+              status === "awaiting-input" ? "rounded-lg border border-accent bg-accent-soft p-3" : ""
+            } ${status === "failed" ? "rounded-lg bg-status-error-soft p-3" : ""} ${
+              status === "cancelled" ? "rounded-lg bg-paper-shade p-3" : ""
             }`}
           >
             <Indicator status={status} />

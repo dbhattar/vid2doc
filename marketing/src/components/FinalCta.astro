@@ -2,6 +2,7 @@
 ---
 
 <section class="final-cta" id="signup">
+  <div class="final-cta-glow" aria-hidden="true"></div>
   <div class="container final-cta-inner">
     <p class="eyebrow">Pay-as-you-go &mdash; no subscription</p>
     <h2>Ready to turn video into documents, or audio into video?</h2>
@@ -14,10 +15,34 @@
 
 <style>
   .final-cta {
-    background: var(--ink);
-    color: var(--paper);
+    /* Deliberately fixed, not var(--ink)/var(--paper) -- those two flip
+       meaning between light/dark mode (ink becomes the light color, paper
+       the dark one), which would turn this "always dark" band into a pale
+       band with low-contrast text whenever the site is in dark mode. This
+       section is meant to read as a dark, high-contrast pop regardless of
+       the surrounding theme, so its base colors are anchored to the same
+       light-mode ink/paper values tokens.css already defines. */
+    --cta-bg: #14131a;
+    --cta-fg: #ffffff;
+    position: relative;
+    overflow: hidden;
+    background: var(--cta-bg);
+    color: var(--cta-fg);
     text-align: center;
     padding: 80px 0;
+  }
+
+  /* Same blurred gradient-orb technique as Hero.astro's .hero-glow, tuned
+     for a dark band -- keeps the "colorful/energetic" thread going instead
+     of falling back to a flat inverted panel. */
+  .final-cta-glow {
+    position: absolute;
+    inset: -30% -10% auto -10%;
+    height: 160%;
+    pointer-events: none;
+    background: radial-gradient(circle at 20% 25%, color-mix(in srgb, var(--accent) 35%, transparent), transparent 55%),
+      radial-gradient(circle at 82% 75%, color-mix(in srgb, var(--secondary) 26%, transparent), transparent 55%);
+    filter: blur(70px);
   }
 
   .final-cta .eyebrow {
@@ -26,37 +51,39 @@
   }
 
   .final-cta-inner {
+    position: relative;
     max-width: 640px;
   }
 
   h2 {
-    color: var(--paper);
+    color: var(--cta-fg);
     font-size: var(--step-4);
     margin: 16px 0 14px;
   }
 
   .final-cta-sub {
-    color: color-mix(in srgb, var(--paper) 72%, transparent);
+    color: color-mix(in srgb, var(--cta-fg) 72%, transparent);
     font-size: 1.05rem;
     margin: 0 0 32px;
   }
 
   .final-cta-button {
-    font-family: var(--font-mono);
-    font-size: 0.9rem;
-    font-weight: 500;
-    text-transform: uppercase;
-    letter-spacing: 0.04em;
+    font-family: var(--font-body);
+    font-size: 0.95rem;
+    font-weight: 600;
     background: var(--accent);
     color: var(--accent-ink);
-    border: 2px solid var(--accent);
+    border: var(--border-width) solid var(--accent);
+    border-radius: var(--radius-md);
     padding: 15px 30px;
     text-decoration: none;
     display: inline-block;
-    transition: opacity 150ms ease;
+    box-shadow: var(--shadow-accent);
+    transition: transform var(--duration-fast) var(--ease-spring), box-shadow var(--duration-fast) var(--ease);
   }
 
   .final-cta-button:hover {
-    opacity: 0.85;
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
   }
 </style>
