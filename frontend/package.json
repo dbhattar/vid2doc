@@ -3,8 +3,9 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
+    "dev": "npm run build:workers && next dev",
+    "build": "npm run build:workers && next build",
+    "build:workers": "tsc -p tsconfig.workers.json",
     "start": "next start",
     "lint": "eslint"
   },

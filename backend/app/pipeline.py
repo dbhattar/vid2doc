@@ -166,6 +166,13 @@ def _transcribe_segments(job: dict, output_dir: Path) -> list[dict]:
     video job that gets abandoned at review shouldn't have incurred it."""
     job_id = job["id"]
     _check_not_cancelled(job_id)
+
+    live_segments_path = output_dir / "live_segments.json"
+    if live_segments_path.exists():
+        # Transcription + diarization already happened client-side during a
+        # live recording session (see routes/live.py) -- nothing left to do.
+        return json.loads(live_segments_path.read_text())
+
     jobs.update_job(job_id, progress_stage="extracting_audio")
     audio_path = audio.extract_audio(Path(job["source_path"]), output_dir / "audio.wav")
 

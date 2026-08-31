@@ -17,6 +17,7 @@ import {
   MessageSquare,
   Monitor,
   Moon,
+  Radio,
   ScrollText,
   Share2,
   Shield,
@@ -80,6 +81,10 @@ export function ClapperboardIcon({ className }: IconProps) {
 
 export function MicrophoneIcon({ className }: IconProps) {
   return <Mic className={className} aria-hidden />;
+}
+
+export function LiveIcon({ className }: IconProps) {
+  return <Radio className={className} aria-hidden />;
 }
 
 export function GlobeIcon({ className }: IconProps) {
