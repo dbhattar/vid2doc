@@ -6,6 +6,35 @@ function post(message) {
 function fail(message) {
     post({ type: "error", message });
 }
+// The vendored createVad()'s own built-in default (used whenever no config is
+// passed) hardcodes debug: 1, which dumps the full VAD config to the console
+// on every session start via sherpa-onnx's native GetVadModelConfig logger --
+// harmless, but noisy in production. Passing this explicit copy (identical to
+// that default in every other field) is the only way to turn it off, since
+// createVad() replaces the whole config wholesale rather than merging one in.
+const VAD_CONFIG = {
+    sileroVad: {
+        model: "./silero_vad.onnx",
+        threshold: 0.5,
+        minSilenceDuration: 0.5,
+        minSpeechDuration: 0.25,
+        maxSpeechDuration: 20,
+        windowSize: 512,
+    },
+    tenVad: {
+        model: "",
+        threshold: 0.5,
+        minSilenceDuration: 0.5,
+        minSpeechDuration: 0.25,
+        maxSpeechDuration: 20,
+        windowSize: 256,
+    },
+    sampleRate: 16000,
+    numThreads: 1,
+    provider: "cpu",
+    debug: 0,
+    bufferSizeInSeconds: 30,
+};
 // ---- constants ----------------------------------------------------------------------
 const WASM_BASE = "/wasm/vad-asr/";
 const SAMPLE_RATE = 16000;
@@ -13,6 +42,17 @@ const SAMPLE_RATE = 16000;
 const PARTIAL_INTERVAL_SAMPLES = Math.round(SAMPLE_RATE * 0.6);
 // Don't bother decoding a partial until there's at least this much speech buffered.
 const PARTIAL_MIN_SAMPLES = Math.round(SAMPLE_RATE * 0.3);
+// Cap on the in-progress-utterance buffer kept for the `partial` preview. VAD_CONFIG's
+// own maxSpeechDuration (20s) forces speech to split into `final` segments periodically
+// even without a pause -- but VAD keeps reporting isDetected()==true continuously through
+// that forced split for genuinely unbroken speech, and this buffer only resets on an
+// actual pause (see wasDetected below). Without this cap, one long uninterrupted
+// monologue re-decodes an ever-growing buffer every ~0.6s indefinitely, which has been
+// observed to crash the ASR decoder outright once it gets large enough. Sized a little
+// past VAD_CONFIG.sileroVad.maxSpeechDuration so the preview still normally spans one
+// full VAD segment; it's a cosmetic live-caption preview only, not the source of truth
+// for the eventual `final` text (that always comes from VAD's own front()/pop() segment).
+const MAX_PARTIAL_PREVIEW_SAMPLES = SAMPLE_RATE * 25;
 // ---- module state ---------------------------------------------------------------------
 let vad = null;
 let circularBuffer = null;
@@ -83,8 +123,25 @@ function decodeSamples(samples) {
         const result = recognizer.getResult(stream);
         return (result.text || "").trim();
     }
+    catch (err) {
+        // A single bad decode (e.g. a pathological input the ONNX model rejects) shouldn't
+        // take down the whole live session -- log it for debugging and just skip this turn's
+        // text, same as if the model had returned nothing. Deliberately NOT calling fail()
+        // here: that posts a fatal error the main thread tears the whole session down for.
+        console.error("sherpa-onnx decode failed, skipping this turn:", err);
+        return "";
+    }
     finally {
         stream.free();
+    }
+}
+// Drops the oldest buffered chunks (front of the array, in push order) until back under
+// MAX_PARTIAL_PREVIEW_SAMPLES, so one long unbroken monologue only ever re-decodes a
+// bounded sliding window for the live preview instead of the whole thing so far.
+function trimUtterancePreviewToCap() {
+    while (utteranceSampleCount > MAX_PARTIAL_PREVIEW_SAMPLES && utteranceChunks.length > 1) {
+        const dropped = utteranceChunks.shift();
+        utteranceSampleCount -= dropped.length;
     }
 }
 function emitPartialIfDue() {
@@ -126,6 +183,7 @@ function processSamples(samples16k) {
             utteranceChunks.push(window);
             utteranceSampleCount += window.length;
             samplesSinceLastPartial += window.length;
+            trimUtterancePreviewToCap();
             emitPartialIfDue();
         }
         else if (wasDetected) {
@@ -151,7 +209,7 @@ function applyModuleConfig() {
         locateFile: (path) => WASM_BASE + path,
         onRuntimeInitialized: () => {
             try {
-                vad = createVad(Module);
+                vad = createVad(Module, VAD_CONFIG);
                 circularBuffer = new CircularBuffer(30 * SAMPLE_RATE, Module);
                 recognizer = new OfflineRecognizer({
                     modelConfig: {

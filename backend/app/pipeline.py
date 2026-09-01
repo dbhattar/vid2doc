@@ -209,10 +209,14 @@ def _download_if_needed(job: dict) -> dict:
     source_path=None and source_url set -- the actual download happens here,
     in the worker, rather than in the API request that created the job (see
     routes/youtube.py's docstring for why). No-op for every other job type,
-    which already has source_path set from the start. Re-derives the admin
+    which already has source_path set from the start -- EXCEPT a live
+    recording finalized without "save audio" checked (routes/live.py), which
+    has neither: there's nothing to download, source_path just stays None,
+    and _transcribe_segments' live_segments.json short-circuit means nothing
+    downstream ever needs it to be a real path. Re-derives the admin
     duration-cap bypass fresh (rather than trusting a decision baked in at
     job-creation time), since admin status could have changed since."""
-    if job.get("source_path"):
+    if job.get("source_path") or not job.get("source_url"):
         return job
 
     job_id = job["id"]
