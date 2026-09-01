@@ -67,9 +67,9 @@ const canonical = new URL(path, Astro.site).toString();
   <body>
     <slot />
     <FeedbackWidget />
-    <!-- Loaded once here (site-wide) rather than per-component -- both this
-         widget and TrialUpload on the homepage need it, and loading the same
-         external script twice risks colliding Turnstile widget instances. -->
+    <!-- Loaded once here (site-wide) rather than per-component -- loading
+         the same external script twice risks colliding Turnstile widget
+         instances. -->
     <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
     <script>
       import '../scripts/reveal.ts';

@@ -23,7 +23,6 @@ def get_admin_stats(current_user: dict = Depends(get_current_admin_user)):
             "total": sum(job_counts.values()),
         },
         "total_source_size_bytes": jobs.total_source_size_bytes(),
-        "trial_job_count": jobs.count_trial_jobs(),
         "top_spenders": [
             {
                 "id": u["id"],
@@ -44,13 +43,6 @@ def list_admin_users(current_user: dict = Depends(get_current_admin_user)):
 @router.get("/api/admin/feedback")
 def list_admin_feedback(current_user: dict = Depends(get_current_admin_user)):
     return {"feedback": feedback.list_feedback_with_users(limit=500)}
-
-
-@router.get("/api/admin/trial-jobs")
-def list_admin_trial_jobs(current_user: dict = Depends(get_current_admin_user)):
-    """Anonymous "try it free" jobs (routes/trial.py) -- otherwise invisible
-    to admins, since they never belong to a user. Most recent first."""
-    return {"jobs": jobs.list_trial_jobs(limit=200)}
 
 
 class SetAdminRequest(BaseModel):

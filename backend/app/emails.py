@@ -238,8 +238,9 @@ def send_job_failed_email(user: dict, job: dict) -> None:
 
 
 def notify_job_status_change(job_id: str) -> None:
-    """Best-effort job-completion/failure email -- skips anonymous/trial jobs
-    (user_id IS NULL, see routes/trial.py), and swallows every exception: a
+    """Best-effort job-completion/failure email -- skips anonymous jobs
+    (user_id IS NULL; nothing creates these anymore since the trial-upload
+    feature was removed, but old rows may still exist), and swallows every exception: a
     broken/misconfigured mail provider must never fail, retry, or roll back
     the job whose status transition triggered this. Call this immediately
     after the jobs.update_job(...) call that actually flips status to

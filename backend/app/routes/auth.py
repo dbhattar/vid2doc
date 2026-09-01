@@ -3,7 +3,7 @@ from google.auth.transport import requests as google_requests
 from google.oauth2 import id_token as google_id_token
 from pydantic import BaseModel
 
-from .. import emails, tokens, users
+from .. import billing, emails, tokens, users
 from ..config import settings
 from ..deps import get_current_user
 
@@ -31,6 +31,11 @@ def login_with_google(body: GoogleLoginRequest, background_tasks: BackgroundTask
         display_name=payload.get("name"),
         avatar_url=payload.get("picture"),
     )
+    if is_new:
+        # Not tied to ALWAYS_SEND_WELCOME_EMAIL below -- that flag re-sends
+        # the welcome email on every login for local iteration; reusing it
+        # here would re-grant the bonus on every login in that mode.
+        billing.grant_signup_bonus(user["id"])
     if is_new or settings.ALWAYS_SEND_WELCOME_EMAIL:
         background_tasks.add_task(emails.send_welcome_email, user)
     access_token = tokens.create_session_token(user["id"])

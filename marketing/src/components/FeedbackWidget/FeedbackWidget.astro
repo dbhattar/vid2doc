@@ -35,11 +35,9 @@ const turnstileSiteKey = import.meta.env.PUBLIC_TURNSTILE_SITE_KEY || '';
              Cloudflare's api.js auto-scans the whole page for at load and
              renders into immediately -- including this container, which
              starts out inside a `hidden` (display:none, zero-size) panel.
-             Rendering into a hidden container breaks that widget and, since
-             the homepage also has TrialUpload's real `cf-turnstile` div,
-             took that one down too. Instead this is rendered explicitly,
-             lazily, only once the panel is actually visible (see
-             feedback-widget.ts). -->
+             Rendering into a hidden container breaks that widget. Instead
+             this is rendered explicitly, lazily, only once the panel is
+             actually visible (see feedback-widget.ts). -->
         <div id="feedback-turnstile" data-sitekey={turnstileSiteKey}></div>
 
         <p class="feedback-error" id="feedback-error" hidden></p>

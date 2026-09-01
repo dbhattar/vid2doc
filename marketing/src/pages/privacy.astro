@@ -6,7 +6,7 @@ const lastUpdated = 'August 2, 2026';
 
 <MarketingLayout
   title="Privacy Policy — Framewrite"
-  description="How Framewrite collects, uses, and shares data -- for account holders and for the anonymous free-trial upload."
+  description="How Framewrite collects, uses, and shares data for account holders."
   path="/privacy"
 >
   <article class="legal">
@@ -16,9 +16,8 @@ const lastUpdated = 'August 2, 2026';
 
       <div class="legal-body">
         <p>
-          This policy covers <strong>Framewrite</strong> (framewrite.cc and app.framewrite.cc) --
-          both accounts you sign up for and the anonymous, no-login free trial on this site. If
-          you have questions about anything here, email
+          This policy covers <strong>Framewrite</strong> (framewrite.cc and app.framewrite.cc) and
+          the accounts you sign up for. If you have questions about anything here, email
           <a href="mailto:contact@framewrite.cc">contact@framewrite.cc</a>.
         </p>
 
@@ -31,28 +30,24 @@ const lastUpdated = 'August 2, 2026';
           your behalf (kept encrypted, and only used for that purpose).
         </p>
         <p>
-          <strong>If you use the free trial</strong> (no account required), we collect the video
-          or audio file you upload, the document we generate from it, and your IP address --
-          the IP address is used only to enforce a daily limit on free trials and is not tied to
-          any account. See <a href="#turnstile">Cloudflare Turnstile</a> below for the bot-check
-          step the trial uses.
-        </p>
-        <p>
           <strong>Billing</strong>: wallet top-ups are handled by Stripe. We never see or store
           your card number -- we keep a Stripe customer ID and a ledger of charges/top-ups/refunds
           in cents.
         </p>
         <p>
           <strong>On this marketing site</strong>, we use Google Analytics to understand traffic
-          and which pages/features get used (page views and a small number of named events, like
-          starting or finishing a free-trial upload). No account-identifying information is sent
-          to Analytics from this site.
+          and which pages/features get used (page views and a small number of named events). No
+          account-identifying information is sent to Analytics from this site. If you submit
+          feedback through the site's feedback widget without being signed in, we collect the
+          message and, optionally, an email address you choose to provide -- see
+          <a href="#turnstile">Cloudflare Turnstile</a> below for the bot-check step that widget
+          uses.
         </p>
 
         <h2>How your upload gets processed</h2>
         <p>
           Turning a video or audio file into a document requires sending parts of it to
-          specialized third-party services, whether you're signed in or using the free trial:
+          specialized third-party services:
         </p>
         <ul>
           <li>
@@ -77,19 +72,14 @@ const lastUpdated = 'August 2, 2026';
           file itself is deleted (your job history and billing record are kept, since that's part
           of your account's usage history) -- download what you need before then.
         </p>
-        <p>
-          <strong>Free-trial uploads and documents</strong> are deleted entirely, record and all,
-          within about 6 hours of submission. There's no way to retrieve a trial result after
-          that, and no way for us to look one up by request, since nothing ties it to you.
-        </p>
-
         <h2 id="turnstile">Cloudflare Turnstile</h2>
         <p>
-          The free trial's upload form is protected by
+          This site's feedback widget, which lets you send feedback without being signed in, is
+          protected by
           <a href="https://www.cloudflare.com/products/turnstile/" target="_blank" rel="noopener noreferrer">
             Cloudflare Turnstile
           </a>, which checks that a submission is coming from a real browser rather than a script,
-          without a visible puzzle in most cases. Using the trial sends some data about your
+          without a visible puzzle in most cases. Submitting feedback sends some data about your
           browser/device to Cloudflare for this check. Cloudflare's handling of that data is
           governed by their own privacy policy and Turnstile-specific addendum, not by us:
         </p>
@@ -109,10 +99,7 @@ const lastUpdated = 'August 2, 2026';
         <h2>What we store in your browser</h2>
         <p>
           The app keeps your sign-in session in your browser's local storage (so you don't have to
-          log in every visit). The free-trial widget on this site saves the id of your most recent
-          trial upload locally, purely so reloading the page can show you its progress again
-          instead of losing track of it -- it's cleared automatically once that upload finishes or
-          expires. Neither of these are cookies, and neither is shared with anyone.
+          log in every visit). This isn't a cookie, and it isn't shared with anyone.
         </p>
 
         <h2>Your choices</h2>

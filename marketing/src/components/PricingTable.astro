@@ -1,4 +1,9 @@
 ---
+// Lucide "gift" icon (ISC license) -- path data copied verbatim from
+// node_modules/lucide-react, same convention as Hero.astro's inline icons.
+const GIFT_ICON =
+  '<path d="M20 12v10H4V12"/><path d="M2 7h20v5H2z"/><path d="M12 22V7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/>';
+
 const tiers = [
   {
     label: 'Video',
@@ -28,6 +33,21 @@ const tiers = [
     <p class="section-intro">
       No subscriptions, no plans. Billed exactly proportional to length — pay only for what you convert.
     </p>
+
+    <div class="credit-callout">
+      <span class="credit-icon">
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          stroke-width="2"
+          stroke-linecap="round"
+          stroke-linejoin="round"
+          set:html={GIFT_ICON}
+        />
+      </span>
+      <p><strong>Sign up and get a free credit</strong> worth 10 minutes of video processing — no card required.</p>
+    </div>
 
     <div class="pricing-grid">
       {
@@ -60,8 +80,48 @@ const tiers = [
   .section-intro {
     color: var(--ink-soft);
     max-width: 60ch;
-    margin: 0 0 36px;
+    margin: 0 0 20px;
     font-size: 1.02rem;
+  }
+
+  .credit-callout {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    max-width: fit-content;
+    margin: 0 0 36px;
+    padding: 14px 20px;
+    border-radius: var(--radius-lg);
+    background: var(--secondary-soft);
+  }
+
+  .credit-icon {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    background: var(--secondary);
+    color: var(--secondary-ink);
+  }
+
+  .credit-icon svg {
+    width: 17px;
+    height: 17px;
+  }
+
+  .credit-callout p {
+    margin: 0;
+    color: var(--secondary-strong);
+    font-size: 0.95rem;
+  }
+
+  @media (max-width: 640px) {
+    .credit-callout {
+      max-width: none;
+    }
   }
 
   .pricing-grid {

@@ -4,10 +4,11 @@
 app/db.py) -- its columns here are a superset of the original: user_id,
 duration_seconds, billed_cents, and deleted_at are new. user_id started out
 nullable only because Milestone 1 (this file) intentionally landed before auth
-did; every authenticated route now always sets it. That nullability is reused
-deliberately as the signal for an anonymous trial job (see routes/trial.py) --
-`user_id IS NULL` means "trial", never charged, never paused for review, swept
-by retention.py on a much shorter clock than real users' jobs.
+did; every authenticated route now always sets it. It stayed nullable through
+an anonymous trial-upload feature (since removed in favor of a signup wallet
+bonus, see billing.grant_signup_bonus) that used `user_id IS NULL` as its
+"trial job" signal -- nothing creates such a row anymore, but old rows may
+still exist until retention.py sweeps them.
 
 Pricing is pure pay-as-you-go ($1.00/video-hour, charged up front per job,
 wallet-funded) -- there are no subscription plans/tiers.
@@ -108,12 +109,12 @@ class Job(Base):
     # created before this column existed never recorded it.
     source_size_bytes: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     billed_cents: Mapped[int] = mapped_column(BigInteger, nullable=False, default=0)
-    # Only ever set for anonymous trial jobs (user_id IS NULL) -- the basis
-    # for routes/trial.py's per-IP daily cap. Never set for real users.
+    # Was set for the now-removed anonymous trial upload's per-IP daily cap
+    # (user_id IS NULL jobs only). No longer written by anything; left in
+    # place rather than migrated away since it's harmless and unused.
     client_ip: Mapped[str | None] = mapped_column(String, nullable=True)
     # Set when the owner turns on public sharing for this job (see
-    # routes/share.py) -- NULL means not shared, same nullable-as-signal
-    # convention as user_id for trial jobs (see this class's docstring).
+    # routes/share.py) -- NULL means not shared.
     # Stored in plaintext (unlike api_keys.key_hash): the raw value itself is
     # what a share link must reproduce, and the only party who ever sees it
     # back is the owner, through their own authenticated job responses.

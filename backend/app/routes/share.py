@@ -1,9 +1,8 @@
 """Public, unauthenticated read access to one job's rendered documents via
-an unguessable share link -- opt-in per job, toggled owner-only. Modeled
-directly on routes/trial.py's tokenless document endpoints, keyed by
-share_token instead of "no owner at all". Never exposes user_id, client_ip,
-billed_cents, or error_message -- only title/job_type/duration_seconds/
-created_at and derived document URLs.
+an unguessable share link -- opt-in per job, toggled owner-only, keyed by
+share_token. Never exposes user_id, client_ip, billed_cents, or
+error_message -- only title/job_type/duration_seconds/created_at and
+derived document URLs.
 """
 
 import io
@@ -84,8 +83,8 @@ def get_shared_job(token: str, request: Request) -> dict:
 
 
 # Registered before the {file_path:path} catch-all below, same reasoning as
-# routes/documents.py's / routes/trial.py's equivalent pair -- Starlette
-# matches route registration order, so this specific path must come first.
+# routes/documents.py's equivalent pair -- Starlette matches route
+# registration order, so this specific path must come first.
 @router.get("/api/share/{token}/documents/bundle.zip")
 def get_shared_bundle(token: str):
     _, doc_dir = _shared_job_and_doc_dir(token)

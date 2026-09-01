@@ -137,8 +137,7 @@ if (
     } catch (err) {
       showError(err instanceof Error ? err.message : 'Failed to send feedback.');
       // Pass this widget's own id/container -- omitting it resets every
-      // Turnstile widget on the page, including TrialUpload's on the
-      // homepage.
+      // Turnstile widget on the page.
       if (window.turnstile) window.turnstile.reset(turnstileWidgetId ?? turnstileContainer!);
       turnstileToken = null;
       updateSubmitEnabled();

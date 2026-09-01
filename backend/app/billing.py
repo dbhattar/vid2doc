@@ -4,6 +4,7 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 
 from . import users
+from .config import settings
 from .db import get_session
 from .models import ProcessedWebhookEvent, User, WalletLedgerEntry
 from .stripe_client import stripe
@@ -134,6 +135,28 @@ def refund_job_charge(user_id: str, job_id: str, amount_cents: int) -> None:
             )
         )
         session.commit()
+    finally:
+        session.close()
+
+
+def grant_signup_bonus(user_id: str) -> int:
+    """One-time credit for a brand-new signup (see routes/auth.py, gated on
+    get_or_create_user_by_google's is_new) -- replaces the old anonymous
+    trial upload (routes/trial.py, removed) as the "try it before paying"
+    path. Computed via cost_for_duration_cents rather than a hardcoded cent
+    value, so it stays "N minutes of video, at whatever today's rate is"
+    even if SECONDS_PER_CENT changes later. Not job-type-locked: the wallet
+    is one fungible balance, so this can just as well be spent on audio or
+    video_gen, proportional to that job type's rate. Returns the amount
+    granted, in cents. A separate entry_type from "topup" (real money) --
+    net_spent_cents/total_revenue_cents both filter by explicit type lists,
+    so this is automatically excluded from both, as it should be."""
+    amount_cents = cost_for_duration_cents(settings.SIGNUP_BONUS_VIDEO_MINUTES * 60, "video")
+    session = get_session()
+    try:
+        session.add(WalletLedgerEntry(user_id=user_id, entry_type="signup_bonus", amount_cents=amount_cents))
+        session.commit()
+        return amount_cents
     finally:
         session.close()
 

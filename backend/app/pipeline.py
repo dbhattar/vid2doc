@@ -196,10 +196,8 @@ def _transcribe_segments(job: dict, output_dir: Path) -> list[dict]:
 
 def _compose_and_finalize(job: dict, output_dir: Path, images_meta: list[dict], tables_meta: list[dict]) -> None:
     """Transcribe, compose, and finalize -- the shared tail for a video job
-    that has already decided which images/tables to include, whether that
-    decision came from a real user's review submission
-    (resume_after_review) or was made automatically for an anonymous trial
-    job (run_job's trial branch, which has no review step to wait for)."""
+    that has already decided which images/tables to include, once the
+    user's review submission (resume_after_review) comes back."""
     job_id = job["id"]
     segments = _transcribe_segments(job, output_dir)
 
@@ -450,20 +448,6 @@ def run_job(job: dict) -> None:
             images_meta, tables_meta = classify.classify_frames(candidates)
 
         if images_meta or tables_meta:
-            if job.get("user_id") is None:
-                # Anonymous trial job (see routes/trial.py) -- no interactive
-                # review; caption and include everything the classifier
-                # found, then go straight through. Real users get to pick
-                # which frames make the document; trial users get an
-                # instant, best-effort demo instead.
-                _check_not_cancelled(job_id)
-                jobs.update_job(job_id, progress_stage="captioning_frames")
-                captioned = classify.caption_frames(images_meta + tables_meta)
-                trial_images = [i for i in captioned if i["kind"] == "image"]
-                trial_tables = [i for i in captioned if i["kind"] == "table"]
-                _compose_and_finalize(job, output_dir, trial_images, trial_tables)
-                return
-
             # Checked here too, not just before classifying_frames above --
             # classification can take a while (one LLM call per candidate),
             # so a cancel requested mid-classification must still be caught

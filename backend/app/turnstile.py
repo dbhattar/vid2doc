@@ -1,6 +1,7 @@
-"""Cloudflare Turnstile verification for the anonymous trial upload
-(routes/trial.py) -- the primary defense against scripted/bot submissions to
-an endpoint that has no auth and no billing gate to throttle it otherwise.
+"""Cloudflare Turnstile verification for the marketing site's anonymous
+feedback widget (routes/feedback.py) -- the primary defense against
+scripted/bot submissions to an endpoint that has no auth and no billing
+gate to throttle it otherwise.
 """
 
 import requests

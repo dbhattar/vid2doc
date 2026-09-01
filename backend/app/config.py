@@ -36,6 +36,12 @@ class Settings:
         e.strip().lower() for e in os.environ.get("ADMIN_EMAILS", "").split(",") if e.strip()
     }
 
+    # One-time wallet credit granted on first signup (see billing.grant_signup_bonus,
+    # routes/auth.py) -- replaces the old anonymous trial upload. Expressed as
+    # minutes of video (not a cent amount) so it stays "N minutes of video, at
+    # today's rate" even if billing.SECONDS_PER_CENT changes later.
+    SIGNUP_BONUS_VIDEO_MINUTES = int(os.environ.get("SIGNUP_BONUS_VIDEO_MINUTES", 10))
+
     # Stripe: wallet top-up checkout + webhooks (see app/stripe_client.py, app/billing.py).
     # No fixed Price ids -- top-up amount is user-chosen, passed as Checkout
     # line_item price_data at request time (see routes/billing.py).
@@ -101,17 +107,11 @@ class Settings:
     # if unset, same as MAILGUN_API_KEY/DOMAIN above.
     MAILGUN_NEWSLETTER_LIST = os.environ.get("MAILGUN_NEWSLETTER_LIST", "")
 
-    # Anonymous "try it free" upload on the marketing site (routes/trial.py) --
-    # no wallet/billing gate, so these caps plus Turnstile are what stand in
-    # for it. Deliberately much tighter than the authenticated caps above.
-    TRIAL_MAX_VIDEO_DURATION_SECONDS = int(os.environ.get("TRIAL_MAX_VIDEO_DURATION_SECONDS", 10 * 60))
-    TRIAL_MAX_AUDIO_DURATION_SECONDS = int(os.environ.get("TRIAL_MAX_AUDIO_DURATION_SECONDS", 30 * 60))
-    TRIAL_MAX_UPLOAD_BYTES = int(os.environ.get("TRIAL_MAX_UPLOAD_BYTES", 300 * 1024 * 1024))  # 300MB
-    TRIAL_MAX_PER_IP_PER_DAY = int(os.environ.get("TRIAL_MAX_PER_IP_PER_DAY", 2))
-    TRIAL_RETENTION_HOURS = int(os.environ.get("TRIAL_RETENTION_HOURS", 6))
-    # Cloudflare Turnstile secret key (see app/turnstile.py) -- verify_turnstile_token
-    # fails closed if this is unset, so trial uploads are simply rejected
-    # rather than silently unprotected in an environment that forgot to set it.
+    # Cloudflare Turnstile secret key (see app/turnstile.py) -- gates the
+    # marketing site's anonymous feedback widget (routes/feedback.py, no
+    # login required to send feedback). verify_turnstile_token fails closed
+    # if this is unset, so feedback submissions are simply rejected rather
+    # than silently unprotected in an environment that forgot to set it.
     TURNSTILE_SECRET_KEY = os.environ.get("TURNSTILE_SECRET_KEY", "")
 
     # Audio -> generated video (routes/video_gen.py, job_type == "video_gen").

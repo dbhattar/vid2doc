@@ -33,8 +33,7 @@ def submit_public_feedback(body: PublicFeedbackRequest, request: Request):
     """Unauthenticated counterpart to /api/feedback for the marketing site's
     floating feedback widget -- same storage, source="marketing" and no
     user_id since visitors there aren't logged in. Turnstile-gated instead of
-    auth-gated, same defense used for the anonymous trial upload
-    (routes/trial.py)."""
+    auth-gated, since there's no login to throttle abuse otherwise."""
     message = body.message.strip()
     if not message:
         raise HTTPException(status_code=400, detail="Feedback message is empty")

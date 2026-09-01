@@ -253,64 +253,6 @@ def list_jobs_eligible_for_retention(cutoff: datetime) -> list[dict]:
         session.close()
 
 
-def count_trial_jobs_from_ip_since(client_ip: str, since: datetime) -> int:
-    """Basis of routes/trial.py's per-IP daily cap -- counts anonymous
-    (user_id IS NULL) jobs from this IP created after `since`, regardless of
-    status, so a job that's still processing (or even failed) still counts
-    against the cap same as a finished one would."""
-    session = get_session()
-    try:
-        return (
-            session.query(Job)
-            .filter(Job.user_id.is_(None), Job.client_ip == client_ip, Job.created_at >= since)
-            .count()
-        )
-    finally:
-        session.close()
-
-
-def list_trial_jobs_eligible_for_cleanup(cutoff: datetime) -> list[dict]:
-    """Anonymous trial jobs older than `cutoff`, any status -- unlike real
-    users' jobs (list_jobs_eligible_for_retention), these are hard-deleted
-    entirely (see retention.py), not soft-deleted, since no charge was ever
-    made and there's no billing history worth preserving."""
-    session = get_session()
-    try:
-        rows = session.query(Job).filter(Job.user_id.is_(None), Job.created_at < cutoff).all()
-        return [_job_to_dict(j) for j in rows]
-    finally:
-        session.close()
-
-
-def count_trial_jobs() -> int:
-    """Total anonymous trial jobs (see routes/trial.py) currently in the
-    table -- naturally bounded, since retention.py hard-deletes them a few
-    hours after creation. For the admin dashboard's quick-glance stat."""
-    session = get_session()
-    try:
-        return session.query(Job).filter(Job.user_id.is_(None)).count()
-    finally:
-        session.close()
-
-
-def list_trial_jobs(limit: int = 200) -> list[dict]:
-    """Anonymous trial jobs, most recent first -- gives an admin visibility
-    into free-trial usage (and abuse patterns, via client_ip) that would
-    otherwise be invisible, since these never show up in any per-user view."""
-    session = get_session()
-    try:
-        rows = (
-            session.query(Job)
-            .filter(Job.user_id.is_(None))
-            .order_by(Job.created_at.desc())
-            .limit(limit)
-            .all()
-        )
-        return [_job_to_dict(j) for j in rows]
-    finally:
-        session.close()
-
-
 def count_jobs_by_type() -> dict:
     """{"video": N, "audio": N} across every job regardless of status --
     for the admin dashboard's "videos/audio processed" count."""
