@@ -4,6 +4,7 @@ from pathlib import Path
 
 from . import billing, emails, jobs, users, youtube
 from .config import settings
+from .exceptions import PipelineError
 from .stages import assemble, assemble_video, audio, classify, compose, frames, highlights, render_scene, scenes, stock_media, transcribe
 
 
@@ -24,6 +25,12 @@ def _check_not_cancelled(job_id: str) -> None:
 
 
 def _resolve_engine() -> str:
+    """No local-CPU fallback (the old "whisper"/"whisper-diarized" engines,
+    which needed PyTorch installed in this container) -- both cloud engines
+    below fully cover diarized transcription without it, and dropping the
+    PyTorch/openai-whisper/pyannote.audio dependency chain considerably
+    speeds up the Docker build. Raises clearly rather than silently trying
+    to import a package that's no longer installed."""
     engine = settings.TRANSCRIPTION_ENGINE
     if engine != "auto":
         return engine
@@ -31,9 +38,10 @@ def _resolve_engine() -> str:
         return "assemblyai"
     if os.environ.get("BASETEN_API_KEY"):
         return "baseten"
-    if os.environ.get("HF_TOKEN"):
-        return "whisper-diarized"
-    return "whisper"
+    raise PipelineError(
+        "No transcription engine configured -- set ASSEMBLYAI_API_KEY or "
+        "BASETEN_API_KEY/BASETEN_MODEL_URL, or set TRANSCRIPTION_ENGINE explicitly."
+    )
 
 
 def _llm_available() -> bool:

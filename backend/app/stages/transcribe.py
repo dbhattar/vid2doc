@@ -1,12 +1,16 @@
-"""Transcribe (+ diarize) audio. Four engines -- see transcribe_diarize()."""
+"""Transcribe (+ diarize) audio. Two engines -- see transcribe_diarize().
+
+The local-CPU engines this used to also support ("whisper" and
+"whisper-diarized", via openai-whisper + pyannote.audio) were removed along
+with the PyTorch dependency chain they needed -- both remaining engines are
+cloud-hosted and fully cover diarized transcription without it. See
+pipeline.py's _resolve_engine() for the auto-selection logic."""
 
 import base64
 import os
 from pathlib import Path
 
 from ..exceptions import PipelineError
-
-PYANNOTE_MODEL = "pyannote/speaker-diarization-3.1"
 
 # Baseten's ingress proxy rejects any request body over 100MB with a 413
 # before it ever reaches the model (https://docs.baseten.co/reference/inference-api/overview#request-size).
@@ -16,11 +20,11 @@ PYANNOTE_MODEL = "pyannote/speaker-diarization-3.1"
 BASETEN_MAX_REQUEST_BYTES = 95_000_000
 
 # Merge consecutive same-speaker fragments into readable paragraphs. Raw ASR
-# output (especially local Whisper) segments every few words, which reads as
-# a wall of one-line "speaker" attributions rather than flowing prose. A gap
-# cap keeps real pauses as paragraph breaks; a length cap keeps a single
-# uninterrupted speaker turn (e.g. plain "whisper" engine, one speaker for
-# the whole video) from collapsing into one giant undifferentiated blob.
+# output (Whisper especially, whether run locally or via Baseten) segments
+# every few words, which reads as a wall of one-line "speaker" attributions
+# rather than flowing prose. A gap cap keeps real pauses as paragraph breaks;
+# a length cap keeps a single uninterrupted speaker turn from collapsing into
+# one giant undifferentiated blob.
 MERGE_MAX_GAP_SECONDS = 2.0
 MERGE_MAX_PARAGRAPH_CHARS = 400
 
@@ -67,78 +71,13 @@ def transcribe_assemblyai(audio_path: Path) -> dict:
     return {"segments": segments}
 
 
-def _load_whisper(model_size: str):
-    try:
-        import whisper
-    except ImportError as e:
-        raise PipelineError("openai-whisper is not installed") from e
-    return whisper.load_model(model_size)
-
-
-def transcribe_whisper_local(audio_path: Path, model_size: str = "base") -> dict:
-    model = _load_whisper(model_size)
-    result = model.transcribe(str(audio_path), fp16=False, verbose=False)
-
-    segments = [
-        {
-            "speaker": "Speaker",  # no diarization available locally
-            "text": seg["text"].strip(),
-            "start_ts": seg["start"],
-            "end_ts": seg["end"],
-        }
-        for seg in result["segments"]
-    ]
-    return {"segments": segments}
-
-
-def transcribe_whisper_diarized(audio_path: Path, model_size: str = "base") -> dict:
-    try:
-        from pyannote.audio import Pipeline
-    except ImportError as e:
-        raise PipelineError("pyannote.audio is not installed") from e
-
-    hf_token = os.environ.get("HF_TOKEN")
-    if not hf_token:
-        raise PipelineError("HF_TOKEN is not set")
-
-    model = _load_whisper(model_size)
-    result = model.transcribe(str(audio_path), fp16=False, word_timestamps=True, verbose=False)
-
-    diarization_pipeline = Pipeline.from_pretrained(PYANNOTE_MODEL, token=hf_token)
-    diarization_output = diarization_pipeline(str(audio_path))
-    # exclusive_speaker_diarization has no overlapping speech turns, which is what
-    # we want when assigning a single speaker to each Whisper word.
-    turns = [
-        (turn.start, turn.end, speaker)
-        for turn, _, speaker in diarization_output.exclusive_speaker_diarization.itertracks(yield_label=True)
-    ]
-
-    def speaker_for(start: float, end: float) -> str:
-        best_speaker, best_overlap = "Speaker", 0.0
-        for turn_start, turn_end, speaker in turns:
-            overlap = min(turn_end, end) - max(turn_start, start)
-            if overlap > best_overlap:
-                best_overlap, best_speaker = overlap, speaker
-        return best_speaker
-
-    # One "segment" per word here -- _merge_fragments (applied uniformly for
-    # all engines below) does the actual paragraph-building, so this stays a
-    # plain word-level list rather than pre-merging without a length cap.
-    segments = [
-        {"speaker": speaker_for(w["start"], w["end"]), "text": w["word"].strip(), "start_ts": w["start"], "end_ts": w["end"]}
-        for seg in result["segments"]
-        for w in seg.get("words", [])
-    ]
-    return {"segments": segments}
-
-
 def transcribe_baseten(audio_path: Path, model_size: str = "base") -> dict:
     """GPU-hosted whisper+pyannote, via a custom Truss deployment (see
-    baseten/transcribe-diarize/) -- same diarization approach as
-    transcribe_whisper_diarized above, just running remotely on a GPU
-    instead of locally on CPU. Audio goes up as base64 in the request body,
-    matching the same pattern classify.py already uses for images sent to
-    Claude/OpenAI."""
+    baseten/transcribe-diarize/) -- word-level Whisper transcription aligned
+    against pyannote speaker turns, same idea this codebase used to also run
+    locally on CPU before that path was removed, just running remotely on a
+    GPU instead. Audio goes up as base64 in the request body, matching the
+    same pattern classify.py already uses for images sent to Claude/OpenAI."""
     import subprocess
     import tempfile
 
@@ -206,10 +145,14 @@ def transcribe_baseten(audio_path: Path, model_size: str = "base") -> dict:
 
 
 def transcribe_diarize(audio_path: Path, engine: str = "assemblyai", whisper_model: str = "base") -> dict:
-    if engine == "whisper":
-        result = transcribe_whisper_local(audio_path, whisper_model)
-    elif engine == "whisper-diarized":
-        result = transcribe_whisper_diarized(audio_path, whisper_model)
+    if engine in ("whisper", "whisper-diarized"):
+        # Removed along with the PyTorch dependency chain -- fail clearly
+        # rather than silently falling back to a different engine than the
+        # one actually configured (see pipeline.py's _resolve_engine()).
+        raise PipelineError(
+            f"TRANSCRIPTION_ENGINE={engine!r} was removed (no local PyTorch engine anymore) -- "
+            "use 'assemblyai' or 'baseten' instead."
+        )
     elif engine == "baseten":
         result = transcribe_baseten(audio_path, whisper_model)
     else:

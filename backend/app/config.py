@@ -65,8 +65,10 @@ class Settings:
     AUDIO_EXTENSIONS = {".mp3", ".wav", ".m4a", ".aac", ".flac", ".ogg", ".wma"}
 
     # auto: assemblyai if ASSEMBLYAI_API_KEY set, else baseten if BASETEN_API_KEY
-    # set, else whisper-diarized if HF_TOKEN set, else whisper
+    # set, else the job fails with a clear config error (see
+    # pipeline.py's _resolve_engine() -- no local-CPU fallback anymore).
     TRANSCRIPTION_ENGINE = os.environ.get("TRANSCRIPTION_ENGINE", "auto")
+    # Passed through to Baseten's remote model, not used locally.
     WHISPER_MODEL = os.environ.get("WHISPER_MODEL", "base")
 
     # LLM provider for the vision-judgment and topic-segmentation stages.

@@ -8,11 +8,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 WORKDIR /app
 
 COPY requirements.txt .
-# --extra-index-url makes CPU-only torch wheels available to the resolver
-# alongside PyPI, so it can satisfy torch (needed by openai-whisper and
-# pyannote.audio) without falling back to PyPI's default CUDA-bundled build --
-# multiple GB smaller, and no NVIDIA drivers needed on a VPS.
-RUN pip install --no-cache-dir --extra-index-url https://download.pytorch.org/whl/cpu -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
 COPY . .
 RUN chmod +x docker-entrypoint.sh
