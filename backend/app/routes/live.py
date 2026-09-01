@@ -26,8 +26,9 @@ async def finalize_live_session(
     persists the resulting segments and, optionally, the recorded audio
     itself, then queues a job_type="audio" job exactly like
     /api/transcribe_audio. pipeline.py's _transcribe_segments() finds
-    live_segments.json and skips straight past audio extraction and
-    transcribe_diarize()."""
+    precomputed_segments.json and skips straight past audio extraction and
+    transcribe_diarize() (the same file YouTube-caption-derived transcripts
+    use -- see pipeline.py's _download_if_needed)."""
     try:
         parsed_segments = json.loads(segments)
     except json.JSONDecodeError:
@@ -68,7 +69,7 @@ async def finalize_live_session(
             ),
         )
 
-    (output_dir / "live_segments.json").write_text(json.dumps(parsed_segments))
+    (output_dir / "precomputed_segments.json").write_text(json.dumps(parsed_segments))
 
     jobs.create_job(
         job_id,

@@ -175,11 +175,14 @@ def _transcribe_segments(job: dict, output_dir: Path) -> list[dict]:
     job_id = job["id"]
     _check_not_cancelled(job_id)
 
-    live_segments_path = output_dir / "live_segments.json"
-    if live_segments_path.exists():
-        # Transcription + diarization already happened client-side during a
-        # live recording session (see routes/live.py) -- nothing left to do.
-        return json.loads(live_segments_path.read_text())
+    precomputed_path = output_dir / "precomputed_segments.json"
+    if precomputed_path.exists():
+        # A transcript already exists from somewhere other than the normal
+        # audio-extraction + transcription flow below -- either client-side
+        # during a live recording session (routes/live.py), or from
+        # YouTube's own captions (_download_if_needed, for a YouTube import
+        # whose video actually has a caption track). Nothing left to do.
+        return json.loads(precomputed_path.read_text())
 
     jobs.update_job(job_id, progress_stage="extracting_audio")
     audio_path = audio.extract_audio(Path(job["source_path"]), output_dir / "audio.wav")
@@ -212,7 +215,7 @@ def _compose_and_finalize(job: dict, output_dir: Path, images_meta: list[dict], 
     _finalize_document(job, title, sections, images_meta, tables_meta)
 
 
-def _download_if_needed(job: dict) -> dict:
+def _download_if_needed(job: dict, output_dir: Path) -> dict:
     """A job imported from YouTube (routes/youtube.py) is created with
     source_path=None and source_url set -- the actual download happens here,
     in the worker, rather than in the API request that created the job (see
@@ -220,10 +223,18 @@ def _download_if_needed(job: dict) -> dict:
     which already has source_path set from the start -- EXCEPT a live
     recording finalized without "save audio" checked (routes/live.py), which
     has neither: there's nothing to download, source_path just stays None,
-    and _transcribe_segments' live_segments.json short-circuit means nothing
-    downstream ever needs it to be a real path. Re-derives the admin
+    and _transcribe_segments' precomputed_segments.json short-circuit means
+    nothing downstream ever needs it to be a real path. Re-derives the admin
     duration-cap bypass fresh (rather than trusting a decision baked in at
-    job-creation time), since admin status could have changed since."""
+    job-creation time), since admin status could have changed since.
+
+    Also opportunistically fetches YouTube's own caption track (if any) in
+    the same yt-dlp call that downloads the video -- see
+    youtube.get_downloaded_captions() and plan/youtube-captions-plan.md.
+    When present, writes it as this job's precomputed_segments.json so
+    _transcribe_segments skips paid audio transcription entirely; when
+    absent (most videos in practice), this is a no-op and the job falls
+    through to the normal transcription flow, unchanged."""
     if job.get("source_path") or not job.get("source_url"):
         return job
 
@@ -240,6 +251,12 @@ def _download_if_needed(job: dict) -> dict:
     duration, size_bytes = youtube.download_youtube_video(
         job["source_url"], upload_dir, dest_path, max_duration, settings.MAX_UPLOAD_BYTES
     )
+
+    captions = youtube.get_downloaded_captions(dest_path)
+    if captions:
+        output_dir.mkdir(parents=True, exist_ok=True)
+        (output_dir / "precomputed_segments.json").write_text(json.dumps(captions))
+
     jobs.update_job(job_id, source_path=str(dest_path), duration_seconds=duration, source_size_bytes=size_bytes)
     return jobs.get_job(job_id)
 
@@ -374,7 +391,7 @@ def run_job(job: dict) -> None:
             return
 
         _check_not_cancelled(job_id)
-        job = _download_if_needed(job)
+        job = _download_if_needed(job, output_dir)
 
         if is_video_gen_job:
             _transcribe_and_segment_scenes(job, output_dir)

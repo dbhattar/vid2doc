@@ -10,6 +10,7 @@ process for however long the download takes.
 """
 
 import json
+import re
 import shutil
 import subprocess
 from pathlib import Path
@@ -20,6 +21,11 @@ from .media import probe_duration_seconds
 _ALLOWED_HOSTS = {"youtube.com", "www.youtube.com", "m.youtube.com", "youtu.be", "youtube-nocookie.com"}
 _METADATA_TIMEOUT_SECONDS = 30
 _DOWNLOAD_TIMEOUT_SECONDS = 20 * 60
+
+# English only for now -- a hardcoded default rather than a new setting, same
+# as WHISPER_MODEL etc. are kept simple (see config.py).
+_CAPTION_LANG = "en"
+_SRT_TIMESTAMP_RE = re.compile(r"(\d+):(\d+):(\d+)[,.](\d+)")
 
 
 class YoutubeDownloadError(Exception):
@@ -77,6 +83,16 @@ def download_youtube_video(
             "-f", "bestvideo[height<=720]+bestaudio/best[height<=720]",
             "--merge-output-format", "mp4",
             "--no-playlist",
+            # Best-effort caption fetch, piggybacked on this same download --
+            # no extra network round-trip. yt-dlp already prefers a
+            # manually-uploaded track over an auto-generated one when both
+            # exist (confirmed directly, not assumed -- passing both flags
+            # together writes exactly one file, the better of the two), and
+            # exits 0 with no file written if neither exists in this
+            # language (also confirmed) -- so this can never turn a video
+            # that would otherwise download fine into a failure. See
+            # get_downloaded_captions() below and plan/youtube-captions-plan.md.
+            "--write-subs", "--write-auto-subs", "--sub-langs", _CAPTION_LANG, "--sub-format", "srt",
             "-o", str(dest_path),
             url,
         ],
@@ -105,3 +121,57 @@ def download_youtube_video(
         raise YoutubeDownloadError(f"Video duration {duration:.0f}s exceeds max of {max_duration_seconds}s")
 
     return duration, size_bytes
+
+
+def _parse_srt_timestamp(raw: str) -> float:
+    match = _SRT_TIMESTAMP_RE.match(raw.strip())
+    if not match:
+        raise ValueError(f"Unrecognized SRT timestamp: {raw!r}")
+    hours, minutes, seconds, millis = (int(g) for g in match.groups())
+    return hours * 3600 + minutes * 60 + seconds + millis / 1000
+
+
+def _parse_srt_segments(path: Path) -> list[dict]:
+    """Parses an SRT file into the same {speaker, text, start_ts, end_ts}
+    shape transcribe_diarize() produces -- speaker is always the literal
+    string "Speaker" since captions carry no diarization info.
+
+    Cues are read in file order, not sorted by timestamp: YouTube's
+    auto-generated captions interleave two overlapping "rolling caption"
+    timing lanes, so consecutive cues can legitimately overlap in time (cue
+    3 can start before cue 1 ends) -- but the *text*, read sequentially in
+    file order, comes out as clean prose with no duplication. Confirmed
+    against real YouTube auto-captions before writing this (not assumed),
+    see plan/youtube-captions-plan.md."""
+    segments = []
+    blocks = path.read_text(encoding="utf-8", errors="replace").strip().split("\n\n")
+    for block in blocks:
+        lines = [line for line in block.splitlines() if line.strip()]
+        timestamp_idx = next((i for i, line in enumerate(lines) if "-->" in line), None)
+        if timestamp_idx is None:
+            continue
+        start_raw, end_raw = (part.strip() for part in lines[timestamp_idx].split("-->"))
+        text = " ".join(lines[timestamp_idx + 1 :]).strip()
+        if not text:
+            continue
+        try:
+            start_ts = _parse_srt_timestamp(start_raw)
+            end_ts = _parse_srt_timestamp(end_raw)
+        except ValueError:
+            continue
+        segments.append({"speaker": "Speaker", "text": text, "start_ts": start_ts, "end_ts": end_ts})
+    return segments
+
+
+def get_downloaded_captions(dest_path: Path) -> list[dict] | None:
+    """Checks whether download_youtube_video's yt-dlp invocation also wrote
+    a caption file alongside the video (it always requests one, best-effort
+    -- see that function) and parses it if so. Returns None if no caption
+    track was available for this video in _CAPTION_LANG, which is the
+    normal case for many videos, not an error -- callers should fall back
+    to full transcription in that case."""
+    caption_path = dest_path.parent / f"{dest_path.stem}.{_CAPTION_LANG}.srt"
+    if not caption_path.is_file():
+        return None
+    segments = _parse_srt_segments(caption_path)
+    return segments or None
