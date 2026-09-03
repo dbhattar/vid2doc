@@ -308,6 +308,102 @@ def generate_summary(segments: list[dict], provider: str | None = None) -> str:
     return summarize(client, "\n\n".join(partial_summaries), FINAL_SUMMARY_SYSTEM_PROMPT)
 
 
+SUMMARY_KEY_POINTS_SYSTEM_PROMPT = """You are writing a concise summary and key points for a slice of a speaker-tagged transcript.
+
+Write:
+- summary: a short paragraph (3-6 sentences) covering what was discussed and any conclusions or decisions reached.
+- key_points: 3-6 short, standalone bullet points capturing the most important takeaways (do not include leading dashes/bullets in the text itself -- just the point).
+
+Refer to speakers using the exact labels given in the transcript (e.g. "Speaker 1") -- never paraphrase them as "the first speaker" or similar, since these exact labels get substituted with the speakers' real names later if the user assigns them."""
+
+FINAL_SUMMARY_KEY_POINTS_SYSTEM_PROMPT = """You are given several partial summaries and key-point lists, each covering one consecutive slice of a longer transcript, in order. Combine them into a single cohesive summary paragraph (3-6 sentences) and a single deduplicated list of 3-6 key points for the whole thing -- do not just concatenate them.
+
+Refer to speakers using the exact labels already used in the partial summaries (e.g. "Speaker 1") -- never paraphrase them as "the first speaker" or similar, since these exact labels get substituted with the speakers' real names later if the user assigns them."""
+
+SUMMARY_KEY_POINTS_TOOL = {
+    "name": "submit_summary_and_key_points",
+    "description": "Submit the summary and key points.",
+    "input_schema": {
+        "type": "object",
+        "properties": {
+            "summary": {"type": "string"},
+            "key_points": {"type": "array", "items": {"type": "string"}},
+        },
+        "required": ["summary", "key_points"],
+    },
+}
+
+SUMMARY_KEY_POINTS_JSON_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "summary": {"type": "string"},
+        "key_points": {"type": "array", "items": {"type": "string"}},
+    },
+    "required": ["summary", "key_points"],
+    "additionalProperties": False,
+}
+
+
+def _summarize_with_key_points_anthropic(client, text: str, system_prompt: str) -> dict:
+    response = client.messages.create(
+        model="claude-sonnet-5",
+        max_tokens=1024,
+        system=system_prompt,
+        tools=[SUMMARY_KEY_POINTS_TOOL],
+        tool_choice={"type": "tool", "name": "submit_summary_and_key_points"},
+        messages=[{"role": "user", "content": text}],
+    )
+    for block in response.content:
+        if block.type == "tool_use":
+            return {"summary": block.input.get("summary", ""), "key_points": block.input.get("key_points", [])}
+    return {"summary": "", "key_points": []}
+
+
+def _summarize_with_key_points_openai(client, text: str, system_prompt: str) -> dict:
+    import json
+
+    response = client.chat.completions.create(
+        model=settings.OPENAI_MODEL,
+        messages=[
+            {"role": "system", "content": system_prompt},
+            {"role": "user", "content": text},
+        ],
+        response_format={
+            "type": "json_schema",
+            "json_schema": {
+                "name": "submit_summary_and_key_points",
+                "strict": True,
+                "schema": SUMMARY_KEY_POINTS_JSON_SCHEMA,
+            },
+        },
+    )
+    return json.loads(response.choices[0].message.content)
+
+
+def generate_summary_and_key_points(segments: list[dict], provider: str | None = None) -> dict:
+    """Video documents only (see pipeline.py's _prepend_summary_section) --
+    a summary paragraph plus a short bullet list of key takeaways. Reuses
+    generate_summary's windowing/map-reduce shape: a single window is
+    summarized directly, multiple windows are summarized individually then
+    merged into one cohesive summary + deduplicated key-points list."""
+    provider = provider or settings.LLM_PROVIDER
+    client, _, _ = _get_client_and_fns(provider)
+    summarize = _summarize_with_key_points_openai if provider == "openai" else _summarize_with_key_points_anthropic
+
+    windows = _make_windows(segments)
+    if len(windows) == 1:
+        result = summarize(client, _window_text(windows[0]), SUMMARY_KEY_POINTS_SYSTEM_PROMPT)
+    else:
+        partials = [summarize(client, _window_text(w), SUMMARY_KEY_POINTS_SYSTEM_PROMPT) for w in windows]
+        combined = "\n\n".join(
+            f"Summary: {p['summary']}\nKey points: {'; '.join(p['key_points'])}" for p in partials
+        )
+        result = summarize(client, combined, FINAL_SUMMARY_KEY_POINTS_SYSTEM_PROMPT)
+
+    result["key_points"] = [kp.strip() for kp in result.get("key_points", []) if kp.strip()][:6]
+    return result
+
+
 def generate_title(sections: list[dict], provider: str | None = None) -> str:
     if not sections:
         return "Video Document"

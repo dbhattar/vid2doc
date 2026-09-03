@@ -13,6 +13,16 @@ import { VIDEO_EXTENSIONS, displayTitle, isActiveJob, type Job } from "@/lib/job
 const POLL_INTERVAL_MS = 4000;
 const ACCEPTED_EXTENSIONS = VIDEO_EXTENSIONS.join(",");
 
+// Mirrors backend/app/billing.py's SECONDS_PER_CENT / SECONDS_PER_CENT_AUDIO
+// -- a client-side estimate only, so the price difference is visible before
+// submitting; the backend is the source of truth for the actual charge.
+const SECONDS_PER_CENT_VIDEO = 36;
+const SECONDS_PER_CENT_AUDIO = 90;
+
+function estimatedCostCents(durationSeconds: number, withVisuals: boolean): number {
+  return Math.ceil(durationSeconds / (withVisuals ? SECONDS_PER_CENT_VIDEO : SECONDS_PER_CENT_AUDIO));
+}
+
 // Video gets its own nav item (rather than sharing a generic upload form with
 // audio) specifically so this page's flow -- upload, frame review, document --
 // can keep evolving independently of audio's much simpler verbatim-transcript
@@ -35,8 +45,26 @@ export default function VideoPage() {
   const [cancelError, setCancelError] = useState<string | null>(null);
   const [source, setSource] = useState<"file" | "youtube">("file");
   const [youtubeUrl, setYoutubeUrl] = useState("");
+  const [extractFrames, setExtractFrames] = useState(true);
+  const [fileDurationSeconds, setFileDurationSeconds] = useState<number | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  function handleFileSelected(file: File | null) {
+    setSelectedFileName(file?.name ?? null);
+    setFileDurationSeconds(null);
+    if (!file) return;
+    // Read the file's duration client-side (no upload needed yet) so the
+    // cost estimate below can reflect the actual video, not just a flat rate.
+    const url = URL.createObjectURL(file);
+    const probe = document.createElement("video");
+    probe.preload = "metadata";
+    probe.onloadedmetadata = () => {
+      setFileDurationSeconds(probe.duration);
+      URL.revokeObjectURL(url);
+    };
+    probe.src = url;
+  }
 
   const handleAuthError = useCallback(
     (err: unknown) => {
@@ -80,9 +108,11 @@ export default function VideoPage() {
     try {
       const formData = new FormData();
       formData.append("video", file);
+      formData.append("extract_frames", String(extractFrames));
       await apiFetch("/api/convert_to_doc", { method: "POST", body: formData });
       if (fileInputRef.current) fileInputRef.current.value = "";
       setSelectedFileName(null);
+      setFileDurationSeconds(null);
       loadJobs();
     } catch (err) {
       if (handleAuthError(err)) return;
@@ -102,7 +132,10 @@ export default function VideoPage() {
     setUploadError(null);
     setUploadBlockedByBilling(false);
     try {
-      await apiFetch("/api/convert_from_youtube", { method: "POST", body: JSON.stringify({ url }) });
+      await apiFetch("/api/convert_from_youtube", {
+        method: "POST",
+        body: JSON.stringify({ url, extract_frames: extractFrames }),
+      });
       setYoutubeUrl("");
       loadJobs();
     } catch (err) {
@@ -204,7 +237,7 @@ export default function VideoPage() {
                   ref={fileInputRef}
                   type="file"
                   accept={ACCEPTED_EXTENSIONS}
-                  onChange={(e) => setSelectedFileName(e.target.files?.[0]?.name ?? null)}
+                  onChange={(e) => handleFileSelected(e.target.files?.[0] ?? null)}
                   className="sr-only"
                 />
                 <span className="truncate">{selectedFileName ?? "Click to choose a video file..."}</span>
@@ -227,6 +260,25 @@ export default function VideoPage() {
               </Button>
             </div>
           )}
+
+          <label className="mt-4 flex items-center gap-2 text-sm text-ink">
+            <input
+              type="checkbox"
+              checked={extractFrames}
+              onChange={(e) => setExtractFrames(e.target.checked)}
+              className="h-4 w-4 rounded border-line accent-accent"
+            />
+            Extract frames (slides, diagrams, tables)
+          </label>
+          <p className="mt-1 text-xs text-ink-soft">
+            {source === "file" && fileDurationSeconds != null
+              ? extractFrames
+                ? `$${(estimatedCostCents(fileDurationSeconds, true) / 100).toFixed(2)} with visuals`
+                : `$${(estimatedCostCents(fileDurationSeconds, false) / 100).toFixed(2)} transcript-only`
+              : extractFrames
+                ? "$1.00/hour with visuals"
+                : "$0.40/hour transcript-only -- no slides, diagrams, or tables"}
+          </p>
 
           {uploadError && (
             <p className="mt-2 text-sm text-status-error">

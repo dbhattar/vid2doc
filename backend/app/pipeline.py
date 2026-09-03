@@ -195,22 +195,64 @@ def _transcribe_segments(job: dict, output_dir: Path) -> list[dict]:
 
 
 def _compose_and_finalize(job: dict, output_dir: Path, images_meta: list[dict], tables_meta: list[dict]) -> None:
-    """Transcribe, compose, and finalize -- the shared tail for a video job
-    that has already decided which images/tables to include, once the
-    user's review submission (resume_after_review) comes back."""
+    """Transcribe, compose, and finalize -- the shared tail for every video
+    document: a job that has already decided which images/tables to include
+    (resume_after_review), a job whose user opted out of frame extraction
+    entirely (run_job's extract_frames branch), and a job where frame
+    extraction found nothing worth reviewing (run_job's fallthrough) --
+    images_meta/tables_meta are empty in the latter two cases. Handles "no
+    LLM at all" itself now, since it's reachable with nothing to lose in
+    that case (previously it was only ever reached via resume_after_review,
+    which implies an LLM already classified real images/tables)."""
     job_id = job["id"]
     segments = _transcribe_segments(job, output_dir)
-
     _check_not_cancelled(job_id)
-    jobs.update_job(job_id, progress_stage="composing_document")
-    sections = compose.compose_document(segments, images_meta + tables_meta)
-    title = compose.generate_title(sections)
-    jobs.update_job(job_id, title=title)
 
-    if not sections:
+    if not images_meta and not tables_meta and not _llm_available():
+        title = job.get("title") or "Video Transcript"
         sections = _fallback_sections(segments)
+    else:
+        jobs.update_job(job_id, progress_stage="composing_document")
+        sections = compose.compose_document(segments, images_meta + tables_meta)
+        title = compose.generate_title(sections)
+        jobs.update_job(job_id, title=title)
+
+        if not sections:
+            sections = _fallback_sections(segments)
+        else:
+            sections = _prepend_summary_section(job, segments, sections)
 
     _finalize_document(job, title, sections, images_meta, tables_meta)
+
+
+def _prepend_summary_section(job: dict, segments: list[dict], sections: list[dict]) -> list[dict]:
+    """Video documents only -- audio jobs have their own separate summary
+    path (_build_audio_sections/generate_summary above), deliberately not
+    shared with this one. Soft-fails exactly like that path: a summary/
+    key-points failure never breaks the whole job, it just means the
+    document comes out without one."""
+    if not _llm_available():
+        return sections
+    job_id = job["id"]
+    # Outside the try below on purpose -- that except is a soft-fail for
+    # summary generation specifically, and must never swallow a
+    # JobCancelled meant for the outer run_job try/except.
+    _check_not_cancelled(job_id)
+    jobs.update_job(job_id, progress_stage="summarizing")
+    try:
+        result = compose.generate_summary_and_key_points(segments)
+    except Exception as e:
+        print(f"Summary/key-points generation failed for job {job_id}: {e}", flush=True)
+        return sections
+
+    blocks = [{"type": "paragraph", "text": result["summary"], "ref": 0, "caption": ""}]
+    if result.get("key_points"):
+        blocks.append({"type": "paragraph", "text": "Key Points:", "ref": 0, "caption": ""})
+        blocks.extend(
+            {"type": "paragraph", "text": f"• {kp}", "ref": 0, "caption": ""}
+            for kp in result["key_points"]
+        )
+    return [{"heading": "Summary", "blocks": blocks}] + sections
 
 
 def _download_if_needed(job: dict, output_dir: Path) -> dict:
@@ -426,6 +468,16 @@ def run_job(job: dict) -> None:
             _finalize_document(job, title, sections, [], [], extra_files={"transcript.json": transcript_json})
             return
 
+        if not job.get("extract_frames", True):
+            # User opted out of frame extraction entirely (see
+            # routes/convert.py/routes/youtube.py) -- straight to
+            # transcript-only composition via the same shared tail used by
+            # the "nothing to review" fallthrough below. No awaiting_review
+            # pause: there's nothing to review.
+            _check_not_cancelled(job_id)
+            _compose_and_finalize(job, output_dir, [], [])
+            return
+
         # Video: extract, filter, and (if an LLM is configured) classify
         # candidate frames FIRST -- before transcription, which costs money
         # and shouldn't run until the user has actually committed to the job
@@ -466,10 +518,12 @@ def run_job(job: dict) -> None:
             return
 
         # Nothing to review (no LLM configured, or no candidate frames at
-        # all) -- proceed straight through to transcription exactly as
-        # before this feature.
-        segments = _transcribe_segments(job, output_dir)
-        _finalize_document(job, "Video Transcript", _fallback_sections(segments), [], [])
+        # all) -- functionally the same situation as the extract_frames=False
+        # branch above, just discovered instead of chosen. Same shared tail
+        # (which transcribes internally -- do not also call
+        # _transcribe_segments here, that would double the paid
+        # transcription work).
+        _compose_and_finalize(job, output_dir, [], [])
     except JobCancelled:
         # Reached a stage boundary after routes/jobs.py's cancel endpoint set
         # cancel_requested -- same refund treatment as a failure, but not

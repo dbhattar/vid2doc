@@ -61,10 +61,16 @@ def retry_job(job_id: str, request: Request, current_user: dict = Depends(get_cu
     elif not job["source_url"]:
         raise HTTPException(status_code=400, detail="Missing source -- please upload it again")
 
+    # Preserve the original job's frame-extraction choice and its billing
+    # consequence (see routes/convert.py/routes/youtube.py) -- otherwise a
+    # frames-skipped job's retry would silently re-bill at the full video rate.
+    extract_frames = job.get("extract_frames", True)
+    billing_job_type = "audio" if (job["job_type"] == "video" and not extract_frames) else job["job_type"]
+
     new_job_id = str(uuid.uuid4())
     try:
         billed_cents = billing.charge_for_job(
-            current_user["id"], new_job_id, job["duration_seconds"], job_type=job["job_type"]
+            current_user["id"], new_job_id, job["duration_seconds"], job_type=billing_job_type
         )
     except billing.InsufficientBalanceError as e:
         raise HTTPException(
@@ -85,6 +91,7 @@ def retry_job(job_id: str, request: Request, current_user: dict = Depends(get_cu
         billed_cents=billed_cents,
         title=job["title"],
         job_type=job["job_type"],
+        extract_frames=extract_frames,
     )
     return build_job_response(jobs.get_job(new_job_id), request)
 

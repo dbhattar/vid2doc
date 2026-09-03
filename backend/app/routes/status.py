@@ -22,6 +22,8 @@ def build_job_response(job: dict, request: Request) -> dict:
         "billed_cents": job["billed_cents"],
         "share_url": f"{settings.FRONTEND_URL}/share/{job['share_token']}" if job.get("share_token") else None,
     }
+    if job["job_type"] == "video":
+        response["extract_frames"] = job["extract_frames"]
     if job["status"] == "done" and job["deleted_at"] is not None:
         # Retention swept the files (see retention.py) -- still "done" in
         # the sense that conversion succeeded, but nothing left to serve.

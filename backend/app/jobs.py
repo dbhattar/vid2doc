@@ -31,6 +31,7 @@ def _job_to_dict(job: Job) -> dict:
         "video_template": job.video_template,
         "stock_media_provider": job.stock_media_provider,
         "cancel_requested": job.cancel_requested,
+        "extract_frames": job.extract_frames,
         "error_message": job.error_message,
         "deleted_at": job.deleted_at,
         "created_at": job.created_at,
@@ -50,6 +51,7 @@ def create_job(
     client_ip: str | None = None,
     source_url: str | None = None,
     aspect_ratio: str = "16:9",
+    extract_frames: bool = True,
 ) -> None:
     session = get_session()
     try:
@@ -67,6 +69,7 @@ def create_job(
                 job_type=job_type,
                 client_ip=client_ip,
                 aspect_ratio=aspect_ratio,
+                extract_frames=extract_frames,
             )
         )
         session.commit()

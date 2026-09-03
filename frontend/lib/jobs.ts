@@ -11,6 +11,8 @@ export type Job = {
   updated_at: string;
   duration_seconds: number | null;
   billed_cents: number;
+  // job_type === "video" only -- see backend/app/routes/status.py.
+  extract_frames?: boolean;
   document_url?: string;
   document_bundle_url?: string;
   document_docx_url?: string;

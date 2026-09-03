@@ -2,7 +2,7 @@ import shutil
 import uuid
 from pathlib import Path
 
-from fastapi import APIRouter, Depends, File, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 
 from .. import billing, jobs
 from ..config import settings
@@ -13,7 +13,11 @@ router = APIRouter()
 
 
 @router.post("/api/convert_to_doc", status_code=202)
-async def convert_to_doc(video: UploadFile = File(...), current_user: dict = Depends(get_current_user)):
+async def convert_to_doc(
+    video: UploadFile = File(...),
+    extract_frames: bool = Form(True),
+    current_user: dict = Depends(get_current_user),
+):
     ext = Path(video.filename or "").suffix.lower()
     if ext not in settings.ALLOWED_EXTENSIONS:
         raise HTTPException(
@@ -34,11 +38,14 @@ async def convert_to_doc(video: UploadFile = File(...), current_user: dict = Dep
         video, upload_dir, dest_path, settings.MAX_UPLOAD_BYTES, max_duration, kind="video"
     )
 
-    # Pay-as-you-go: $1/video-hour, charged up front. No plans/tiers -- the
-    # charge itself decides whether the upload is accepted, so it happens
+    # Pay-as-you-go: $1/video-hour, charged up front -- unless the user opted
+    # out of frame extraction, in which case the job does exactly the same
+    # work as an "audio" job (transcribe + compose, no frame capture/
+    # classification), so it's billed at that lower rate instead. Charged
     # before the job row exists (see models.py's note on related_job_id).
+    billing_job_type = "video" if extract_frames else "audio"
     try:
-        billed_cents = billing.charge_for_job(current_user["id"], job_id, duration)
+        billed_cents = billing.charge_for_job(current_user["id"], job_id, duration, job_type=billing_job_type)
     except billing.InsufficientBalanceError as e:
         shutil.rmtree(upload_dir, ignore_errors=True)
         raise HTTPException(
@@ -58,5 +65,6 @@ async def convert_to_doc(video: UploadFile = File(...), current_user: dict = Dep
         billed_cents=billed_cents,
         title=title_from_filename(video.filename or "", fallback="Untitled video"),
         job_type="video",
+        extract_frames=extract_frames,
     )
     return {"job_id": job_id, "status": "queued"}

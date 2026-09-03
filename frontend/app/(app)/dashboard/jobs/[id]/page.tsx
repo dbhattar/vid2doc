@@ -201,6 +201,14 @@ export default function JobDetailPage() {
                 <dt className="text-ink-soft">{job.job_type === "video" ? "Video length" : "Audio length"}</dt>
                 <dd className="font-medium text-ink">{formatDuration(job.duration_seconds)}</dd>
               </div>
+              {job.job_type === "video" && job.extract_frames != null && (
+                <div className="flex justify-between">
+                  <dt className="text-ink-soft">Frames</dt>
+                  <dd className="font-medium text-ink">
+                    {job.extract_frames ? "Included" : "Excluded (transcript only)"}
+                  </dd>
+                </div>
+              )}
               {(job.status === "done" || job.status === "failed") && (
                 <div className="flex justify-between">
                   <dt className="text-ink-soft">Took</dt>

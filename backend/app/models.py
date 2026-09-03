@@ -136,6 +136,11 @@ class Job(Base):
     # jobs.cancel_if_not_processing) -- it's set on them too, harmlessly,
     # only for consistency/audit purposes.
     cancel_requested: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # Only meaningful for job_type == "video" -- lets the user skip frame
+    # capture/classification/review entirely for a transcript-only document
+    # (see pipeline.py's run_job). Defaults True to preserve pre-existing
+    # behavior for every job created before this column existed.
+    extract_frames: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
