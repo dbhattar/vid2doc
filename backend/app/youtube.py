@@ -10,6 +10,7 @@ process for however long the download takes.
 """
 
 import json
+import logging
 import re
 import shutil
 import subprocess
@@ -17,6 +18,8 @@ from pathlib import Path
 from urllib.parse import urlparse
 
 from .media import probe_duration_seconds
+
+logger = logging.getLogger(__name__)
 
 _ALLOWED_HOSTS = {"youtube.com", "www.youtube.com", "m.youtube.com", "youtu.be", "youtube-nocookie.com"}
 _METADATA_TIMEOUT_SECONDS = 30
@@ -44,9 +47,17 @@ def _run_yt_dlp(args: list[str], timeout: int) -> subprocess.CompletedProcess:
     if shutil.which("yt-dlp") is None:
         raise YoutubeDownloadError("YouTube import isn't available right now -- try uploading the file directly.")
     try:
-        return subprocess.run(["yt-dlp", *args], capture_output=True, text=True, timeout=timeout)
+        result = subprocess.run(["yt-dlp", *args], capture_output=True, text=True, timeout=timeout)
     except subprocess.TimeoutExpired:
         raise YoutubeDownloadError("Timed out talking to YouTube -- please try again.")
+    # yt-dlp's stderr (why it failed -- bot-check, geo-block, rate limit,
+    # extractor breakage, etc.) is otherwise swallowed entirely, leaving only
+    # the generic user-facing message in prod logs. Logged here rather than
+    # at each call site since both fetch_metadata and download_youtube_video
+    # go through this one function.
+    if result.returncode != 0:
+        logger.warning("yt-dlp exited %d for args %s: %s", result.returncode, args, result.stderr.strip())
+    return result
 
 
 def fetch_metadata(url: str) -> dict:
