@@ -57,7 +57,17 @@ def _run_yt_dlp(args: list[str], timeout: int) -> subprocess.CompletedProcess:
     if shutil.which("yt-dlp") is None:
         raise YoutubeDownloadError("YouTube import isn't available right now -- try uploading the file directly.")
     if _COOKIES_FILE.is_file():
-        args = ["--cookies", str(_COOKIES_FILE), *args]
+        # An authenticated (cookie-bearing) request makes yt-dlp prefer the
+        # "web" client's format list, which YouTube increasingly gates behind
+        # a PO token yt-dlp doesn't generate on its own -- every format gets
+        # filtered out server-side, failing even a plain --dump-json with
+        # "Requested format is not available." Falling back to the "tv"
+        # client (still cookie-aware, not PO-token-gated as of this yt-dlp
+        # version) works around it with no extra dependency. If YouTube
+        # closes this gap too, the real fix is a PO token provider plugin
+        # (e.g. bgutil-ytdlp-pot-provider, which needs a small companion
+        # server) -- see https://github.com/yt-dlp/yt-dlp/wiki/PO-Token-Guide.
+        args = ["--cookies", str(_COOKIES_FILE), "--extractor-args", "youtube:player_client=default,tv", *args]
     try:
         result = subprocess.run(["yt-dlp", *args], capture_output=True, text=True, timeout=timeout)
     except subprocess.TimeoutExpired:
