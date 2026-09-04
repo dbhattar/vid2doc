@@ -1,23 +1,4 @@
 ---
-// Lucide icons (ISC license, same set the app already uses via lucide-react)
-// -- path data copied verbatim from node_modules/lucide-react so the marks
-// match exactly, just inlined as raw SVG since this is a plain Astro
-// component with no icon-component system of its own.
-const ICONS = {
-  video: '<path d="m16 13 5.223 3.482a.5.5 0 0 0 .777-.416V7.87a.5.5 0 0 0-.752-.432L16 10.5"/><rect x="2" y="6" width="14" height="12" rx="2"/>',
-  fileText:
-    '<path d="M6 22a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h8a2.4 2.4 0 0 1 1.704.706l3.588 3.588A2.4 2.4 0 0 1 20 8v12a2 2 0 0 1-2 2z"/><path d="M14 2v5a1 1 0 0 0 1 1h5"/><path d="M10 9H8"/><path d="M16 13H8"/><path d="M16 17H8"/>',
-  mic: '<path d="M12 19v3"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><rect x="9" y="2" width="6" height="13" rx="3"/>',
-  radio:
-    '<path d="M16.247 7.761a6 6 0 0 1 0 8.478"/><path d="M19.075 4.933a10 10 0 0 1 0 14.134"/><path d="M4.925 19.067a10 10 0 0 1 0-14.134"/><path d="M7.753 16.239a6 6 0 0 1 0-8.478"/><circle cx="12" cy="12" r="2"/>',
-  arrowRight: '<path d="M5 12h14"/><path d="m12 5 7 7-7 7"/>',
-};
-
-const WORKFLOWS = [
-  { from: 'video', to: 'fileText', label: 'Video → Document', tone: 'accent' },
-  { from: 'mic', to: 'video', label: 'Narration → Video', tone: 'secondary' },
-  { from: 'radio', to: 'fileText', label: 'Live → Transcript', tone: 'accent' },
-];
 ---
 
 <section class="hero">
@@ -30,59 +11,14 @@ const WORKFLOWS = [
       </h1>
     </div>
     <div class="hero-side">
-      <p class="hero-sub" data-reveal style="--reveal-delay: 160ms">
-        Point Framewrite at a recording. Get back exactly what you need.
-      </p>
-      <div class="workflow-strip" data-reveal style="--reveal-delay: 190ms">
-        {
-          WORKFLOWS.map((wf) => (
-            <div class={`workflow-row workflow-row--${wf.tone}`}>
-              <span class="wf-icon">
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  set:html={ICONS[wf.from]}
-                />
-              </span>
-              <svg
-                class="wf-arrow"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                stroke-width="2"
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                set:html={ICONS.arrowRight}
-              />
-              <span class="wf-icon">
-                <svg
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="2"
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  set:html={ICONS[wf.to]}
-                />
-              </span>
-              <span class="wf-label">{wf.label}</span>
-            </div>
-          ))
-        }
+      <div class="voice-embed" data-reveal style="--reveal-delay: 160ms">
+        <script
+          src="https://api.oshara.ai/widget.js"
+          data-agent="framewrite"
+          data-inline="true"
+          data-close-button-hide>
+        </script>
       </div>
-      <div class="hero-actions" data-reveal style="--reveal-delay: 220ms">
-        <a href="https://app.framewrite.cc/login" class="btn-primary">Get started free</a>
-        <a href="/changelog" class="btn-secondary">See what's new &#8594;</a>
-      </div>
-      <div class="transcript-sample" aria-hidden="true" data-reveal style="--reveal-delay: 280ms">
-        <div><span class="ts">00:04:12</span><span class="spk">SPEAKER 2 —</span> ...so if we pull up the roadmap slide—</div>
-        <div><span class="ts">00:04:15</span><span class="spk">SPEAKER 1 —</span> right, that's the one Framewrite already grabbed<span class="cursor"></span></div>
-      </div>
-      <p class="hero-fineprint">Sign in with Google — no credit card required to start.</p>
     </div>
   </div>
 </section>
@@ -97,8 +33,7 @@ const WORKFLOWS = [
   /* Blurred gradient-orb backdrop -- the low-cost way to read as
      "colorful/energetic" without custom illustration (see
      plan/ui-redesign-plan.md's Phase 4). Two soft blobs in the brand's
-     primary/secondary hues, positioned behind the copy, never behind the
-     transcript-sample mock (which needs a legible flat background). */
+     primary/secondary hues, positioned behind the copy. */
   .hero-glow {
     position: absolute;
     inset: -20% -10% auto -10%;
@@ -181,128 +116,17 @@ const WORKFLOWS = [
 
   .hero-side {
     display: flex;
-    flex-direction: column;
-    justify-content: flex-end;
+    align-items: center;
+    justify-content: center;
     padding-top: 8px;
   }
 
-  .hero-sub {
-    font-size: 1.05rem;
-    line-height: 1.6;
-    color: var(--ink-soft);
-    max-width: 48ch;
-    margin: 0 0 18px;
-  }
-
-  /* Three workflows, shown as icon-strips rather than prose -- the whole
-     point is grasping "what this does" in a glance, not reading three
-     sentences. See plan discussion: standard (Lucide) icons only, no new
-     illustration work. */
-  .workflow-strip {
-    display: flex;
-    flex-direction: column;
-    gap: 10px;
-    margin-bottom: 26px;
-  }
-
-  .workflow-row {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-  }
-
-  .wf-icon {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    width: 32px;
-    height: 32px;
-    border-radius: var(--radius-md);
-    flex-shrink: 0;
-  }
-
-  .wf-icon svg {
-    width: 17px;
-    height: 17px;
-  }
-
-  .wf-arrow {
-    width: 14px;
-    height: 14px;
-    color: var(--ink-soft);
-    flex-shrink: 0;
-  }
-
-  .wf-label {
-    font-size: 0.92rem;
-    font-weight: 500;
-    color: var(--ink);
-  }
-
-  .workflow-row--accent .wf-icon {
-    background: var(--accent-soft);
-    color: var(--accent);
-  }
-
-  .workflow-row--secondary .wf-icon {
-    background: var(--secondary-soft);
-    color: var(--secondary-strong);
-  }
-
-  .hero-actions {
-    display: flex;
-    align-items: center;
-    gap: 22px;
-    margin-bottom: 28px;
-    flex-wrap: wrap;
-  }
-
-  .transcript-sample {
-    position: relative;
-    border: var(--border-width) solid var(--line);
-    border-radius: var(--radius-md);
-    background: var(--paper);
-    box-shadow: var(--shadow-md);
-    padding: 16px 18px;
-    font-family: var(--font-mono);
-    font-size: 0.78rem;
-    line-height: 1.75;
-    margin-bottom: 16px;
-  }
-
-  .transcript-sample .ts {
-    color: var(--accent);
-    margin-right: 8px;
-  }
-
-  .transcript-sample .spk {
-    color: var(--ink-soft);
-  }
-
-  .transcript-sample .cursor {
-    display: inline-block;
-    width: 7px;
-    height: 1em;
-    background: var(--accent);
-    vertical-align: text-bottom;
-    margin-left: 2px;
-  }
-
-  @media (prefers-reduced-motion: no-preference) {
-    .transcript-sample .cursor {
-      animation: blink 1s steps(1) infinite;
-    }
-  }
-
-  @keyframes blink {
-    50% {
-      opacity: 0;
-    }
-  }
-
-  .hero-fineprint {
-    margin: 0;
-    font-size: 0.82rem;
-    color: var(--ink-soft);
+  .voice-embed {
+    position: relative; /* required -- the panel is absolutely positioned */
+    height: 620px; /* required -- the panel fills the container */
+    width: 100%;
+    max-width: 420px;
+    overflow: hidden;
+    border-radius: 16px; /* our container, our corners */
   }
 </style>
