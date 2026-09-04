@@ -17,6 +17,7 @@ import subprocess
 from pathlib import Path
 from urllib.parse import urlparse
 
+from .config import settings
 from .media import probe_duration_seconds
 
 logger = logging.getLogger(__name__)
@@ -24,6 +25,15 @@ logger = logging.getLogger(__name__)
 _ALLOWED_HOSTS = {"youtube.com", "www.youtube.com", "m.youtube.com", "youtu.be", "youtube-nocookie.com"}
 _METADATA_TIMEOUT_SECONDS = 30
 _DOWNLOAD_TIMEOUT_SECONDS = 20 * 60
+
+# YouTube increasingly bot-checks requests from datacenter/VPS IPs ("Sign in
+# to confirm you're not a bot") even for public videos -- cookies from a
+# real logged-in session are yt-dlp's own recommended fix. No env var for
+# this: just a conventional path under DATA_DIR (like backend/data/ itself,
+# gitignored -- see .gitignore), placed there by hand since it has to come
+# from a real Google account, never generated or fetched by this code. Only
+# used if actually present, so dev/CI (no cookies file) is unaffected.
+_COOKIES_FILE = settings.DATA_DIR / "youtube_cookies.txt"
 
 # English only for now -- a hardcoded default rather than a new setting, same
 # as WHISPER_MODEL etc. are kept simple (see config.py).
@@ -46,6 +56,8 @@ def is_youtube_url(url: str) -> bool:
 def _run_yt_dlp(args: list[str], timeout: int) -> subprocess.CompletedProcess:
     if shutil.which("yt-dlp") is None:
         raise YoutubeDownloadError("YouTube import isn't available right now -- try uploading the file directly.")
+    if _COOKIES_FILE.is_file():
+        args = ["--cookies", str(_COOKIES_FILE), *args]
     try:
         result = subprocess.run(["yt-dlp", *args], capture_output=True, text=True, timeout=timeout)
     except subprocess.TimeoutExpired:

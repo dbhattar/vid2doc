@@ -271,7 +271,16 @@ frontend) from one `docker compose up`, not just the API.
    `stripe listen` instead — see Billing above. Test mode and live mode each
    need their own webhook endpoint registered separately.)
 6. `docker compose up -d --build`
-7. Put a reverse proxy (Caddy/nginx/Traefik) in front of it for TLS, routing
+7. YouTube import (`POST /api/convert_from_youtube`) will likely fail on a
+   VPS with `Sign in to confirm you're not a bot` -- YouTube bot-checks
+   datacenter IPs even for public videos. Fix: export cookies from a real,
+   logged-in YouTube session in a browser (e.g. the "Get cookies.txt
+   LOCALLY" extension, Netscape format) and place the file at
+   `backend/data/youtube_cookies.txt` on the VPS -- `app/youtube.py` picks
+   it up automatically (via `--cookies`) if present, no restart needed. Not
+   committed to git (`data/` is gitignored); re-export and replace it if it
+   ever stops working (exported cookies do eventually expire).
+8. Put a reverse proxy (Caddy/nginx/Traefik) in front of it for TLS, routing
    your frontend domain to the `frontend` container (port 3000) and your API
    domain to the `api` container (port 8000) — not included here, since it
    depends on your domain/certs setup. Stripe and the browser both require
