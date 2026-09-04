@@ -2,7 +2,9 @@ import type { Job } from "@/lib/jobs";
 
 // 1:1 semantic mapping onto the formal status tokens (kept separate from
 // --accent, which is also red, so a failed badge never reads as a CTA).
-const STATUS_STYLES: Record<Job["status"], string> = {
+// Exported so callers with just a status string (no full Job, e.g. the
+// admin activity feed) can render the same color/label without a job.
+export const STATUS_STYLES: Record<Job["status"], string> = {
   queued: "text-status-info",
   processing: "text-status-warning",
   awaiting_review: "text-status-info",
@@ -11,7 +13,7 @@ const STATUS_STYLES: Record<Job["status"], string> = {
   cancelled: "text-ink-soft",
 };
 
-const STATUS_LABELS: Partial<Record<Job["status"], string>> = {
+export const STATUS_LABELS: Partial<Record<Job["status"], string>> = {
   awaiting_review: "needs review",
 };
 

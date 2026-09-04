@@ -109,6 +109,38 @@ def list_users_with_stats(limit: int = 200, offset: int = 0) -> list[dict]:
         session.close()
 
 
+def get_user_with_stats(user_id: str | uuid.UUID) -> dict | None:
+    """Single-user version of list_users_with_stats -- same spent_cents/
+    job_count calculation, scoped to one user. Powers the admin drill-down
+    page's header."""
+    if isinstance(user_id, str):
+        try:
+            user_id = uuid.UUID(user_id)
+        except ValueError:
+            return None
+    session = get_session()
+    try:
+        user = session.get(User, user_id)
+        if not user:
+            return None
+        net_spent = (
+            session.query(func.sum(WalletLedgerEntry.amount_cents))
+            .filter(
+                WalletLedgerEntry.user_id == user_id,
+                WalletLedgerEntry.entry_type.in_(["usage_charge", "usage_refund"]),
+            )
+            .scalar()
+        )
+        job_count = session.query(func.count(Job.id)).filter(Job.user_id == user_id).scalar()
+        return {
+            **_user_to_dict(user),
+            "spent_cents": -int(net_spent or 0),
+            "job_count": int(job_count or 0),
+        }
+    finally:
+        session.close()
+
+
 def get_user_by_id(user_id: str | uuid.UUID) -> dict | None:
     if isinstance(user_id, str):
         try:

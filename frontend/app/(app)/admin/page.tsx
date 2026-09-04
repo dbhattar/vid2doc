@@ -1,8 +1,10 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
 
+import AdminActivityFeed, { type AdminActivityEvent } from "@/components/AdminActivityFeed";
 import Card from "@/components/Card";
 import { MicrophoneIcon, ShieldIcon, UsersIcon, VideoCameraIcon, WalletIcon } from "@/components/icons";
 import { apiFetch, ApiError } from "@/lib/api";
@@ -57,6 +59,7 @@ export default function AdminPage() {
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [users, setUsers] = useState<AdminUser[] | null>(null);
   const [feedback, setFeedback] = useState<AdminFeedback[] | null>(null);
+  const [activity, setActivity] = useState<AdminActivityEvent[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [togglingId, setTogglingId] = useState<string | null>(null);
 
@@ -82,6 +85,11 @@ export default function AdminPage() {
       });
     apiFetch<{ feedback: AdminFeedback[] }>("/api/admin/feedback")
       .then((data) => setFeedback(data.feedback))
+      .catch(() => {
+        // Non-critical for the rest of the page to render.
+      });
+    apiFetch<{ activity: AdminActivityEvent[] }>("/api/admin/activity?limit=50")
+      .then((data) => setActivity(data.activity))
       .catch(() => {
         // Non-critical for the rest of the page to render.
       });
@@ -196,7 +204,9 @@ export default function AdminPage() {
               {users.map((u) => (
                 <tr key={u.id}>
                   <td className="px-4 py-3">
-                    <p className="font-medium text-ink">{u.display_name || u.email}</p>
+                    <Link href={`/admin/users/${u.id}`} className="font-medium text-ink hover:underline">
+                      {u.display_name || u.email}
+                    </Link>
                     <p className="text-xs text-ink-soft">{u.email}</p>
                   </td>
                   <td className="px-4 py-3 text-ink-soft">{new Date(u.created_at).toLocaleDateString()}</td>
@@ -247,6 +257,13 @@ export default function AdminPage() {
             </li>
           ))}
         </ul>
+      )}
+
+      <h2 className="mt-8 font-sans text-sm font-semibold text-ink-soft">Recent activity</h2>
+      {activity === null ? (
+        <p className="mt-2 text-sm text-ink-soft">Loading...</p>
+      ) : (
+        <AdminActivityFeed events={activity} />
       )}
     </div>
   );
