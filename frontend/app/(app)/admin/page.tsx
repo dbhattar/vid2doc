@@ -41,17 +41,40 @@ type AdminFeedback = {
   created_at: string;
 };
 
-function StatCard({ icon, label, value, sub }: { icon: React.ReactNode; label: string; value: string; sub?: string }) {
-  return (
-    <Card className="p-4">
+function StatCard({
+  icon,
+  label,
+  value,
+  sub,
+  href,
+}: {
+  icon: React.ReactNode;
+  label: string;
+  value: string;
+  sub?: string;
+  href?: string;
+}) {
+  const content = (
+    <>
       <div className="flex items-center gap-2 text-ink-soft">
         {icon}
         <span className="font-sans text-xs font-medium">{label}</span>
       </div>
       <p className="mt-2 font-display text-2xl font-bold text-ink">{value}</p>
       {sub && <p className="mt-0.5 text-xs text-ink-soft">{sub}</p>}
-    </Card>
+    </>
   );
+  if (href) {
+    return (
+      <Link
+        href={href}
+        className="block rounded-lg border border-line bg-paper p-4 shadow-sm transition-all duration-150 ease-[var(--ease-spring)] hover:-translate-y-0.5 hover:border-ink"
+      >
+        {content}
+      </Link>
+    );
+  }
+  return <Card className="p-4">{content}</Card>;
 }
 
 export default function AdminPage() {
@@ -88,7 +111,7 @@ export default function AdminPage() {
       .catch(() => {
         // Non-critical for the rest of the page to render.
       });
-    apiFetch<{ activity: AdminActivityEvent[] }>("/api/admin/activity?limit=50")
+    apiFetch<{ activity: AdminActivityEvent[] }>("/api/admin/activity?limit=10")
       .then((data) => setActivity(data.activity))
       .catch(() => {
         // Non-critical for the rest of the page to render.
@@ -119,8 +142,15 @@ export default function AdminPage() {
 
   return (
     <div className="w-full px-6 py-10">
-      <h1 className="font-display text-2xl font-bold tracking-tight text-ink">Admin</h1>
-      <p className="mt-1 text-sm text-ink-soft">Platform-wide usage and revenue.</p>
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="font-display text-2xl font-bold tracking-tight text-ink">Admin</h1>
+          <p className="mt-1 text-sm text-ink-soft">Platform-wide usage and revenue.</p>
+        </div>
+        <Link href="/admin/jobs" className="text-sm font-medium text-accent hover:underline">
+          View all jobs &rarr;
+        </Link>
+      </div>
 
       {error && <p className="mt-4 text-sm text-status-error">{error}</p>}
 
@@ -147,20 +177,27 @@ export default function AdminPage() {
               label="Jobs processed"
               value={stats.job_counts.total.toLocaleString()}
               sub={`${formatBytes(stats.total_source_size_bytes)} total`}
+              href="/admin/jobs"
             />
           </div>
 
           <div className="mt-3 grid grid-cols-2 gap-3 md:grid-cols-3">
-            <Card className="flex items-center gap-2 p-4">
+            <Link
+              href="/admin/jobs?job_type=video"
+              className="flex items-center gap-2 rounded-lg border border-line bg-paper p-4 shadow-sm transition-all duration-150 ease-[var(--ease-spring)] hover:-translate-y-0.5 hover:border-ink"
+            >
               <VideoCameraIcon className="h-4 w-4 text-accent" />
               <span className="text-sm text-ink-soft">Video</span>
               <span className="ml-auto text-sm font-semibold text-ink">{stats.job_counts.video.toLocaleString()}</span>
-            </Card>
-            <Card className="flex items-center gap-2 p-4">
+            </Link>
+            <Link
+              href="/admin/jobs?job_type=audio"
+              className="flex items-center gap-2 rounded-lg border border-line bg-paper p-4 shadow-sm transition-all duration-150 ease-[var(--ease-spring)] hover:-translate-y-0.5 hover:border-ink"
+            >
               <MicrophoneIcon className="h-4 w-4 text-ink-soft" />
               <span className="text-sm text-ink-soft">Audio</span>
               <span className="ml-auto text-sm font-semibold text-ink">{stats.job_counts.audio.toLocaleString()}</span>
-            </Card>
+            </Link>
           </div>
 
           <h2 className="mt-8 font-sans text-sm font-semibold text-ink-soft">Top 5 spenders</h2>

@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from sqlalchemy import func, select, update
 
 from .db import get_session
-from .models import Job
+from .models import Job, User
 
 
 def _now() -> datetime:
@@ -252,6 +252,36 @@ def list_jobs_eligible_for_retention(cutoff: datetime) -> list[dict]:
             .all()
         )
         return [_job_to_dict(j) for j in rows]
+    finally:
+        session.close()
+
+
+def list_all_jobs(limit: int = 20, offset: int = 0, job_type: str | None = None) -> list[dict]:
+    """Every job, newest first, joined with the submitting user's identity --
+    outerjoin since legacy jobs (pre-auth) have user_id=None. Admin-only
+    (see routes/admin.py). `job_type` powers the admin dashboard's
+    Video/Audio/Jobs-processed tiles linking into a filtered view."""
+    session = get_session()
+    try:
+        query = session.query(Job, User).outerjoin(User, Job.user_id == User.id)
+        if job_type:
+            query = query.filter(Job.job_type == job_type)
+        rows = query.order_by(Job.created_at.desc()).limit(limit).offset(offset).all()
+        return [
+            {**_job_to_dict(j), "email": u.email if u else None, "display_name": u.display_name if u else None}
+            for j, u in rows
+        ]
+    finally:
+        session.close()
+
+
+def count_all_jobs(job_type: str | None = None) -> int:
+    session = get_session()
+    try:
+        query = session.query(Job)
+        if job_type:
+            query = query.filter(Job.job_type == job_type)
+        return query.count()
     finally:
         session.close()
 

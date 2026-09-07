@@ -55,6 +55,19 @@ def list_admin_activity(
     return {"activity": events, "total": total}
 
 
+@router.get("/api/admin/jobs")
+def list_admin_jobs(
+    limit: int = Query(default=20, ge=1, le=100),
+    offset: int = Query(default=0, ge=0),
+    job_type: str | None = Query(default=None, description="Filter to one job type, e.g. job_type=video"),
+    current_user: dict = Depends(get_current_admin_user),
+):
+    return {
+        "jobs": jobs.list_all_jobs(limit=limit, offset=offset, job_type=job_type),
+        "total": jobs.count_all_jobs(job_type=job_type),
+    }
+
+
 @router.get("/api/admin/users/{user_id}")
 def get_admin_user(user_id: str, current_user: dict = Depends(get_current_admin_user)):
     user = users.get_user_with_stats(user_id)

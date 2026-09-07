@@ -111,7 +111,7 @@ export function formatDuration(seconds: number | null): string {
 /** How long a finished job actually took, submission to completion --
  * distinct from duration_seconds (the length of the video/audio itself).
  * Only meaningful once a job has stopped changing (done/failed). */
-export function formatElapsed(job: Job): string {
+export function formatElapsed(job: Pick<Job, "created_at" | "updated_at">): string {
   const elapsedSeconds = (new Date(job.updated_at).getTime() - new Date(job.created_at).getTime()) / 1000;
   if (!Number.isFinite(elapsedSeconds) || elapsedSeconds < 0) return "—";
   if (elapsedSeconds < 60) return `${Math.round(elapsedSeconds)}s`;
