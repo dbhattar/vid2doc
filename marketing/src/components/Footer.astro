@@ -9,6 +9,18 @@
       <a href="mailto:contact@framewrite.cc" class="footer-contact">contact@framewrite.cc</a> &middot;
       <a href="/privacy" class="footer-contact">Privacy</a>
     </p>
+    <a
+      href="https://www.linkedin.com/company/framewrite"
+      class="footer-social"
+      target="_blank"
+      rel="noopener noreferrer"
+      aria-label="Framewrite on LinkedIn"
+      title="Framewrite on LinkedIn"
+    >
+      <svg viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+        <path d="M20.45 20.45h-3.56v-5.57c0-1.33-.02-3.03-1.85-3.03-1.85 0-2.14 1.45-2.14 2.94v5.66H9.34V9h3.41v1.56h.05c.48-.9 1.64-1.85 3.38-1.85 3.61 0 4.27 2.38 4.27 5.47v6.27ZM5.34 7.43a2.07 2.07 0 1 1 0-4.13 2.07 2.07 0 0 1 0 4.13ZM7.12 20.45H3.56V9h3.56v11.45Z" />
+      </svg>
+    </a>
   </div>
 </footer>
 
@@ -56,5 +68,24 @@
   .footer-contact:hover {
     color: var(--ink);
     text-decoration-color: currentColor;
+  }
+
+  .footer-social {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 18px;
+    height: 18px;
+    color: var(--ink-soft);
+    transition: color 150ms ease;
+  }
+
+  .footer-social:hover {
+    color: var(--ink);
+  }
+
+  .footer-social svg {
+    width: 100%;
+    height: 100%;
   }
 </style>
