@@ -27,8 +27,17 @@ export type ReadyMessage = { type: "ready" };
 export type PartialMessage = { type: "partial"; text: string };
 
 /** A VAD-endpointed turn has been fully decoded. `startTs`/`endTs` are seconds since this
- * worker (i.e. this recording session) started, matching LiveTurn's contract. */
-export type FinalMessage = { type: "final"; text: string; startTs: number; endTs: number };
+ * worker (i.e. this recording session) started, matching LiveTurn's contract. `embedding` is
+ * a best-effort speaker embedding for this turn's audio (from the custom speaker-embedding
+ * WASM build, see the worker's module comment) -- omitted whenever that module isn't ready
+ * yet or extraction failed for this turn, matching LiveTurn.embedding's own optionality. */
+export type FinalMessage = {
+  type: "final";
+  text: string;
+  startTs: number;
+  endTs: number;
+  embedding?: Float32Array;
+};
 
 /** Acks a `flush` request once any trailing speech has been drained into `final` messages
  * (or determined to be empty) -- lets stop() know it's safe to tear the worker down. */

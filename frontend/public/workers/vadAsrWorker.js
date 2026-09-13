@@ -12,13 +12,26 @@ function fail(message) {
 // harmless, but noisy in production. Passing this explicit copy (identical to
 // that default in every other field) is the only way to turn it off, since
 // createVad() replaces the whole config wholesale rather than merging one in.
+// maxSpeechDuration: the bundled Moonshine ASR model (moonshine-encoder.ort +
+// moonshine-merged-decoder.ort) has a HARD, fixed-shape input-length limit -- confirmed via
+// a Node reproduction harness (fed recognizer.decode() directly, bypassing VAD/mic
+// entirely) with single-sample precision: exactly 148350 samples (9.2719s @ 16kHz) decodes
+// fine, 148351 throws every time, deterministically, regardless of audio content. Below
+// that too, quality degrades noticeably well before the hard failure (garbage/repeated text
+// by ~9s). VAD hands its own front()/pop() segment straight to decodeSamples() as the
+// `final` text with no length check of our own, so if this ever exceeded ~9.27s (the old
+// value here was 20s), a long enough uninterrupted utterance would throw on the actual
+// saved transcript, not just the live preview -- see MAX_PARTIAL_PREVIEW_SAMPLES below for
+// the matching preview-side fix. 8s leaves a safety margin under the measured 9.2719s
+// boundary (VAD may not split at the exact instant this duration is crossed).
+const MAX_SAFE_ASR_INPUT_SECONDS = 8;
 const VAD_CONFIG = {
     sileroVad: {
         model: "./silero_vad.onnx",
         threshold: 0.5,
         minSilenceDuration: 0.5,
         minSpeechDuration: 0.25,
-        maxSpeechDuration: 20,
+        maxSpeechDuration: MAX_SAFE_ASR_INPUT_SECONDS,
         windowSize: 512,
     },
     tenVad: {
@@ -26,7 +39,7 @@ const VAD_CONFIG = {
         threshold: 0.5,
         minSilenceDuration: 0.5,
         minSpeechDuration: 0.25,
-        maxSpeechDuration: 20,
+        maxSpeechDuration: MAX_SAFE_ASR_INPUT_SECONDS,
         windowSize: 256,
     },
     sampleRate: 16000,
@@ -36,28 +49,48 @@ const VAD_CONFIG = {
     bufferSizeInSeconds: 30,
 };
 // ---- constants ----------------------------------------------------------------------
+// Confirmed NOT the cause of the "sherpa-onnx decode failed" reports (reproduced with this
+// off, decode still failed) -- left as a toggle in case it's useful again, but back on.
+const EMBEDDING_ENABLED = true;
 const WASM_BASE = "/wasm/vad-asr/";
+const EMBEDDING_WASM_BASE = "/wasm/speaker-embedding/";
+// Virtual-FS path the model was preloaded at when the WASM build was compiled
+// (--preload-file assets@., with assets/embedding.onnx inside) -- not a real path on disk
+// here, see frontend/native/sherpa-speaker-embedding/README.md.
+const EMBEDDING_MODEL_PATH = "./embedding.onnx";
 const SAMPLE_RATE = 16000;
 // Re-decode the in-progress utterance for a `partial` preview at most this often.
 const PARTIAL_INTERVAL_SAMPLES = Math.round(SAMPLE_RATE * 0.6);
 // Don't bother decoding a partial until there's at least this much speech buffered.
 const PARTIAL_MIN_SAMPLES = Math.round(SAMPLE_RATE * 0.3);
-// Cap on the in-progress-utterance buffer kept for the `partial` preview. VAD_CONFIG's
-// own maxSpeechDuration (20s) forces speech to split into `final` segments periodically
-// even without a pause -- but VAD keeps reporting isDetected()==true continuously through
-// that forced split for genuinely unbroken speech, and this buffer only resets on an
-// actual pause (see wasDetected below). Without this cap, one long uninterrupted
-// monologue re-decodes an ever-growing buffer every ~0.6s indefinitely, which has been
-// observed to crash the ASR decoder outright once it gets large enough. Sized a little
-// past VAD_CONFIG.sileroVad.maxSpeechDuration so the preview still normally spans one
-// full VAD segment; it's a cosmetic live-caption preview only, not the source of truth
-// for the eventual `final` text (that always comes from VAD's own front()/pop() segment).
-const MAX_PARTIAL_PREVIEW_SAMPLES = SAMPLE_RATE * 25;
+// Cap on the in-progress-utterance buffer kept for the `partial` preview. VAD_CONFIG's own
+// maxSpeechDuration forces speech to split into `final` segments periodically even without
+// a pause -- but VAD keeps reporting isDetected()==true continuously through that forced
+// split for genuinely unbroken speech, and this buffer only resets on an actual pause (see
+// wasDetected below). Without this cap, one long uninterrupted monologue re-decodes an
+// ever-growing buffer every ~0.6s indefinitely, which WILL crash the ASR decoder outright
+// once it crosses the hard ~9.27s input-length limit documented above
+// MAX_SAFE_ASR_INPUT_SECONDS -- and, unlike a single bad `final` segment, every subsequent
+// (larger) partial re-decode fails too, forever, until a real pause resets utteranceChunks
+// to empty. Sized a little past VAD_CONFIG.sileroVad.maxSpeechDuration (same margin logic)
+// so the preview still normally spans one full VAD segment; it's a cosmetic live-caption
+// preview only, not the source of truth for the eventual `final` text (that always comes
+// from VAD's own front()/pop() segment).
+const MAX_PARTIAL_PREVIEW_SAMPLES = SAMPLE_RATE * (MAX_SAFE_ASR_INPUT_SECONDS + 0.5);
 // ---- module state ---------------------------------------------------------------------
 let vad = null;
 let circularBuffer = null;
 let recognizer = null;
 let ready = false;
+// Loaded independently of (and never gates) the vad-asr `ready` flag above -- speaker
+// labeling is a best-effort layer on top of the transcript, not a hard dependency. If this
+// never becomes true (slow network, unsupported browser, load failure), every `final`
+// message just omits `embedding` and the main thread's degrade-to-one-speaker fallback
+// applies (see lib/liveEngine.ts's LiveTurn.embedding doc comment).
+let embeddingModule = null;
+let embeddingExtractor = 0;
+let embeddingDim = 0;
+let embeddingReady = false;
 // Raw (already 16kHz) samples of the utterance currently in progress, kept purely for the
 // `partial` preview -- cleared whenever VAD is no longer in the "detected" state. This is
 // separate from the VAD's own internal buffering; the VAD's `front()`/`pop()` segment
@@ -113,9 +146,33 @@ function downsampleTo16k(input, inputSampleRate) {
     carry.offset = carry.offset + outLength * ratio - input.length;
     return out;
 }
-function decodeSamples(samples) {
+let decodeCallCount = 0;
+let decodeFailCount = 0;
+let lastLoggedNativeSampleRate = null;
+// Real mic hardware/drivers/Bluetooth codecs occasionally emit NaN/Infinity samples (AGC
+// glitches, device hot-swaps) that clean synthetic audio never produces -- and an ONNX
+// model choking on non-finite input is exactly the kind of thing that surfaces as an opaque
+// C++ exception (a raw pointer, not a message) in this build. Cheap to check, worth ruling
+// in/out explicitly rather than guessing blind.
+function countNonFinite(samples) {
+    let count = 0;
+    for (let i = 0; i < samples.length; i++) {
+        if (!Number.isFinite(samples[i]))
+            count++;
+    }
+    return count;
+}
+// Decodes one chunk, already guaranteed <= MAX_SAFE_ASR_INPUT_SECONDS (see decodeSamples
+// below, the only caller). Never throws -- a failure here is logged and treated as "no text
+// for this chunk", same as an empty result.
+function decodeOneChunk(samples) {
     if (!recognizer)
         return "";
+    decodeCallCount++;
+    const nonFinite = countNonFinite(samples);
+    if (nonFinite > 0) {
+        console.warn(`sherpa-onnx: ${nonFinite}/${samples.length} non-finite (NaN/Infinity) samples in this ${(samples.length / SAMPLE_RATE).toFixed(2)}s buffer before decode call #${decodeCallCount}`);
+    }
     const stream = recognizer.createStream();
     try {
         stream.acceptWaveform(SAMPLE_RATE, samples);
@@ -124,16 +181,42 @@ function decodeSamples(samples) {
         return (result.text || "").trim();
     }
     catch (err) {
+        decodeFailCount++;
         // A single bad decode (e.g. a pathological input the ONNX model rejects) shouldn't
         // take down the whole live session -- log it for debugging and just skip this turn's
         // text, same as if the model had returned nothing. Deliberately NOT calling fail()
         // here: that posts a fatal error the main thread tears the whole session down for.
-        console.error("sherpa-onnx decode failed, skipping this turn:", err);
+        console.error(`sherpa-onnx decode failed, skipping this chunk (call #${decodeCallCount}, ${decodeFailCount} failures so far, ` +
+            `buffer ${samples.length} samples = ${(samples.length / SAMPLE_RATE).toFixed(2)}s, ${nonFinite} non-finite):`, err);
         return "";
     }
     finally {
         stream.free();
     }
+}
+const MAX_SAFE_ASR_INPUT_SAMPLES = Math.round(SAMPLE_RATE * MAX_SAFE_ASR_INPUT_SECONDS);
+// Splits into MAX_SAFE_ASR_INPUT_SECONDS-sized chunks before decoding, rather than handing
+// arbitrarily long buffers straight to decodeOneChunk. This is a hard safety net independent
+// of VAD_CONFIG.sileroVad.maxSpeechDuration above: confirmed empirically that a genuinely
+// continuous utterance with literally no dip below the VAD threshold doesn't always get
+// force-split as promptly as that setting implies -- one test produced a 13s `final` segment
+// despite an 8s maxSpeechDuration, which still crashed the ASR model. This function is the
+// actual guarantee; VAD's own cap just means it rarely has to do more than one chunk's worth
+// of work in practice. Splitting (not truncating) so no speech is silently dropped -- each
+// chunk is decoded independently and the text concatenated, so a chunk boundary landing
+// mid-word may cost a little accuracy right at that boundary, but never loses whole
+// sentences the way truncation would.
+function decodeSamples(samples) {
+    if (samples.length <= MAX_SAFE_ASR_INPUT_SAMPLES) {
+        return decodeOneChunk(samples);
+    }
+    const parts = [];
+    for (let offset = 0; offset < samples.length; offset += MAX_SAFE_ASR_INPUT_SAMPLES) {
+        const text = decodeOneChunk(samples.subarray(offset, offset + MAX_SAFE_ASR_INPUT_SAMPLES));
+        if (text)
+            parts.push(text);
+    }
+    return parts.join(" ");
 }
 // Drops the oldest buffered chunks (front of the array, in push order) until back under
 // MAX_PARTIAL_PREVIEW_SAMPLES, so one long unbroken monologue only ever re-decodes a
@@ -155,7 +238,92 @@ function emitPartialIfDue() {
         post({ type: "partial", text });
     }
 }
+function cStr(mod, str) {
+    const len = mod.lengthBytesUTF8(str) + 1;
+    const ptr = mod._malloc(len);
+    mod.stringToUTF8(str, ptr, len);
+    return ptr;
+}
+// Loads the custom speaker-embedding WASM build and creates one extractor for the whole
+// session (a fresh *stream* per turn, further below, is what actually holds a turn's
+// samples). Runs independently of loadWasmModule()/the vad-asr build -- kicked off
+// alongside it at the bottom of this file -- and never posts a fatal `error`: any failure
+// here just leaves embeddingReady false, logged for debugging, per the degradation
+// rationale on the module state above.
+async function loadEmbeddingModule() {
+    try {
+        importScripts(EMBEDDING_WASM_BASE + "sherpa-onnx-wasm-main-speaker-embedding.js");
+        const mod = await createSherpaOnnxSpeakerEmbeddingModule({
+            locateFile: (path) => EMBEDDING_WASM_BASE + path,
+        });
+        // SherpaOnnxSpeakerEmbeddingExtractorConfig: { const char *model; int32 num_threads;
+        // int32 debug; const char *provider; } -- 4 fields x 4 bytes, matches test-embedding.js.
+        const modelPtr = cStr(mod, EMBEDDING_MODEL_PATH);
+        const providerPtr = cStr(mod, "cpu");
+        const configPtr = mod._malloc(16);
+        mod.setValue(configPtr + 0, modelPtr, "i32");
+        mod.setValue(configPtr + 4, 1, "i32");
+        mod.setValue(configPtr + 8, 0, "i32");
+        mod.setValue(configPtr + 12, providerPtr, "i32");
+        const extractor = mod.ccall("SherpaOnnxCreateSpeakerEmbeddingExtractor", "number", ["number"], [configPtr]);
+        mod._free(modelPtr);
+        mod._free(providerPtr);
+        mod._free(configPtr);
+        if (!extractor) {
+            throw new Error("SherpaOnnxCreateSpeakerEmbeddingExtractor returned NULL");
+        }
+        embeddingModule = mod;
+        embeddingExtractor = extractor;
+        embeddingDim = mod.ccall("SherpaOnnxSpeakerEmbeddingExtractorDim", "number", ["number"], [extractor]);
+        embeddingReady = true;
+    }
+    catch (err) {
+        console.error("Speaker-embedding WASM module failed to load -- diarization will degrade to a single speaker:", err);
+    }
+}
+// Best-effort speaker embedding for one already-VAD-finalized turn's samples (16kHz,
+// matching SAMPLE_RATE) -- returns null (never throws) on any failure, same
+// one-speaker-fallback rationale as loadEmbeddingModule above. A fresh stream per call
+// mirrors test-embedding.js's proven usage; the extractor itself is reused for the whole
+// session.
+function computeEmbeddingForSegment(samples) {
+    if (!embeddingReady || !embeddingModule || !embeddingExtractor)
+        return null;
+    const mod = embeddingModule;
+    let stream = 0;
+    let samplesPtr = 0;
+    try {
+        stream = mod.ccall("SherpaOnnxSpeakerEmbeddingExtractorCreateStream", "number", ["number"], [embeddingExtractor]);
+        samplesPtr = mod._malloc(samples.length * 4);
+        mod.HEAPF32.set(samples, samplesPtr / 4);
+        mod.ccall("SherpaOnnxOnlineStreamAcceptWaveform", null, ["number", "number", "number", "number"], [stream, SAMPLE_RATE, samplesPtr, samples.length]);
+        mod.ccall("SherpaOnnxOnlineStreamInputFinished", null, ["number"], [stream]);
+        const isReady = mod.ccall("SherpaOnnxSpeakerEmbeddingExtractorIsReady", "number", ["number", "number"], [embeddingExtractor, stream]);
+        if (!isReady)
+            return null;
+        const embPtr = mod.ccall("SherpaOnnxSpeakerEmbeddingExtractorComputeEmbedding", "number", ["number", "number"], [embeddingExtractor, stream]);
+        if (!embPtr)
+            return null;
+        const embedding = new Float32Array(embeddingDim);
+        for (let i = 0; i < embeddingDim; i++) {
+            embedding[i] = mod.getValue(embPtr + i * 4, "float");
+        }
+        mod.ccall("SherpaOnnxSpeakerEmbeddingExtractorDestroyEmbedding", null, ["number"], [embPtr]);
+        return embedding;
+    }
+    catch (err) {
+        console.error("Speaker-embedding extraction failed for this turn, skipping:", err);
+        return null;
+    }
+    finally {
+        if (stream)
+            mod.ccall("SherpaOnnxDestroyOnlineStream", null, ["number"], [stream]);
+        if (samplesPtr)
+            mod._free(samplesPtr);
+    }
+}
 function drainFinishedSegments() {
+    var _a;
     if (!vad)
         return;
     while (!vad.isEmpty()) {
@@ -165,7 +333,8 @@ function drainFinishedSegments() {
         if (text) {
             const startTs = segment.start / SAMPLE_RATE;
             const endTs = startTs + segment.samples.length / SAMPLE_RATE;
-            post({ type: "final", text, startTs, endTs });
+            const embedding = (_a = computeEmbeddingForSegment(segment.samples)) !== null && _a !== void 0 ? _a : undefined;
+            post({ type: "final", text, startTs, endTs, embedding });
         }
     }
 }
@@ -256,6 +425,13 @@ ctx.onmessage = (ev) => {
         return;
     }
     if (msg.type === "pcm") {
+        // TEMPORARY diagnostic -- see decodeSamples' comment. Logs once per distinct native
+        // rate seen (should be exactly once per session; more than once would itself be a clue
+        // -- e.g. a device switch mid-session).
+        if (msg.sampleRate !== lastLoggedNativeSampleRate) {
+            lastLoggedNativeSampleRate = msg.sampleRate;
+            console.log(`sherpa-onnx: native capture sample rate = ${msg.sampleRate}Hz, chunk = ${msg.samples.length} samples`);
+        }
         const samples16k = downsampleTo16k(msg.samples, msg.sampleRate);
         if (samples16k.length > 0) {
             processSamples(samples16k);
@@ -272,3 +448,9 @@ ctx.onmessage = (ev) => {
     }
 };
 loadWasmModule();
+// Loaded independently, in parallel -- never blocks vad-asr's own `ready` gate above (see
+// the module-state comment on embeddingReady). Gated by EMBEDDING_ENABLED above for now --
+// see that constant's comment.
+if (EMBEDDING_ENABLED) {
+    loadEmbeddingModule();
+}

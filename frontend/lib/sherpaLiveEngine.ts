@@ -1,11 +1,12 @@
 // Real implementation of LiveEngineFactory (see lib/liveEngine.ts), backed by
-// sherpa-onnx's official `vad-asr` WebAssembly build running entirely on-device (see
-// plan/realtime-diarization-plan.md). This file owns everything on the main thread: mic
-// capture via an AudioWorkletNode (raw PCM, not MediaRecorder -- the recognizer needs
-// samples, not a compressed container), and talking to the dedicated
-// workers/vadAsrWorker.ts over postMessage. All WASM/model loading and inference happens
-// in that worker, off the UI thread; this file only ever sees partial/final text and
-// timestamps coming back.
+// sherpa-onnx's official `vad-asr` WebAssembly build plus our custom speaker-embedding WASM
+// build, both running entirely on-device (see plan/realtime-diarization-plan.md). This file
+// owns everything on the main thread: mic capture via an AudioWorkletNode (raw PCM, not
+// MediaRecorder -- the recognizer needs samples, not a compressed container), and talking
+// to the dedicated workers/vadAsrWorker.ts over postMessage. All WASM/model loading and
+// inference happens in that worker, off the UI thread; this file only ever sees
+// partial/final text, timestamps, and (best-effort, see the worker's own comments) a
+// per-turn speaker embedding coming back.
 import type { LiveEngineCallbacks, LiveEngineFactory, LiveEngineHandle, LiveTurn } from "@/lib/liveEngine";
 import type { MainToWorkerMessage, WorkerToMainMessage } from "@/workers/vadAsrProtocol";
 
@@ -88,7 +89,7 @@ export const createSherpaLiveEngine: LiveEngineFactory = async (
     if (msg.type === "partial") {
       callbacks.onPartial(msg.text);
     } else if (msg.type === "final") {
-      const turn: LiveTurn = { text: msg.text, startTs: msg.startTs, endTs: msg.endTs };
+      const turn: LiveTurn = { text: msg.text, startTs: msg.startTs, endTs: msg.endTs, embedding: msg.embedding };
       callbacks.onFinal(turn);
     } else if (msg.type === "error") {
       callbacks.onError(msg.message);
