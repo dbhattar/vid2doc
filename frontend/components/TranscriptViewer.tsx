@@ -12,6 +12,7 @@ export default function TranscriptViewer({ jobId }: { jobId: string }) {
   const [names, setNames] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+  const [summarizing, setSummarizing] = useState(false);
 
   useEffect(() => {
     apiFetch<TranscriptData>(`/api/documents/${jobId}/transcript.json`)
@@ -41,6 +42,19 @@ export default function TranscriptViewer({ jobId }: { jobId: string }) {
     }
   }
 
+  async function handleGenerateSummary() {
+    setSummarizing(true);
+    setError(null);
+    try {
+      const updated = await apiFetch<TranscriptData>(`/api/jobs/${jobId}/summary`, { method: "POST" });
+      setData(updated);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Failed to generate summary.");
+    } finally {
+      setSummarizing(false);
+    }
+  }
+
   if (error) return <p className="mt-6 text-sm text-status-error">{error}</p>;
   if (!data) return <p className="mt-6 text-sm text-ink-soft">Loading transcript...</p>;
 
@@ -56,12 +70,15 @@ export default function TranscriptViewer({ jobId }: { jobId: string }) {
     <div className="mt-6 rounded-lg border border-line bg-paper p-6 shadow-sm">
       <h2 className="font-display text-lg font-bold text-ink">Transcript</h2>
 
-      {data.summary && (
-        <div className="mt-3 rounded-md bg-paper-shade p-3 text-sm text-ink">
-          <p className="mb-1 text-xs font-semibold text-ink-soft">Summary</p>
-          <p>{data.summary}</p>
+      <div className="mt-3 rounded-md bg-paper-shade p-3 text-sm text-ink">
+        <div className="mb-1 flex items-center justify-between gap-2">
+          <p className="text-xs font-semibold text-ink-soft">Summary</p>
+          <Button variant="outline" onClick={handleGenerateSummary} disabled={summarizing}>
+            {summarizing ? "Generating..." : data.summary ? "Regenerate" : "Generate summary"}
+          </Button>
         </div>
-      )}
+        {data.summary ? <p>{data.summary}</p> : <p className="text-ink-soft">No summary yet.</p>}
+      </div>
 
       {data.speakers.length > 1 && (
         <div className="mt-4 flex h-2 overflow-hidden rounded-full bg-paper-shade">

@@ -65,6 +65,37 @@ def _normalize_speaker_labels(segments: list[dict]) -> list[str]:
     return list(label_map.values())
 
 
+def _merge_consecutive_same_speaker(segments: list[dict]) -> list[dict]:
+    """Consecutive segments already carrying the same normalized speaker label
+    (see _normalize_speaker_labels above) are one continuous turn, split into
+    several only by an upstream chunking limit -- transcribe.py's own
+    _merge_fragments caps a fragment at MERGE_MAX_PARAGRAPH_CHARS (400) even
+    mid-turn, and diarization engines emit their own per-utterance
+    boundaries regardless of speaker continuity. Collapsing those back into
+    one block, right after normalization, gives both generate_summary() and
+    _verbatim_transcript_sections() a transcript organized by actual speaker
+    turn rather than several small same-speaker fragments in a row -- this
+    was previously a real quality problem for very short live-diarized
+    turns in particular (see lib/speakerMatch.ts's threshold comment):
+    a speaker misidentified for one short segment, then correctly
+    identified again a moment later, used to render as three separate,
+    confusing turns instead of one. No length/gap cap here (unlike
+    transcribe.py's merge) -- these are already known to be the same
+    speaker, so there's no risk of merging across an actual speaker
+    change, only of leaving it needlessly fragmented."""
+    if not segments:
+        return []
+    merged = [dict(segments[0])]
+    for s in segments[1:]:
+        last = merged[-1]
+        if s["speaker"] == last["speaker"]:
+            last["text"] = f"{last['text']} {s['text']}".strip()
+            last["end_ts"] = s.get("end_ts", last.get("end_ts"))
+        else:
+            merged.append(dict(s))
+    return merged
+
+
 def _fallback_sections(segments: list[dict]) -> list[dict]:
     """No LLM configured: still produce a document, just the raw merged
     transcript under one heading instead of a composed, topic-organized one."""
@@ -439,24 +470,21 @@ def run_job(job: dict) -> None:
 
         if is_audio_job:
             # No frame capture, no classification, no LLM document
-            # composition -- just the verbatim, speaker-tagged transcript
-            # plus (if an LLM is configured) a short summary. Keep whatever
+            # composition -- just the verbatim, speaker-tagged transcript.
+            # Summary generation is a separate, user-triggered action (see
+            # routes/transcript.py's POST /api/jobs/{job_id}/summary) rather
+            # than automatic here -- for a live-diarized recording in
+            # particular, speaker identity can still be wrong by the time a
+            # job first finishes processing, and a summary written against
+            # incorrect speaker attribution reads badly; letting the user
+            # fix names/re-run diarization expectations first, then generate
+            # the summary on demand, avoids baking that in. Keep whatever
             # title was already set from the uploaded filename (see
             # routes/audio.py).
             segments = _transcribe_segments(job, output_dir)
             normalized_speakers = _normalize_speaker_labels(segments)
+            segments = _merge_consecutive_same_speaker(segments)
             summary = ""
-            if _llm_available():
-                # Cancellation check deliberately outside the try below --
-                # that except is a soft-fail for summary generation
-                # specifically, and must never swallow a JobCancelled
-                # meant for the outer run_job try/except.
-                _check_not_cancelled(job_id)
-                jobs.update_job(job_id, progress_stage="summarizing")
-                try:
-                    summary = compose.generate_summary(segments)
-                except Exception as e:
-                    print(f"Summary generation failed for job {job_id}: {e}", flush=True)
             sections = _build_audio_sections(segments, summary)
             title = job.get("title") or "Audio Transcript"
             transcript_json = json.dumps({

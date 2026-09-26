@@ -17,9 +17,13 @@ type Status = "idle" | "starting" | "recording" | "finalizing";
 
 type FinalizedTurn = { speaker: string; text: string; start_ts: number; end_ts: number };
 
-// No speaker embedding available yet for a turn (engine still loading it, or
-// running in a browser that can't support it) -- everything collapses into
-// one speaker rather than failing the whole recording. See
+// Fallback for the very first turn of a session, if even that one has no usable embedding
+// (engine still loading it, browser can't support it, or the turn was too short for a
+// reliable embedding -- see workers/vadAsrWorker.ts's MIN_RELIABLE_EMBEDDING_SECONDS). Every
+// later turn without a usable embedding instead reuses the previous turn's speaker (see
+// lastSpeakerRef below) -- a short, unreliable-to-embed segment is far more likely to be a
+// continuation of whoever was just speaking than a brand-new person, so that's a safer
+// default than resetting to this label mid-conversation. See
 // plan/realtime-diarization-plan.md's degradation path.
 const UNKNOWN_SPEAKER_LABEL = "Speaker 1";
 
@@ -37,6 +41,7 @@ export default function LivePage() {
   const recorderRef = useRef<MediaRecorder | null>(null);
   const recordedChunksRef = useRef<Blob[]>([]);
   const registryRef = useRef<SpeakerRegistry>(createSpeakerRegistry());
+  const lastSpeakerRef = useRef<string | null>(null);
 
   const elapsedSeconds = useElapsedSeconds(recordingStartedAt ?? new Date().toISOString(), status === "recording");
 
@@ -80,6 +85,7 @@ export default function LivePage() {
       }
 
       registryRef.current = createSpeakerRegistry();
+      lastSpeakerRef.current = null;
       setTurns([]);
       setPartialText("");
 
@@ -88,7 +94,8 @@ export default function LivePage() {
         onFinal: (turn: LiveTurn) => {
           const speaker = turn.embedding
             ? matchOrRegisterSpeaker(registryRef.current, turn.embedding)
-            : UNKNOWN_SPEAKER_LABEL;
+            : (lastSpeakerRef.current ?? UNKNOWN_SPEAKER_LABEL);
+          lastSpeakerRef.current = speaker;
           setTurns((prev) => [...prev, { speaker, text: turn.text, start_ts: turn.startTs, end_ts: turn.endTs }]);
           setPartialText("");
         },

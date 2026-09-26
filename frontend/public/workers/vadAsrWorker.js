@@ -58,6 +58,18 @@ const EMBEDDING_WASM_BASE = "/wasm/speaker-embedding/";
 // (--preload-file assets@., with assets/embedding.onnx inside) -- not a real path on disk
 // here, see frontend/native/sherpa-speaker-embedding/README.md.
 const EMBEDDING_MODEL_PATH = "./embedding.onnx";
+// Below this, a speaker embedding is unreliable enough to do more harm than good -- the
+// model's own verification (frontend/native/sherpa-speaker-embedding/README.md) measured
+// same/different-speaker separation on 2-4s clips; VAD's own minSpeechDuration (0.25s,
+// below) lets much shorter segments through, and a noisy embedding from just a few hundred
+// ms of audio is exactly the kind of input that can fall below matchOrRegisterSpeaker's
+// similarity threshold against the true speaker's own past embeddings, spuriously
+// registering a brand-new speaker for what was actually a short interjection by someone
+// already in the conversation. Segments shorter than this skip embedding entirely (see
+// computeEmbeddingForSegment) -- `embedding` comes back undefined, and the live page falls
+// back to the previous turn's speaker (a much safer default for a short segment than a
+// fresh, unreliable match) rather than guessing wrong with false confidence.
+const MIN_RELIABLE_EMBEDDING_SECONDS = 1.2;
 const SAMPLE_RATE = 16000;
 // Re-decode the in-progress utterance for a `partial` preview at most this often.
 const PARTIAL_INTERVAL_SAMPLES = Math.round(SAMPLE_RATE * 0.6);
@@ -288,6 +300,8 @@ async function loadEmbeddingModule() {
 // session.
 function computeEmbeddingForSegment(samples) {
     if (!embeddingReady || !embeddingModule || !embeddingExtractor)
+        return null;
+    if (samples.length < MIN_RELIABLE_EMBEDDING_SECONDS * SAMPLE_RATE)
         return null;
     const mod = embeddingModule;
     let stream = 0;
