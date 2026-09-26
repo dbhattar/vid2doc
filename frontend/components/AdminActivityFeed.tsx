@@ -15,7 +15,17 @@ type BaseEvent = {
 
 export type AdminActivityEvent =
   | (BaseEvent & { type: "job"; job_id: string; job_type: JobType; status: JobStatus; title: string | null })
-  | (BaseEvent & { type: "wallet"; entry_type: "topup" | "usage_charge" | "usage_refund"; amount_cents: number })
+  | (BaseEvent & {
+      type: "wallet";
+      entry_type: "topup" | "usage_charge" | "usage_refund" | "signup_bonus";
+      amount_cents: number;
+      // Only set for usage_charge/usage_refund -- a topup/signup_bonus has no related job.
+      // job_id/job_type can still be null even then if the related job no longer exists
+      // (related_job_id is deliberately not a DB foreign key, see backend/app/models.py).
+      job_id: string | null;
+      job_type: JobType | null;
+      job_title: string | null;
+    })
   | (BaseEvent & { type: "feedback"; message: string });
 
 const JOB_TYPE_ICONS: Record<JobType, (props: { className?: string }) => React.ReactElement> = {
@@ -47,8 +57,19 @@ function eventText(event: AdminActivityEvent): React.ReactNode {
   if (event.type === "wallet") {
     const amount = formatCents(Math.abs(event.amount_cents));
     if (event.entry_type === "topup") return `Added ${amount} to wallet`;
-    if (event.entry_type === "usage_refund") return `Refunded ${amount}`;
-    return `Charged ${amount} for a job`;
+    if (event.entry_type === "signup_bonus") return `Received ${amount} signup bonus`;
+    // usage_charge/usage_refund: job_type is null if the related job no longer exists
+    // (related_job_id isn't a DB foreign key, see backend/app/models.py) -- falls back to
+    // the old job-agnostic phrasing only in that edge case.
+    const jobDescription = event.job_type ? (
+      <>
+        {JOB_TYPE_LABELS[event.job_type]} job{event.job_title && <>: &ldquo;{event.job_title}&rdquo;</>}
+      </>
+    ) : (
+      "a job"
+    );
+    if (event.entry_type === "usage_refund") return <>Refunded {amount} for {jobDescription}</>;
+    return <>Charged {amount} for {jobDescription}</>;
   }
   return (
     <>

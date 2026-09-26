@@ -25,7 +25,14 @@ def _job_event(job: Job, user: User) -> dict:
     }
 
 
-def _wallet_event(entry: WalletLedgerEntry, user: User) -> dict:
+def _wallet_event(entry: WalletLedgerEntry, user: User, job: Job | None) -> dict:
+    """`job` is the row related_job_id points at, if any (usage_charge/
+    usage_refund only -- topup/signup_bonus entries have no related job) and
+    if it still exists (related_job_id is deliberately not a DB foreign key,
+    see models.py) -- outer-joined by the caller, so this is None rather
+    than an error for either case. Included so the admin activity feed can
+    show which job a charge/refund was actually for, instead of the
+    job-agnostic "for a job" it used to say unconditionally."""
     return {
         "id": f"wallet:{entry.id}",
         "type": "wallet",
@@ -35,6 +42,9 @@ def _wallet_event(entry: WalletLedgerEntry, user: User) -> dict:
         "created_at": entry.created_at,
         "entry_type": entry.entry_type,
         "amount_cents": entry.amount_cents,
+        "job_id": job.id if job else None,
+        "job_type": job.job_type if job else None,
+        "job_title": job.title if job else None,
     }
 
 
@@ -75,8 +85,9 @@ def list_recent_activity(limit: int = 50, offset: int = 0) -> tuple[list[dict], 
             .all()
         )
         wallet_rows = (
-            session.query(WalletLedgerEntry, User)
+            session.query(WalletLedgerEntry, User, Job)
             .join(User, WalletLedgerEntry.user_id == User.id)
+            .outerjoin(Job, Job.id == WalletLedgerEntry.related_job_id)
             .order_by(WalletLedgerEntry.created_at.desc())
             .limit(fetch_n)
             .all()
@@ -90,7 +101,7 @@ def list_recent_activity(limit: int = 50, offset: int = 0) -> tuple[list[dict], 
         )
         events = _merge_sorted(
             [_job_event(j, u) for j, u in job_rows],
-            [_wallet_event(w, u) for w, u in wallet_rows],
+            [_wallet_event(w, u, wj) for w, u, wj in wallet_rows],
             [_feedback_event(f, u) for f, u in feedback_rows],
         )
         total = (
@@ -120,8 +131,9 @@ def list_activity_for_user(user_id: str | uuid.UUID, limit: int = 20, offset: in
             .all()
         )
         wallet_rows = (
-            session.query(WalletLedgerEntry)
-            .filter_by(user_id=user_id)
+            session.query(WalletLedgerEntry, Job)
+            .filter(WalletLedgerEntry.user_id == user_id)
+            .outerjoin(Job, Job.id == WalletLedgerEntry.related_job_id)
             .order_by(WalletLedgerEntry.created_at.desc())
             .limit(fetch_n)
             .all()
@@ -135,7 +147,7 @@ def list_activity_for_user(user_id: str | uuid.UUID, limit: int = 20, offset: in
         )
         events = _merge_sorted(
             [_job_event(j, user) for j in job_rows],
-            [_wallet_event(w, user) for w in wallet_rows],
+            [_wallet_event(w, user, j) for w, j in wallet_rows],
             [_feedback_event(f, user) for f in feedback_rows],
         )
         total = (
