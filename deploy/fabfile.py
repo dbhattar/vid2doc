@@ -38,10 +38,25 @@ Every privileged step uses `c.sudo(...)`, so the SSH user needs sudo rights.
 Passwordless sudo is easiest; otherwise add `--prompt-for-sudo-password` to
 the `fab` invocation and Fabric will ask once per run.
 
-`.env` is never touched by any task here on purpose -- it holds production
-secrets (Stripe keys, JWT secret, DB password) that shouldn't be scripted
-into a file that gets committed or passed around. Create it by hand, once.
+`.env` is never hand-authored by any task here -- it holds production secrets
+(Stripe keys, JWT secret, DB password) that shouldn't be hardcoded into a file
+that gets committed or passed around. Create it by hand, once:
+
+    cp /opt/framewrite/backend/.env.example /opt/framewrite/backend/.env
+    $EDITOR /opt/framewrite/backend/.env
+
+set-env below is the one exception -- it updates a single KEY=VALUE pair
+from the command line (e.g. to flip TRANSCRIPTION_ENGINE or rotate one key
+without opening an editor), but nothing about .env's actual secret values is
+ever written into this script itself; `value` only ever comes from what you
+type on the command line for that one invocation:
+
+    fab ... set-env --key=TRANSCRIPTION_ENGINE --value=baseten
 """
+
+import os
+import re
+import tempfile
 
 from fabric import task
 
@@ -271,18 +286,117 @@ def deploy(c):
     c.sudo(f"bash -c 'cd {APP_DIR}/backend && docker compose ps'")
 
 
+def _restart_stack(c):
+    """Recreates the stack without rebuilding images -- e.g. after editing
+    .env by hand (or via set-env below). Deliberately `up -d`, not
+    `docker compose restart`: `restart` just stops/starts the *same*
+    already-created containers and never re-reads .env/env_file at all,
+    since that's only evaluated when a container is (re)created -- so it
+    would silently keep serving whatever env vars the container started
+    with, no matter what .env says now. `up -d` re-evaluates the compose
+    config (including env_file) and recreates only the containers whose
+    resolved config actually changed."""
+    c.sudo(f"bash -c 'cd {APP_DIR}/backend && docker compose up -d'")
+    c.sudo(f"bash -c 'cd {APP_DIR}/backend && docker compose ps'")
+
+
 @task
 def restart(c):
     """Recreates the stack without rebuilding images -- e.g. after editing
-    .env by hand. Deliberately `up -d`, not `docker compose restart`:
-    `restart` just stops/starts the *same* already-created containers and
-    never re-reads .env/env_file at all, since that's only evaluated when a
-    container is (re)created -- so it would silently keep serving whatever
-    env vars the container started with, no matter what .env says now.
-    `up -d` re-evaluates the compose config (including env_file) and
-    recreates only the containers whose resolved config actually changed."""
-    c.sudo(f"bash -c 'cd {APP_DIR}/backend && docker compose up -d'")
-    c.sudo(f"bash -c 'cd {APP_DIR}/backend && docker compose ps'")
+    .env by hand. See _restart_stack's docstring for why this is `up -d`,
+    not `docker compose restart`."""
+    _restart_stack(c)
+
+
+ENV_PATH = f"{APP_DIR}/backend/.env"
+ENV_KEY_PATTERN = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
+# Cosmetic only, for the confirmation printout below -- masks what's echoed back for a
+# key name that looks secret-shaped, since this is often invoked with a real credential
+# as `value`. Doesn't affect what's written to .env itself.
+SENSITIVE_KEY_PATTERN = re.compile(r"(SECRET|TOKEN|PASSWORD|_KEY)$", re.IGNORECASE)
+
+
+def _display_value(key: str, value: str) -> str:
+    if SENSITIVE_KEY_PATTERN.search(key) and len(value) > 4:
+        return value[:4] + "…" * 3
+    return value
+
+
+@task
+def set_env(c, key, value, restart_after=True):
+    """Updates (or adds) one KEY=VALUE line in the VPS's backend/.env, without
+    needing to SSH in and hand-edit it -- e.g. to flip TRANSCRIPTION_ENGINE
+    or rotate a single key without opening an editor. This is the one
+    exception to this file's own "never touches .env" rule (see the module
+    docstring) -- still nothing about .env's actual secret values is ever
+    hardcoded here, `value` only ever comes from what you pass on the
+    command line.
+
+    Downloads the current .env, edits it locally (never puts `value`
+    through a remote shell command -- no quoting/injection risk for values
+    containing spaces, quotes, $(), etc., and it never touches the VPS's
+    own shell history), then uploads the result to a temp path and renames
+    it into place atomically, so a dropped connection mid-upload can never
+    leave a half-written .env behind. Restarts the stack afterward by
+    default (see _restart_stack's docstring for why that's the right way
+    to pick up an edited .env) so the change actually takes effect --
+    pass --restart-after=False to batch several set-env calls before one
+    restart.
+
+    Usage: fab ... set-env --key=TRANSCRIPTION_ENGINE --value=baseten
+    """
+    if not ENV_KEY_PATTERN.match(key):
+        print(f"ERROR: '{key}' doesn't look like a valid env var name (letters/digits/underscore, can't start with a digit).")
+        raise SystemExit(1)
+    if "\n" in value or "\r" in value:
+        print("ERROR: value can't contain a newline -- that would corrupt the .env file.")
+        raise SystemExit(1)
+
+    env_check = c.run(f"test -f {ENV_PATH}", warn=True, hide=True)
+    if env_check.failed:
+        print(
+            f"ERROR: {ENV_PATH} doesn't exist yet.\n"
+            f"Create it by hand first: cp {APP_DIR}/backend/.env.example {ENV_PATH}, "
+            "then fill in real secrets. Refusing to set a value into it without it existing."
+        )
+        raise SystemExit(1)
+
+    with tempfile.TemporaryDirectory() as tmp:
+        local_path = os.path.join(tmp, ".env")
+        c.get(ENV_PATH, local_path)
+
+        with open(local_path) as f:
+            lines = f.read().splitlines()
+
+        new_line = f"{key}={value}"
+        previous_value = None
+        updated = False
+        for i, line in enumerate(lines):
+            if line.startswith(f"{key}=") and not line.lstrip().startswith("#"):
+                previous_value = line[len(key) + 1 :]
+                lines[i] = new_line
+                updated = True
+                break
+        if not updated:
+            lines.append(new_line)
+
+        with open(local_path, "w") as f:
+            f.write("\n".join(lines) + "\n")
+
+        remote_tmp_path = f"{ENV_PATH}.tmp"
+        c.put(local_path, remote_tmp_path)
+        c.run(f"mv {remote_tmp_path} {ENV_PATH}")
+
+    if updated:
+        print(f"Updated {key} in {ENV_PATH} (was: {_display_value(key, previous_value)!r}, now: {_display_value(key, value)!r}).")
+    else:
+        print(f"Added {key}={_display_value(key, value)!r} to {ENV_PATH} (key didn't exist before).")
+
+    if restart_after:
+        print("==> Restarting the stack to pick up the change")
+        _restart_stack(c)
+    else:
+        print("Skipped restart (--restart-after=False) -- run `fab ... restart` when ready to apply.")
 
 
 @task

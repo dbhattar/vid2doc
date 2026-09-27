@@ -1,11 +1,13 @@
 # transcribe-diarize (Baseten Truss)
 
 GPU-hosted whisper + pyannote speaker diarization, bundled into one Truss
-deployment. This is the remote counterpart to
-`backend/app/stages/transcribe.py`'s `transcribe_whisper_diarized()` -- same
-approach, same speaker-overlap assignment logic, just running on a GPU
-instead of the backend worker's CPU, and kept warm across requests instead
-of reloading models on every job.
+deployment. This is the sole Whisper+pyannote diarized-transcription engine
+today -- the local CPU path this used to mirror
+(`transcribe_whisper_diarized()` in `backend/app/stages/transcribe.py`) has
+since been removed entirely (see `backend/app/pipeline.py`'s
+`_resolve_engine()`); this deployment keeps both models warm across
+requests instead of reloading them on every job, the way that old local
+path did.
 
 ## Verify before deploying
 
@@ -74,10 +76,16 @@ deploy lifecycle (`truss push` from a dev machine, not Docker Compose or the
 avoids it ever being swept into the backend image's CPU-only torch install
 or mistaken for code that runs inside the `api`/`worker` containers.
 
-## Local CPU path stays as a fallback
+## No local CPU fallback
 
-Nothing about this deployment removes or replaces
-`transcribe_whisper_local`/`transcribe_whisper_diarized` in
-`backend/app/stages/transcribe.py` -- if `BASETEN_API_KEY` is unset, or this
-deployment is down, `_resolve_engine()`'s auto-fallback chain still lands on
-the local `HF_TOKEN`-based path (or plain `whisper` if that's unset too).
+There is no local CPU path anymore -- `transcribe_whisper_local`/
+`transcribe_whisper_diarized` were removed from
+`backend/app/stages/transcribe.py` once both cloud engines (this deployment
+and AssemblyAI) fully covered diarized transcription without them. If
+`BASETEN_API_KEY`/`BASETEN_MODEL_URL` are unset (or `TRANSCRIPTION_ENGINE`
+is explicitly `baseten`) and this deployment is down or misconfigured, the
+job fails outright with a clear config error from `_resolve_engine()` --
+not a silent, slower fallback. `TRANSCRIPTION_ENGINE=auto` (the default)
+prefers `assemblyai` if `ASSEMBLYAI_API_KEY` is set, else `baseten` if
+configured, so keeping both configured is the only way to get automatic
+failover between the two.

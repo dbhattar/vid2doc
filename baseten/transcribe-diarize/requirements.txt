@@ -10,3 +10,6 @@ torchaudio
 # package declared in config.yaml's system_packages to actually work at
 # runtime (its native extension links against FFmpeg's shared libraries).
 torchcodec
+# Rewrites the BDN-cached pyannote pipeline's config.yaml to point at local cache
+# files instead of Hugging Face repo ids -- see config.yaml's model_cache comment.
+pyyaml

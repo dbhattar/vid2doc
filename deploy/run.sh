@@ -13,6 +13,8 @@
 #   VPS_IP=1.2.3.4 ./run.sh setup-tls
 #   VPS_IP=1.2.3.4 ./run.sh deploy
 #   VPS_IP=1.2.3.4 ./run.sh logs --service=worker --lines=200
+#   VPS_IP=1.2.3.4 ./run.sh set-env --key=TRANSCRIPTION_ENGINE --value=baseten
+#   VPS_IP=1.2.3.4 ./run.sh restart
 #
 # Export VPS_IP once per shell session to skip repeating it:
 #   export VPS_IP=1.2.3.4

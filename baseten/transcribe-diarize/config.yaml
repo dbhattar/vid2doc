@@ -35,6 +35,59 @@ secrets:
                          # model terms on huggingface.co under this token's
                          # account first, or load() will fail.
 
+# Baseten Delivery Network (BDN) cold-start caching -- mirrors these repos onto
+# Baseten's own infra ahead of time, so `truss push`/`baseten model push` doesn't return
+# until mirroring completes and a replica's files are already present at each
+# mount_location before load() ever runs (no polling/blocking call needed on our side,
+# unlike the older/deprecated `model_cache` config key -- see
+# https://docs.baseten.co/development/model/bdn). Whisper is deliberately NOT included
+# here -- BDN only mirrors Hugging Face/S3/GCS/R2/Azure/Baseten-blob sources, and
+# whisper.load_model() downloads its checkpoint from OpenAI's own CDN, which isn't one
+# of those (see model.py's load()).
+#
+# UNVERIFIED, more so than the rest of this file -- confirm before trusting cold-start
+# numbers:
+#   - `@main` in each `source` below should be pinned to an exact commit SHA (visible on
+#     each repo's "Files and versions" tab once you can view it) rather than a moving
+#     branch name, for reproducibility -- left as "main" only because gated-repo access
+#     is needed to read the exact SHA, which this environment doesn't have.
+#   - pyannote/speaker-diarization-3.1's embedding sub-model is very likely
+#     `pyannote/wespeaker-voxceleb-resnet34-LM` (matches 3.1's release notes on pure-
+#     PyTorch embedding+segmentation), but this could NOT be independently confirmed --
+#     the repo's own config.yaml is gated (401 without an authenticated, ToS-accepted
+#     HF account), and pyannote-audio's current GitHub source now defaults to a newer,
+#     differently-structured "speaker-diarization-community-1" checkpoint that isn't
+#     necessarily what the pinned "3.1" pipeline itself references internally.
+#   - model.py's _load_diarization_pipeline_from_cache() rewrites a local copy of the
+#     downloaded pipeline config.yaml to point at these mounted files instead of
+#     re-fetching them from HF Hub -- BDN's "transparent from_pretrained()" example in
+#     its docs is for a single self-contained repo, and doesn't cover pyannote's
+#     multi-repo pipeline structure (the top-level pipeline's own config.yaml
+#     internally references the segmentation/embedding repos below by their original HF
+#     repo ids, regardless of where BDN mounts anything) -- this rewrite is still
+#     necessary, mount_location just changes what path it rewrites those references to.
+#     The exact YAML key names it rewrites (pipeline.params.segmentation/embedding) are
+#     a best guess at pyannote's schema, not confirmed against pyannote.audio==4.0.7
+#     specifically. If wrong, load() logs the failure and falls back to the original
+#     Pipeline.from_pretrained() network path automatically -- this is a cold-start
+#     optimization, never a hard dependency for correctness.
+weights:
+  - source: "hf://pyannote/speaker-diarization-3.1@main"
+    mount_location: "/models/pyannote-speaker-diarization-3-1"
+    auth:
+      auth_method: CUSTOM_SECRET
+      auth_secret_name: hf_token
+  - source: "hf://pyannote/segmentation-3.0@main"
+    mount_location: "/models/pyannote-segmentation-3-0"
+    auth:
+      auth_method: CUSTOM_SECRET
+      auth_secret_name: hf_token
+  - source: "hf://pyannote/wespeaker-voxceleb-resnet34-LM@main"
+    mount_location: "/models/pyannote-wespeaker-embedding"
+    auth:
+      auth_method: CUSTOM_SECRET
+      auth_secret_name: hf_token
+
 runtime:
   predict_concurrency: 1   # both models are stateful -- don't allow concurrent
                             # in-flight requests sharing one loaded instance

@@ -43,19 +43,29 @@ SSH_USER=root ./run.sh create-deploy-user     # root, one-time only
 ./run.sh setup-tls
 ./run.sh deploy
 ./run.sh logs --service=worker --lines=200
+./run.sh set-env --key=TRANSCRIPTION_ENGINE --value=baseten
 ```
 
 `SSH_USER` defaults to `deploy`; `SSH_KEY` defaults to
 `~/.ssh/framewrite_vps` — override either as an env var if yours differ.
 
-## Why `.env` is never scripted
+## Why `.env`'s secret values are never hardcoded
 
-No task here creates or edits `backend/.env` — it holds production secrets
-(Stripe live key, JWT secret, Postgres password) that shouldn't be baked
-into a script that might get committed, logged, or shared. `bootstrap`
-prints a reminder to create it by hand; `deploy` refuses to run at all if
-it's missing, specifically to prevent ever accidentally starting production
-with the insecure dev defaults from `.env.example`.
+No task here hardcodes any of `backend/.env`'s actual secret values (Stripe
+live key, JWT secret, Postgres password) — nothing here should ever bake a
+real secret into a script that might get committed, logged, or shared.
+`bootstrap` prints a reminder to create the file by hand; `deploy` refuses to
+run at all if it's missing, specifically to prevent ever accidentally
+starting production with the insecure dev defaults from `.env.example`.
+
+`set-env` is the one task that *does* write into `.env`, but it never breaks
+the rule above: the value it writes only ever comes from whatever you type
+on the command line for that one invocation (e.g.
+`--value=$STRIPE_SECRET_KEY` from your own shell), never from anything
+hardcoded in `fabfile.py`. It edits the file locally (downloaded, changed,
+re-uploaded) rather than via a remote shell command with the value
+interpolated in, so the value never touches the VPS's own shell history or
+risks breaking on special characters.
 
 ## Why `git reset --hard` is safe here
 
@@ -75,6 +85,7 @@ them, no matter what.
 | `deploy` | Pulls the latest commit, rebuilds changed images, restarts the stack. This is what you run for every subsequent deploy. |
 | `restart` | Recreates containers without rebuilding images — e.g. after hand-editing `.env`. Runs `docker compose up -d`, not `docker compose restart`: the latter never re-reads `.env`/`env_file` at all, since that's only evaluated on container creation. |
 | `logs` | Tails one service's logs: `fab ... logs --service=worker --lines=200`. |
+| `set-env` | Updates (or adds) one `KEY=VALUE` line in `backend/.env` from the command line: `fab ... set-env --key=TRANSCRIPTION_ENGINE --value=baseten`. Restarts the stack afterward by default so it takes effect — pass `--no-restart-after` to batch several `set-env` calls before one restart. |
 
 ## Notes
 
