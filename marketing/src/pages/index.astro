@@ -3,8 +3,10 @@ import MarketingLayout from '../layouts/MarketingLayout.astro';
 import Hero from '../components/Hero.astro';
 import Reveal from '../components/Reveal.astro';
 import Testimonials from '../components/Testimonials/Testimonials.astro';
+import Showcase from '../components/Showcase/Showcase.astro';
 import FeatureGrid from '../components/FeatureGrid.astro';
 import PricingTable from '../components/PricingTable.astro';
+import PublicProgramCta from '../components/PublicProgramCta.astro';
 import FAQ from '../components/FAQ.astro';
 import FinalCta from '../components/FinalCta.astro';
 import Newsletter from '../components/Newsletter/Newsletter.astro';
@@ -21,8 +23,12 @@ import Newsletter from '../components/Newsletter/Newsletter.astro';
       and a hidden element never intersects the scroll observer that would
       otherwise fade it in. */}
   <Testimonials />
+  {/* Same "hidden until real data confirms it" reasoning as Testimonials
+      above -- see Showcase.astro/showcase.ts. */}
+  <Showcase />
   <Reveal><FeatureGrid /></Reveal>
   <Reveal><PricingTable /></Reveal>
+  <Reveal><PublicProgramCta /></Reveal>
   <Reveal><FAQ /></Reveal>
   {/* EnterpriseCta unmounted for now, not deleted -- add back if there's enterprise traction. */}
   <Reveal><FinalCta /></Reveal>

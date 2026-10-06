@@ -11,6 +11,7 @@ import DocumentPreview from "@/components/DocumentPreview";
 import FrameReviewPanel from "@/components/FrameReviewPanel";
 import { ArchiveIcon, ClapperboardIcon, DriveIcon, JsonFileIcon, MarkdownFileIcon, MicrophoneIcon, PdfFileIcon, VideoCameraIcon, WordFileIcon } from "@/components/icons";
 import ProgressStepper from "@/components/ProgressStepper";
+import PublicConsentControl from "@/components/PublicConsentControl";
 import SceneReviewPanel from "@/components/SceneReviewPanel";
 import ShareControl from "@/components/ShareControl";
 import TranscriptViewer from "@/components/TranscriptViewer";
@@ -318,6 +319,14 @@ export default function JobDetailPage() {
                 is added. */}
             {job.status === "done" && !job.retention_expired && job.job_type !== "video_gen" && (
               <ShareControl job={job} onUpdated={setJob} />
+            )}
+
+            {/* Public showcase (routes/public_jobs.py) -- video-to-document
+                jobs only for now, not video_gen or audio. See
+                PublicConsentControl's own comment for why this needs an
+                inline confirm step ShareControl doesn't. */}
+            {job.status === "done" && !job.retention_expired && job.job_type === "video" && (
+              <PublicConsentControl job={job} onUpdated={setJob} />
             )}
           </Card>
 

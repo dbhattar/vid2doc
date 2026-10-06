@@ -1,0 +1,81 @@
+---
+---
+
+<section class="showcase" id="showcase" hidden>
+  <div class="container">
+    <p class="eyebrow">See it in action</p>
+    <h2>Real videos, turned into real documents</h2>
+
+    <div class="showcase-grid" id="showcase-grid"></div>
+  </div>
+</section>
+
+<style>
+  .showcase {
+    padding: 56px 0 64px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  h2 {
+    font-size: var(--step-3);
+    max-width: 26ch;
+    margin: 0 0 36px;
+  }
+
+  .showcase-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 20px;
+  }
+
+  @media (max-width: 900px) {
+    .showcase-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
+  }
+
+  @media (max-width: 640px) {
+    .showcase-grid {
+      grid-template-columns: 1fr;
+    }
+  }
+</style>
+
+{/* Global, not scoped: the cards below are built by showcase.ts via
+    document.createElement at runtime, so they never get Astro's build-time
+    scope class -- same gotcha Testimonials.astro already solves. */}
+<style is:global>
+  .showcase-card {
+    display: block;
+    padding: 24px;
+    border: var(--border-width) solid var(--line);
+    border-radius: var(--radius-lg);
+    background: var(--paper);
+    box-shadow: var(--shadow-sm);
+    text-decoration: none;
+    color: inherit;
+    transition: transform var(--duration-fast) var(--ease-spring), box-shadow var(--duration-fast) var(--ease);
+  }
+
+  .showcase-card:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-md);
+  }
+
+  .showcase-title {
+    margin: 0 0 6px;
+    font-weight: 600;
+    font-size: 0.95rem;
+    color: var(--ink);
+  }
+
+  .showcase-meta {
+    margin: 0;
+    font-size: 0.82rem;
+    color: var(--ink-soft);
+  }
+</style>
+
+<script>
+  import './showcase.ts';
+</script>

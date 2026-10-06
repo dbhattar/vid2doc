@@ -125,5 +125,25 @@ class Settings:
     # up every other queued job behind it.
     VIDEO_GEN_MAX_DURATION_SECONDS = int(os.environ.get("VIDEO_GEN_MAX_DURATION_SECONDS", 20 * 60))
 
+    # Public showcase: opt a completed job_type=="video" job into a public,
+    # permanent listing in exchange for a partial refund (see
+    # app/public_jobs.py, routes/public_jobs.py). % of billed_cents refunded
+    # once an admin approves -- locked into Job.public_refund_cents at
+    # opt-in time, not re-read at approval time, so a later change here
+    # never alters what an already-pending submission was promised.
+    PUBLIC_CONSENT_REFUND_PERCENT = int(os.environ.get("PUBLIC_CONSENT_REFUND_PERCENT", 20))
+    # Permanent S3 archive for approved (and, transiently, pending/rejected --
+    # see app/public_jobs.py's module docstring) public-consent jobs. Must
+    # survive the 7-day local retention sweep (retention.py) -- use a
+    # dedicated bucket/prefix, not one shared with anything that has its own
+    # lifecycle/expiry rules.
+    PUBLIC_ARCHIVE_S3_BUCKET = os.environ.get("PUBLIC_ARCHIVE_S3_BUCKET", "")
+    PUBLIC_ARCHIVE_S3_REGION = os.environ.get("PUBLIC_ARCHIVE_S3_REGION", "us-east-1")
+    # Public-read bucket or CDN domain in front of it, no trailing slash --
+    # what the showcase's document_url/etc. point at directly (never proxied
+    # through this API process). e.g. https://showcase.framewrite.cc or
+    # https://<bucket>.s3.<region>.amazonaws.com
+    PUBLIC_ARCHIVE_BASE_URL = os.environ.get("PUBLIC_ARCHIVE_BASE_URL", "").rstrip("/")
+
 
 settings = Settings()

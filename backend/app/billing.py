@@ -60,13 +60,16 @@ def get_wallet_balance_cents(user_id: str) -> int:
 def net_spent_cents(user_id: str) -> int:
     """Net amount actually spent on processing (usage charges minus any
     refunds), for the unified dashboard's usage overview -- deliberately
-    excludes topups, which are money added, not spent."""
+    excludes topups, which are money added, not spent. "public_refund" (see
+    record_public_refund) is included alongside "usage_refund" for the same
+    reason: from the user's perspective it's still money they didn't end up
+    spending on that job."""
     session = get_session()
     try:
         total = session.execute(
             select(func.coalesce(func.sum(WalletLedgerEntry.amount_cents), 0)).where(
                 WalletLedgerEntry.user_id == user_id,
-                WalletLedgerEntry.entry_type.in_(["usage_charge", "usage_refund"]),
+                WalletLedgerEntry.entry_type.in_(["usage_charge", "usage_refund", "public_refund"]),
             )
         ).scalar()
         return -int(total or 0)
@@ -137,6 +140,23 @@ def refund_job_charge(user_id: str, job_id: str, amount_cents: int) -> None:
         session.commit()
     finally:
         session.close()
+
+
+def record_public_refund(session, user_id: str, job_id: str, amount_cents: int) -> None:
+    """Ledger insert only -- deliberately does NOT own its own session/commit,
+    unlike every other function in this module. This must run inside the
+    SAME transaction as the caller's Job.public_status flip to "approved"
+    (see app/public_jobs.py's approve_public_job), so a crash between "the
+    refund happened" and "the status flipped" is impossible by construction
+    rather than something that needs reconciling after the fact. Idempotency
+    (can't double-refund the same job) is the caller's responsibility, via a
+    SELECT ... FOR UPDATE on the job row checked before this is called --
+    see approve_public_job."""
+    if amount_cents <= 0:
+        return
+    session.add(
+        WalletLedgerEntry(user_id=user_id, entry_type="public_refund", amount_cents=amount_cents, related_job_id=job_id)
+    )
 
 
 def grant_signup_bonus(user_id: str) -> int:

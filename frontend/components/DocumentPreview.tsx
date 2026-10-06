@@ -34,8 +34,30 @@ function splitSummarySection(markdown: string): { before: string; summary: strin
  * when this is appended after other content within the same card (the
  * share page's single-card layout, e.g.) -- pass `false` when this is the
  * sole content of its own fresh card, where a divider right under the
- * card's own padding would just be a stray line floating in empty space. */
-export default function DocumentPreview({ markdownUrl, bordered = true }: { markdownUrl: string; bordered?: boolean }) {
+ * card's own padding would just be a stray line floating in empty space.
+ *
+ * `external` (default false) -- set this when `markdownUrl` points at the
+ * public showcase's S3/CDN archive (app/public_jobs.py) rather than this
+ * app's own API. The "attach a Bearer token if one happens to exist" trick
+ * above is exactly wrong there: it's a genuinely different origin, so (a)
+ * the browser would need to CORS-preflight a request carrying a custom
+ * Authorization header, which a public content bucket has no reason to
+ * allow, and (b) even if it did, there's no reason to ever hand this app's
+ * session token to a third-party domain, logged-in viewer or not. `external`
+ * fetches the markdown with a plain, headerless request and renders images
+ * as plain `<img>` tags instead of AuthenticatedImage's blob-fetch (which
+ * has the exact same problem) -- a public `<img src>` load doesn't need any
+ * CORS configuration at all, only the markdown's own `fetch()` does (the
+ * archive bucket/CDN needs to allow cross-origin GET). */
+export default function DocumentPreview({
+  markdownUrl,
+  bordered = true,
+  external = false,
+}: {
+  markdownUrl: string;
+  bordered?: boolean;
+  external?: boolean;
+}) {
   const [markdown, setMarkdown] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -43,7 +65,13 @@ export default function DocumentPreview({ markdownUrl, bordered = true }: { mark
     let cancelled = false;
     setMarkdown(null);
     setError(null);
-    fetchAuthenticatedText(markdownUrl)
+    const load = external
+      ? fetch(markdownUrl).then((res) => {
+          if (!res.ok) throw new Error(res.statusText);
+          return res.text();
+        })
+      : fetchAuthenticatedText(markdownUrl);
+    load
       .then((text) => {
         if (!cancelled) setMarkdown(text);
       })
@@ -53,7 +81,7 @@ export default function DocumentPreview({ markdownUrl, bordered = true }: { mark
     return () => {
       cancelled = true;
     };
-  }, [markdownUrl]);
+  }, [markdownUrl, external]);
 
   if (error) return <p className={`${bordered ? "mt-6" : ""} text-sm text-status-error`}>{error}</p>;
   if (markdown === null) return <p className={`${bordered ? "mt-6" : ""} text-sm text-ink-soft`}>Loading document...</p>;
@@ -91,6 +119,12 @@ export default function DocumentPreview({ markdownUrl, bordered = true }: { mark
     img: ({ src, alt }) => {
       if (!src || typeof src !== "string") return null;
       const resolvedSrc = new URL(src, markdownUrl).toString();
+      if (external) {
+        // eslint-disable-next-line @next/next/no-img-element -- deliberately
+        // not next/image: this is an arbitrary external (S3/CDN) URL, not
+        // one of this app's own optimizable image routes.
+        return <img src={resolvedSrc} alt={alt || ""} className="w-full rounded-md border border-line" />;
+      }
       return <AuthenticatedImage src={resolvedSrc} alt={alt || ""} className="w-full rounded-md border border-line" />;
     },
   };

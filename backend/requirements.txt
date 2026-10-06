@@ -28,3 +28,5 @@ cryptography==43.0.3
 # script this shells out to; ffmpeg (already installed via the Dockerfile's
 # apt-get) is what it uses to merge separate video+audio streams to mp4.
 yt-dlp==2026.7.4
+# Public showcase's permanent S3 archive (app/s3_client.py, app/public_jobs.py).
+boto3==1.35.68

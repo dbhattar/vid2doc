@@ -193,6 +193,19 @@ time and shouldn't also carry cleanup latency:
 0 3 * * * cd /path/to/vid2doc/backend && docker compose run --rm api python retention.py >> /var/log/framewrite-retention.log 2>&1
 ```
 
+## Public showcase
+
+A user can opt a completed `job_type == "video"` job into the public
+showcase (see `app/public_jobs.py`, `routes/public_jobs.py`) in exchange for
+a partial refund of what they were billed; an admin must approve it
+(`/admin/public-jobs`) before the refund is issued or it's publicly listed.
+Approved content needs to survive forever, so it's archived to S3 at
+opt-in time (before admin review, not after) rather than relying on the
+`data/` directories retention.py sweeps after 7 days — see that file's
+module docstring for the full design rationale, and
+[`s3-showcase-setup.md`](s3-showcase-setup.md) for one-time bucket setup
+(policy, CORS, credentials).
+
 ## Local development
 
 ```bash
@@ -226,6 +239,8 @@ docker compose up --build
 | `STRIPE_SECRET_KEY` | Stripe API secret key (test-mode for dev) — no Price ids needed, top-up amount is chosen at checkout time |
 | `STRIPE_WEBHOOK_SECRET` | Verifies `POST /api/billing/webhook` signatures — from `stripe listen` locally, or the dashboard's webhook config in prod |
 | `FRONTEND_URL` | Where Stripe Checkout redirects back to after a session |
+| `PUBLIC_CONSENT_REFUND_PERCENT` | % of `billed_cents` refunded once an admin approves a public-showcase opt-in (see "Public showcase" above). Placeholder default — set a real value before launch |
+| `PUBLIC_ARCHIVE_S3_BUCKET`, `PUBLIC_ARCHIVE_S3_REGION`, `PUBLIC_ARCHIVE_BASE_URL`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | Permanent S3 archive for the public showcase — see [`s3-showcase-setup.md`](s3-showcase-setup.md) for one-time bucket setup |
 | `NEXT_PUBLIC_API_BASE_URL` | Frontend build arg (not read by the backend itself) — public URL the browser uses to reach this API |
 | `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | Frontend build arg — same value as `GOOGLE_CLIENT_ID` above |
 | `NEXT_PUBLIC_GA_MEASUREMENT_ID` | Frontend build arg — Google Analytics measurement ID, same property as the marketing site |

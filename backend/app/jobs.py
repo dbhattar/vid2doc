@@ -34,6 +34,14 @@ def _job_to_dict(job: Job) -> dict:
         "extract_frames": job.extract_frames,
         "error_message": job.error_message,
         "deleted_at": job.deleted_at,
+        "public_status": job.public_status,
+        "public_consented_at": job.public_consented_at,
+        "public_refund_cents": job.public_refund_cents,
+        "public_archive_prefix": job.public_archive_prefix,
+        "public_archived_at": job.public_archived_at,
+        "public_reviewed_at": job.public_reviewed_at,
+        "public_reviewed_by": str(job.public_reviewed_by) if job.public_reviewed_by else None,
+        "public_rejection_reason": job.public_rejection_reason,
         "created_at": job.created_at,
         "updated_at": job.updated_at,
     }
@@ -282,6 +290,38 @@ def count_all_jobs(job_type: str | None = None) -> int:
         if job_type:
             query = query.filter(Job.job_type == job_type)
         return query.count()
+    finally:
+        session.close()
+
+
+def list_jobs_by_public_status(status: str, limit: int = 20, offset: int = 0) -> list[dict]:
+    """Admin-only (see routes/admin.py) -- powers the public-showcase
+    moderation queue (status="pending") and its approved/rejected history.
+    Same outerjoin-to-User shape as list_all_jobs, for the same reason: the
+    queue needs to show who submitted each one."""
+    session = get_session()
+    try:
+        rows = (
+            session.query(Job, User)
+            .outerjoin(User, Job.user_id == User.id)
+            .filter(Job.public_status == status)
+            .order_by(Job.public_consented_at.desc())
+            .limit(limit)
+            .offset(offset)
+            .all()
+        )
+        return [
+            {**_job_to_dict(j), "email": u.email if u else None, "display_name": u.display_name if u else None}
+            for j, u in rows
+        ]
+    finally:
+        session.close()
+
+
+def count_jobs_by_public_status(status: str) -> int:
+    session = get_session()
+    try:
+        return session.query(Job).filter(Job.public_status == status).count()
     finally:
         session.close()
 

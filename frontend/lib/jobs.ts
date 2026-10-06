@@ -25,7 +25,18 @@ export type Job = {
   retention_expired?: boolean;
   error?: string;
   share_url?: string | null;
+  // job_type === "video" only -- see backend/app/routes/status.py, app/public_jobs.py.
+  // null means never opted in to the public showcase.
+  public_status?: PublicConsentStatus | null;
+  // Live preview (computed from billed_cents) before opt-in; the actual,
+  // locked-in refund amount once opted in. Always present alongside
+  // public_status for a video job.
+  public_consent_refund_cents?: number;
+  // Present only once public_status === "approved".
+  public_showcase_url?: string | null;
 };
+
+export type PublicConsentStatus = "pending" | "approved" | "rejected";
 
 /** Shape of GET /api/share/{token} -- the anonymous, read-only counterpart
  * to Job for a shared document. Deliberately excludes anything owner-only:
@@ -42,6 +53,27 @@ export type PublicJobView = {
   document_pdf_url?: string;
   document_transcript_json_url?: string;
 };
+
+/** Shape of GET /api/public/showcase/{job_id} -- the anonymous counterpart
+ * for one showcase item, modeled on PublicJobView (GET /api/share/{token}).
+ * Kept as its own type rather than reusing PublicJobView directly since the
+ * two responses can diverge (e.g. `id`/`featured_since` have no equivalent
+ * on a share link). */
+export type PublicShowcaseItem = {
+  id: string;
+  title: string | null;
+  duration_seconds: number | null;
+  featured_since: string;
+  document_url?: string;
+  document_docx_url?: string;
+  document_pdf_url?: string;
+  document_transcript_json_url?: string;
+};
+
+/** One row from GET /api/public/showcase (list) -- deliberately thinner than
+ * PublicShowcaseItem (no document URLs): the marketing homepage only needs
+ * enough to render a card + a link to the full permalink page. */
+export type PublicShowcaseListItem = Pick<PublicShowcaseItem, "id" | "title" | "duration_seconds">;
 
 /** One candidate frame surfaced during a video job's "awaiting_review" pause
  * -- see backend/app/routes/review.py. `content_type` is only present on

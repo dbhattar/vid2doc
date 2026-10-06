@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
 
-from .. import jobs
+from .. import jobs, public_jobs
 from ..config import settings
 from ..deps import get_current_user
 
@@ -24,6 +24,19 @@ def build_job_response(job: dict, request: Request) -> dict:
     }
     if job["job_type"] == "video":
         response["extract_frames"] = job["extract_frames"]
+        # public_consent_refund_cents is the *live preview* amount before opt-in
+        # (so the confirmation UI can show a real dollar figure, not a vague
+        # percentage) -- once public_refund_cents is set (opt-in has happened),
+        # that locked-in value takes over instead, per public_jobs.py's own
+        # comment on why it's locked at opt-in rather than always recomputed.
+        response["public_status"] = job["public_status"]
+        response["public_consent_refund_cents"] = (
+            job["public_refund_cents"]
+            if job["public_refund_cents"] is not None
+            else public_jobs.compute_refund_cents(job["billed_cents"])
+        )
+        if job["public_status"] == "approved":
+            response["public_showcase_url"] = f"{settings.FRONTEND_URL}/showcase/{job['id']}"
     if job["status"] == "done" and job["deleted_at"] is not None:
         # Retention swept the files (see retention.py) -- still "done" in
         # the sense that conversion succeeded, but nothing left to serve.

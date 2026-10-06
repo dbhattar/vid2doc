@@ -147,9 +147,14 @@ export default function AdminPage() {
           <h1 className="font-display text-2xl font-bold tracking-tight text-ink">Admin</h1>
           <p className="mt-1 text-sm text-ink-soft">Platform-wide usage and revenue.</p>
         </div>
-        <Link href="/admin/jobs" className="text-sm font-medium text-accent hover:underline">
-          View all jobs &rarr;
-        </Link>
+        <div className="flex items-center gap-4">
+          <Link href="/admin/public-jobs" className="text-sm font-medium text-accent hover:underline">
+            Public showcase queue &rarr;
+          </Link>
+          <Link href="/admin/jobs" className="text-sm font-medium text-accent hover:underline">
+            View all jobs &rarr;
+          </Link>
+        </div>
       </div>
 
       {error && <p className="mt-4 text-sm text-status-error">{error}</p>}

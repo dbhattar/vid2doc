@@ -143,6 +143,34 @@ class Job(Base):
     extract_frames: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Public showcase: user opts a completed job_type=="video" job into a
+    # partial-refund public listing (see app/public_jobs.py,
+    # routes/public_jobs.py). NULL means never opted in. Once "approved" it's
+    # permanent -- there is no un-publish/revoke path, so no separate
+    # "unpublished"/"revoked" state exists on purpose. Unlike share_token
+    # (owner-revocable, tied to on-disk storage that dies at 7-day retention),
+    # this is meant to survive forever -- the archive lives in external
+    # storage (S3), uploaded synchronously at opt-in time, before the job
+    # ever enters the moderation queue (see public_jobs.submit_public_consent).
+    public_status: Mapped[str | None] = mapped_column(String, nullable=True, index=True)  # null|pending|approved|rejected
+    public_consented_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Computed once, at opt-in time, from billed_cents * PUBLIC_CONSENT_REFUND_PERCENT
+    # -- locked in before an admin ever reviews it, so a later change to that
+    # setting can't alter what the user was promised.
+    public_refund_cents: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
+    # S3 key prefix the permanent archive was written under (currently always
+    # f"public/{job.id}/", but recorded rather than re-derived so a future
+    # change to the naming scheme doesn't strand jobs archived under the old
+    # one -- see app/public_jobs.py).
+    public_archive_prefix: Mapped[str | None] = mapped_column(String, nullable=True)
+    public_archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    public_reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    public_reviewed_by: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id"), nullable=True
+    )
+    # Internal only -- never surfaced to the job owner (see
+    # routes/public_jobs.py), just an audit trail for admins.
+    public_rejection_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
