@@ -1,4 +1,4 @@
-type ShowcaseItem = { id: string; title: string | null; duration_seconds: number | null };
+type ShowcaseItem = { id: string; title: string | null; duration_seconds: number | null; video_url?: string };
 
 const API_URL = import.meta.env.PUBLIC_API_URL || 'http://localhost:8000';
 const APP_URL = import.meta.env.PUBLIC_APP_URL || 'http://localhost:3000';
@@ -27,6 +27,18 @@ if (section && grid) {
         const card = document.createElement('a');
         card.className = 'showcase-card';
         card.href = `${APP_URL}/showcase/${item.id}`;
+
+        if (item.video_url) {
+          const preview = document.createElement('video');
+          preview.className = 'showcase-preview';
+          preview.src = item.video_url;
+          preview.muted = true;
+          preview.loop = true;
+          preview.playsInline = true;
+          preview.autoplay = true;
+          preview.preload = 'metadata';
+          card.appendChild(preview);
+        }
 
         const title = document.createElement('p');
         title.className = 'showcase-title';
