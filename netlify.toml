@@ -5,6 +5,14 @@
 
 [build.environment]
   NODE_VERSION = "22"
+  # Astro/Vite inlines PUBLIC_* vars at build time -- without these, the
+  # site's testimonials/showcase/newsletter/feedback fetches (see
+  # marketing/src/components/*/*.ts) silently fall back to their
+  # localhost:8000/localhost:3000 dev defaults and get baked into the
+  # production bundle, which browsers then block as cross-origin loopback
+  # requests from the live site.
+  PUBLIC_API_URL = "https://api.framewrite.cc"
+  PUBLIC_APP_URL = "https://app.framewrite.cc"
 
 [[redirects]]
   from = "/index.html"
