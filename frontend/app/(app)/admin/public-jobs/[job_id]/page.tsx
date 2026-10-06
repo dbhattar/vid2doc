@@ -24,6 +24,7 @@ type AdminPublicJobDetail = {
   public_refund_cents: number | null;
   public_consented_at: string | null;
   document_url?: string;
+  video_url?: string;
 };
 
 export default function AdminPublicJobDetailPage() {
@@ -144,6 +145,15 @@ export default function AdminPublicJobDetailPage() {
       )}
 
       {error && <p className="mt-3 text-sm text-status-error">{error}</p>}
+
+      {submission.video_url && (
+        <Card className="mt-6 overflow-hidden p-0">
+          {/* Plain <video src>, not AuthenticatedVideo -- this points at the
+              public S3 archive (same as document_url below), so it needs no
+              Bearer token and streams directly. */}
+          <video controls className="w-full" src={submission.video_url} />
+        </Card>
+      )}
 
       {submission.document_url ? (
         <Card className="mt-6 p-6">

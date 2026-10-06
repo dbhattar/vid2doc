@@ -163,6 +163,14 @@ class Job(Base):
     # change to the naming scheme doesn't strand jobs archived under the old
     # one -- see app/public_jobs.py).
     public_archive_prefix: Mapped[str | None] = mapped_column(String, nullable=True)
+    # S3 key (relative to public_archive_prefix) the archived source video
+    # (job.source_path) was uploaded under -- filename preserves the
+    # original upload's extension (mp4/mov/etc, not assumed), recorded
+    # rather than re-derived so routes/public_jobs.py can build its URL
+    # without depending on source_path, which may no longer exist locally by
+    # the time the showcase is read. NULL for jobs archived before this
+    # column existed.
+    public_video_key: Mapped[str | None] = mapped_column(String, nullable=True)
     public_archived_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     public_reviewed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     public_reviewed_by: Mapped[uuid.UUID | None] = mapped_column(

@@ -24,7 +24,9 @@ import { formatDuration, type PublicShowcaseItem } from "@/lib/jobs";
  * no reason to receive and require it to have CORS configured just to let
  * JS read the response body. A native download link needs neither: the
  * browser downloads it directly. See DocumentPreview's `external` prop for
- * the same reasoning applied to inline preview instead of download. */
+ * the same reasoning applied to inline preview instead of download. The
+ * video player is a plain `<video src>` for the same reason -- it's a
+ * public S3 object, so the browser can stream it directly with no auth. */
 export default function ShowcaseItemPage() {
   const params = useParams<{ job_id: string }>();
   const [item, setItem] = useState<PublicShowcaseItem | null>(null);
@@ -66,6 +68,12 @@ export default function ShowcaseItemPage() {
               <p className="mt-1 text-sm text-ink-soft">
                 {formatDuration(item.duration_seconds)} &middot; featured on Framewrite
               </p>
+
+              {item.video_url && (
+                <Card className="mt-6 overflow-hidden p-0">
+                  <video controls className="w-full" src={item.video_url} />
+                </Card>
+              )}
 
               <Card className="mt-6 p-6">
                 <div className="flex flex-wrap gap-2">

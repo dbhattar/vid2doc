@@ -68,6 +68,9 @@ export type PublicShowcaseItem = {
   document_docx_url?: string;
   document_pdf_url?: string;
   document_transcript_json_url?: string;
+  // The original source video, archived alongside the document -- absent
+  // only for items showcased before this field existed.
+  video_url?: string;
 };
 
 /** One row from GET /api/public/showcase (list) -- deliberately thinner than

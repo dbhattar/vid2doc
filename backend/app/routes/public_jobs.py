@@ -5,7 +5,7 @@ app/public_jobs.py for the business logic (S3 archive, refund, moderation
 state machine) and its module docstring for the full design rationale.
 Never exposes user_id, billed_cents, public_refund_cents, client_ip,
 error_message, or any internal storage detail (the raw archive prefix) --
-only title/duration_seconds/featured_since and derived document URLs.
+only title/duration_seconds/featured_since and derived document/video URLs.
 """
 
 from fastapi import APIRouter, Depends, HTTPException, Query
@@ -49,6 +49,9 @@ def _build_showcase_response(job: dict, full: bool = False) -> dict:
         "featured_since": job["public_reviewed_at"],
         "document_url": f"{base}document.md",
     }
+    if job["public_video_key"]:
+        # NULL for items archived before public_video_key existed.
+        response["video_url"] = f"{base}{job['public_video_key']}"
     if full:
         if public_jobs.archive_file_exists(prefix, "document.docx"):
             response["document_docx_url"] = f"{base}document.docx"

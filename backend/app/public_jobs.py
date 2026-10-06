@@ -82,19 +82,31 @@ def _gather_archive_files(doc_dir: Path) -> list[Path]:
     return files
 
 
-def _upload_job_archive(job_id: str, doc_dir: Path, prefix: str) -> None:
+def _upload_job_archive(job_id: str, doc_dir: Path, source_path: Path, prefix: str) -> str:
     """All-or-nothing: if any file fails partway through, delete whatever
     objects already succeeded and raise, rather than tolerating partial
     failure the way Drive's upload does -- this archive is unattended and
-    meant to be permanent, so a partial one is worse than none."""
+    meant to be permanent, so a partial one is worse than none.
+
+    Uploads the generated document files AND the original source video
+    (source_path) under the same prefix -- a showcased item is meant to
+    show both, not just the document. Returns the video's filename *relative
+    to prefix* (preserving source_path's original extension, since uploads
+    aren't always .mp4) -- same convention as the hardcoded "document.md"
+    etc. below, so routes/public_jobs.py's `base + filename` URL-building
+    stays consistent instead of double-including the prefix."""
     client = get_s3_client()
     files = _gather_archive_files(doc_dir)
+    video_filename = f"source{source_path.suffix or '.mp4'}"
+    video_key = f"{prefix}{video_filename}"
     uploaded_keys = []
     try:
         for path in files:
             key = f"{prefix}{path.relative_to(doc_dir)}"
             client.upload_file(str(path), settings.PUBLIC_ARCHIVE_S3_BUCKET, key)
             uploaded_keys.append(key)
+        client.upload_file(str(source_path), settings.PUBLIC_ARCHIVE_S3_BUCKET, video_key)
+        uploaded_keys.append(video_key)
     except Exception as e:
         for key in uploaded_keys:
             try:
@@ -102,6 +114,7 @@ def _upload_job_archive(job_id: str, doc_dir: Path, prefix: str) -> None:
             except Exception:
                 pass  # best-effort cleanup only -- the outer raise is what matters
         raise PublicArchiveUploadError(f"Failed to archive job {job_id} to S3: {e}") from e
+    return video_filename
 
 
 def archive_file_exists(prefix: str, filename: str) -> bool:
@@ -140,7 +153,7 @@ def submit_public_consent(job: dict, doc_dir: Path) -> dict:
     the admin queue backed by a partial archive."""
     refund_cents = compute_refund_cents(job["billed_cents"])
     prefix = archive_prefix_for(job["id"])
-    _upload_job_archive(job["id"], doc_dir, prefix)
+    video_key = _upload_job_archive(job["id"], doc_dir, Path(job["source_path"]), prefix)
 
     now = datetime.now(timezone.utc)
     jobs.update_job(
@@ -149,6 +162,7 @@ def submit_public_consent(job: dict, doc_dir: Path) -> dict:
         public_consented_at=now,
         public_refund_cents=refund_cents,
         public_archive_prefix=prefix,
+        public_video_key=video_key,
         public_archived_at=now,
     )
     return {"public_status": "pending", "public_refund_cents": refund_cents}

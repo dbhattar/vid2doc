@@ -38,6 +38,7 @@ def _job_to_dict(job: Job) -> dict:
         "public_consented_at": job.public_consented_at,
         "public_refund_cents": job.public_refund_cents,
         "public_archive_prefix": job.public_archive_prefix,
+        "public_video_key": job.public_video_key,
         "public_archived_at": job.public_archived_at,
         "public_reviewed_at": job.public_reviewed_at,
         "public_reviewed_by": str(job.public_reviewed_by) if job.public_reviewed_by else None,
