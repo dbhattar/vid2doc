@@ -145,5 +145,14 @@ class Settings:
     # https://<bucket>.s3.<region>.amazonaws.com
     PUBLIC_ARCHIVE_BASE_URL = os.environ.get("PUBLIC_ARCHIVE_BASE_URL", "").rstrip("/")
 
+    # Chat-with-document: flat one-time fee (cents) to permanently enable
+    # chat on a completed job -- unlimited messages after that, not metered
+    # per-message (see app/billing.py's charge_for_chat). Placeholder value
+    # -- CHANGE THIS before launch, same as PUBLIC_CONSENT_REFUND_PERCENT
+    # above. Archived to the same bucket/region as PUBLIC_ARCHIVE_S3_BUCKET/
+    # PUBLIC_ARCHIVE_S3_REGION, just under a private "chat/" prefix instead
+    # of "public/" (see app/chat_jobs.py) -- no separate bucket needed.
+    CHAT_ENABLE_FEE_CENTS = int(os.environ.get("CHAT_ENABLE_FEE_CENTS", 50))
+
 
 settings = Settings()

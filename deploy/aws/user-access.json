@@ -8,11 +8,17 @@
       "Resource": "arn:aws:s3:::framewrite-local-dev-bucket/public/*"
     },
     {
+      "Sid": "FramewriteChatObjectAccess",
+      "Effect": "Allow",
+      "Action": ["s3:PutObject", "s3:GetObject", "s3:DeleteObject"],
+      "Resource": "arn:aws:s3:::framewrite-local-dev-bucket/chat/*"
+    },
+    {
       "Sid": "FramewriteShowcaseListForCleanup",
       "Effect": "Allow",
       "Action": "s3:ListBucket",
       "Resource": "arn:aws:s3:::framewrite-local-dev-bucket",
-      "Condition": { "StringLike": { "s3:prefix": "public/*" } }
+      "Condition": { "StringLike": { "s3:prefix": ["public/*", "chat/*"] } }
     }
   ]
 }

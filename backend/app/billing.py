@@ -63,13 +63,16 @@ def net_spent_cents(user_id: str) -> int:
     excludes topups, which are money added, not spent. "public_refund" (see
     record_public_refund) is included alongside "usage_refund" for the same
     reason: from the user's perspective it's still money they didn't end up
-    spending on that job."""
+    spending on that job. "chat_enable_charge" (see charge_for_chat) is
+    real spend the same way "usage_charge" is."""
     session = get_session()
     try:
         total = session.execute(
             select(func.coalesce(func.sum(WalletLedgerEntry.amount_cents), 0)).where(
                 WalletLedgerEntry.user_id == user_id,
-                WalletLedgerEntry.entry_type.in_(["usage_charge", "usage_refund", "public_refund"]),
+                WalletLedgerEntry.entry_type.in_(
+                    ["usage_charge", "usage_refund", "public_refund", "chat_enable_charge", "chat_enable_refund"]
+                ),
             )
         ).scalar()
         return -int(total or 0)
@@ -125,6 +128,40 @@ def charge_for_job(user_id: str, job_id: str, duration_seconds: float, job_type:
         session.close()
 
 
+def charge_for_chat(user_id: str, job_id: str) -> int:
+    """Flat one-time fee for enabling chat-with-document on a job (unlimited
+    messages after that, no per-message metering) -- same lock-check-charge
+    shape as charge_for_job, just a fixed amount instead of one computed
+    from duration. Called before app/chat_jobs.py archives anything to S3,
+    so a job is never charged for an archive that then fails (see
+    routes/chat.py, which refunds via refund_job_charge if the archive step
+    raises after this succeeds). Raises InsufficientBalanceError (charging
+    nothing) if the balance is too low. Returns the amount charged, in
+    cents."""
+    cost_cents = settings.CHAT_ENABLE_FEE_CENTS
+    session = get_session()
+    try:
+        session.execute(select(User.id).where(User.id == user_id).with_for_update())
+        balance = session.execute(
+            select(func.coalesce(func.sum(WalletLedgerEntry.amount_cents), 0)).where(
+                WalletLedgerEntry.user_id == user_id
+            )
+        ).scalar()
+        balance = int(balance or 0)
+        if balance < cost_cents:
+            session.rollback()
+            raise InsufficientBalanceError(cost_cents, balance)
+        session.add(
+            WalletLedgerEntry(
+                user_id=user_id, entry_type="chat_enable_charge", amount_cents=-cost_cents, related_job_id=job_id
+            )
+        )
+        session.commit()
+        return cost_cents
+    finally:
+        session.close()
+
+
 def refund_job_charge(user_id: str, job_id: str, amount_cents: int) -> None:
     """A video that failed mid-pipeline didn't produce anything usable --
     refund what it was charged. A no-op if it wasn't charged anything."""
@@ -135,6 +172,25 @@ def refund_job_charge(user_id: str, job_id: str, amount_cents: int) -> None:
         session.add(
             WalletLedgerEntry(
                 user_id=user_id, entry_type="usage_refund", amount_cents=amount_cents, related_job_id=job_id
+            )
+        )
+        session.commit()
+    finally:
+        session.close()
+
+
+def refund_chat_charge(user_id: str, job_id: str, amount_cents: int) -> None:
+    """Mirrors refund_job_charge, distinct entry_type for clean ledger
+    attribution -- used only when charge_for_chat succeeded but the S3
+    archive that must follow it then failed (see routes/chat.py). A no-op
+    if nothing was charged."""
+    if amount_cents <= 0:
+        return
+    session = get_session()
+    try:
+        session.add(
+            WalletLedgerEntry(
+                user_id=user_id, entry_type="chat_enable_refund", amount_cents=amount_cents, related_job_id=job_id
             )
         )
         session.commit()

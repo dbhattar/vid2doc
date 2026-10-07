@@ -71,6 +71,10 @@ export function FeedbackIcon({ className }: IconProps) {
   return <MessageSquare className={className} aria-hidden />;
 }
 
+export function ChatIcon({ className }: IconProps) {
+  return <MessageSquare className={className} aria-hidden />;
+}
+
 export function VideoCameraIcon({ className }: IconProps) {
   return <Video className={className} aria-hidden />;
 }

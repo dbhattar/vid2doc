@@ -2,14 +2,17 @@
 
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 
 import AuthenticatedVideo from "@/components/AuthenticatedVideo";
 import Button, { buttonClassName } from "@/components/Button";
 import Card from "@/components/Card";
+import ChatEnableControl from "@/components/ChatEnableControl";
+import ChatPanel from "@/components/ChatPanel";
 import DocumentPreview from "@/components/DocumentPreview";
 import FrameReviewPanel from "@/components/FrameReviewPanel";
 import { ArchiveIcon, ClapperboardIcon, DriveIcon, JsonFileIcon, MarkdownFileIcon, MicrophoneIcon, PdfFileIcon, VideoCameraIcon, WordFileIcon } from "@/components/icons";
+import MediaPreviewPlayer, { type MediaPreviewHandle } from "@/components/MediaPreviewPlayer";
 import ProgressStepper from "@/components/ProgressStepper";
 import PublicConsentControl from "@/components/PublicConsentControl";
 import SceneReviewPanel from "@/components/SceneReviewPanel";
@@ -50,6 +53,7 @@ export default function JobDetailPage() {
   const driveConnected = useDriveStatus();
   const [savingToDrive, setSavingToDrive] = useState(false);
   const [driveError, setDriveError] = useState<string | null>(null);
+  const chatMediaRef = useRef<MediaPreviewHandle>(null);
 
   async function handleSaveToDrive() {
     if (!job) return;
@@ -328,6 +332,16 @@ export default function JobDetailPage() {
             {job.status === "done" && !job.retention_expired && job.job_type === "video" && (
               <PublicConsentControl job={job} onUpdated={setJob} />
             )}
+
+            {/* Chat-with-document (routes/chat.py) -- video and audio only,
+                not video_gen (no transcript-grounded document to chat
+                against). See ChatEnableControl's own comment for why this
+                also needs the inline-confirm treatment. */}
+            {job.status === "done" &&
+              !job.retention_expired &&
+              (job.job_type === "video" || job.job_type === "audio") && (
+                <ChatEnableControl job={job} onUpdated={setJob} />
+              )}
           </Card>
 
           <div className="space-y-6 lg:col-span-2">
@@ -340,6 +354,18 @@ export default function JobDetailPage() {
             {job.status === "done" && !job.retention_expired && job.job_type === "video_gen" && job.video_url && (
               <Card className="p-6">
                 <AuthenticatedVideo src={job.video_url} className="w-full bg-ink" />
+              </Card>
+            )}
+
+            {job.chat_enabled && (
+              <Card className="grid gap-4 p-6 md:grid-cols-2">
+                <MediaPreviewPlayer
+                  ref={chatMediaRef}
+                  jobId={job.job_id}
+                  kind={job.job_type === "audio" ? "audio" : "video"}
+                  className="w-full rounded-md bg-ink"
+                />
+                <ChatPanel jobId={job.job_id} onCitationClick={(seconds) => chatMediaRef.current?.seekTo(seconds)} />
               </Card>
             )}
 

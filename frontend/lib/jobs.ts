@@ -34,9 +34,28 @@ export type Job = {
   public_consent_refund_cents?: number;
   // Present only once public_status === "approved".
   public_showcase_url?: string | null;
+  // job_type === "video" or "audio" only -- see backend/app/routes/status.py,
+  // app/chat_jobs.py. Unlike public_status, this is a plain boolean: no
+  // pending/rejected state (no admin review), and no un-enable path once
+  // true -- enabling is a one-time, irreversible, paid action.
+  chat_enabled?: boolean;
+  // Current flat fee to enable chat -- not locked in anywhere (unlike
+  // public_consent_refund_cents), just a live value for the opt-in confirm UI.
+  chat_enable_fee_cents?: number;
 };
 
 export type PublicConsentStatus = "pending" | "approved" | "rejected";
+
+/** One turn of a chat-with-document conversation -- see
+ * GET/POST /api/jobs/{id}/chat/messages. citation_seconds is assistant-only
+ * (null when the answer doesn't correspond to a specific moment). */
+export type ChatMessage = {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+  citation_seconds: number | null;
+  created_at: string;
+};
 
 /** Shape of GET /api/share/{token} -- the anonymous, read-only counterpart
  * to Job for a shared document. Deliberately excludes anything owner-only:

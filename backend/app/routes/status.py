@@ -37,6 +37,16 @@ def build_job_response(job: dict, request: Request) -> dict:
         )
         if job["public_status"] == "approved":
             response["public_showcase_url"] = f"{settings.FRONTEND_URL}/showcase/{job['id']}"
+    if job["job_type"] in ("video", "audio"):
+        # Chat-with-document (see app/chat_jobs.py, routes/chat.py) --
+        # unlike public_status above, this is a plain boolean: there's no
+        # pending/rejected state (no admin review), and no un-enable path
+        # once true. chat_enable_fee_cents is always the current flat fee
+        # (not locked in anywhere, since there's nothing to lock -- unlike
+        # the showcase refund, this doesn't vary per job), surfaced so the
+        # opt-in confirm UI can show a real dollar figure.
+        response["chat_enabled"] = job["chat_enabled_at"] is not None
+        response["chat_enable_fee_cents"] = settings.CHAT_ENABLE_FEE_CENTS
     if job["status"] == "done" and job["deleted_at"] is not None:
         # Retention swept the files (see retention.py) -- still "done" in
         # the sense that conversion succeeded, but nothing left to serve.

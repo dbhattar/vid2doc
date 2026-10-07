@@ -253,7 +253,16 @@ def _compose_and_finalize(job: dict, output_dir: Path, images_meta: list[dict], 
         else:
             sections = _prepend_summary_section(job, segments, sections)
 
-    _finalize_document(job, title, sections, images_meta, tables_meta)
+    # Unlike audio jobs, video documents are LLM-rewritten prose with no
+    # surviving timestamp back-reference -- compose.compose_document's
+    # output can't be mapped back to a moment in the source video. Persist
+    # the raw segments as transcript.json (same convention audio already
+    # uses) so a chat-with-document feature can ground an answer to a
+    # timestamp by matching against these, not the rewritten prose. Written
+    # unconditionally (not gated on chat opt-in, which only happens after
+    # the job is already done -- too late to recover this otherwise).
+    transcript_json = json.dumps({"segments": segments}, indent=2)
+    _finalize_document(job, title, sections, images_meta, tables_meta, extra_files={"transcript.json": transcript_json})
 
 
 def _prepend_summary_section(job: dict, segments: list[dict], sections: list[dict]) -> list[dict]:

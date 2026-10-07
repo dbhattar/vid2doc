@@ -40,7 +40,7 @@ from .s3_client import get_client as get_s3_client
 
 
 class PublicArchiveUploadError(Exception):
-    """Raised by _upload_job_archive if any file fails to upload -- the
+    """Raised by upload_job_archive if any file fails to upload -- the
     caller (submit_public_consent) never persists pending-moderation state
     on this, so a job never enters the admin queue backed by a partial
     archive."""
@@ -82,7 +82,7 @@ def _gather_archive_files(doc_dir: Path) -> list[Path]:
     return files
 
 
-def _upload_job_archive(job_id: str, doc_dir: Path, source_path: Path, prefix: str) -> str:
+def upload_job_archive(job_id: str, doc_dir: Path, source_path: Path, prefix: str) -> str:
     """All-or-nothing: if any file fails partway through, delete whatever
     objects already succeeded and raise, rather than tolerating partial
     failure the way Drive's upload does -- this archive is unattended and
@@ -94,7 +94,11 @@ def _upload_job_archive(job_id: str, doc_dir: Path, source_path: Path, prefix: s
     to prefix* (preserving source_path's original extension, since uploads
     aren't always .mp4) -- same convention as the hardcoded "document.md"
     etc. below, so routes/public_jobs.py's `base + filename` URL-building
-    stays consistent instead of double-including the prefix."""
+    stays consistent instead of double-including the prefix.
+
+    Public, not module-private: app/chat_jobs.py reuses this directly for
+    its own (private-prefix) archive step -- the all-or-nothing upload
+    logic is identical, only the prefix/visibility differs."""
     client = get_s3_client()
     files = _gather_archive_files(doc_dir)
     video_filename = f"source{source_path.suffix or '.mp4'}"
@@ -153,7 +157,7 @@ def submit_public_consent(job: dict, doc_dir: Path) -> dict:
     the admin queue backed by a partial archive."""
     refund_cents = compute_refund_cents(job["billed_cents"])
     prefix = archive_prefix_for(job["id"])
-    video_key = _upload_job_archive(job["id"], doc_dir, Path(job["source_path"]), prefix)
+    video_key = upload_job_archive(job["id"], doc_dir, Path(job["source_path"]), prefix)
 
     now = datetime.now(timezone.utc)
     jobs.update_job(

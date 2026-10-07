@@ -43,6 +43,9 @@ def _job_to_dict(job: Job) -> dict:
         "public_reviewed_at": job.public_reviewed_at,
         "public_reviewed_by": str(job.public_reviewed_by) if job.public_reviewed_by else None,
         "public_rejection_reason": job.public_rejection_reason,
+        "chat_enabled_at": job.chat_enabled_at,
+        "chat_archive_prefix": job.chat_archive_prefix,
+        "chat_video_key": job.chat_video_key,
         "created_at": job.created_at,
         "updated_at": job.updated_at,
     }

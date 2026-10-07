@@ -179,10 +179,45 @@ class Job(Base):
     # Internal only -- never surfaced to the job owner (see
     # routes/public_jobs.py), just an audit trail for admins.
     public_rejection_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Chat-with-document: owner opts a completed job into a permanently
+    # archived (private) copy of its document + transcript + source media,
+    # so a Q&A chat can keep working past the 7-day local retention sweep
+    # and point answers back to a moment in the media. Modeled on the
+    # public-showcase columns above (archive-at-opt-in, irreversible), not
+    # share_token -- NULL means never opted in; once set, permanent (no
+    # un-enable path -- the one-time fee already paid for unlimited use).
+    # See app/chat_jobs.py.
+    chat_enabled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # S3 key prefix the private archive was written under (always
+    # f"chat/{job.id}/" today, recorded rather than re-derived for the same
+    # reason public_archive_prefix is -- see app/chat_jobs.py).
+    chat_archive_prefix: Mapped[str | None] = mapped_column(String, nullable=True)
+    # Archived source media's filename relative to chat_archive_prefix
+    # (preserves the original upload's extension -- same convention as
+    # public_video_key).
+    chat_video_key: Mapped[str | None] = mapped_column(String, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
+
+
+class ChatMessage(Base):
+    """One turn of a chat-with-document conversation (see app/chat_jobs.py).
+    Persisted so history survives a reload -- only reachable for a job with
+    chat_enabled_at set."""
+
+    __tablename__ = "chat_messages"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)  # str(uuid.uuid4())
+    job_id: Mapped[str] = mapped_column(String, ForeignKey("jobs.id"), nullable=False, index=True)
+    role: Mapped[str] = mapped_column(String, nullable=False)  # "user" | "assistant"
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    # Assistant-only: the start_ts (seconds) of the transcript segment the
+    # answer is grounded in, if any -- null when the question wasn't
+    # answerable from a specific moment in the media.
+    citation_seconds: Mapped[float | None] = mapped_column(Float, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 class GoogleDriveConnection(Base):
