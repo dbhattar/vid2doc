@@ -57,6 +57,7 @@ type on the command line for that one invocation:
 import os
 import re
 import tempfile
+import uuid
 
 from fabric import task
 
@@ -397,6 +398,66 @@ def set_env(c, key, value, restart_after=True):
         _restart_stack(c)
     else:
         print("Skipped restart (--restart-after=False) -- run `fab ... restart` when ready to apply.")
+
+
+@task
+def put_file(c, local_file, remote_dir, filename=None):
+    """Uploads one local file into a directory on the VPS -- e.g. to refresh
+    backend/data/youtube_cookies.txt (bind-mounted into the api/worker
+    containers as /data/youtube_cookies.txt, see app/youtube.py's
+    _COOKIES_FILE) without needing to SSH in and copy it by hand.
+
+    remote_dir is relative to APP_DIR unless given as an absolute path
+    (starting with /) -- e.g. --remote-dir=backend/data resolves to
+    {APP_DIR}/backend/data. The uploaded file keeps its local filename
+    unless --filename overrides it.
+
+    SFTP (what the underlying upload uses) always transfers as the
+    connected SSH user, with no sudo equivalent -- so this can't just SFTP
+    straight into remote_dir if that directory isn't writable by
+    DEPLOY_USER (e.g. backend/data/, auto-created root-owned by the Docker
+    daemon the first time `docker compose up` ran its bind mount). Same
+    upload-to-/tmp-then-sudo-mv workaround _write_nginx_config already uses
+    for exactly this reason: SFTP-upload to a neutral, always-writable /tmp
+    path, then `sudo mkdir`/`sudo mv` into the real destination, which works
+    regardless of who owns it.
+
+    Usage:
+        fab ... put-file --local-file=./youtube_cookies.txt --remote-dir=backend/data
+        fab ... put-file --local-file=./cookies.txt --remote-dir=backend/data --filename=youtube_cookies.txt
+    """
+    if not os.path.isfile(local_file):
+        print(f"ERROR: local file not found: {local_file}")
+        raise SystemExit(1)
+
+    resolved_dir = remote_dir if remote_dir.startswith("/") else f"{APP_DIR}/{remote_dir}"
+    dest_filename = filename or os.path.basename(local_file)
+    dest_path = f"{resolved_dir}/{dest_filename}"
+    tmp_path = f"/tmp/put-file-{uuid.uuid4().hex}"
+
+    print(f"==> Uploading {local_file} -> {dest_path}")
+    c.put(local_file, tmp_path)
+    c.sudo(f"mkdir -p {resolved_dir}")
+    c.sudo(f"mv {tmp_path} {dest_path}")
+    print("Done.")
+
+
+@task
+def run(c, cmd, sudo=True):
+    """Runs an arbitrary command inside {APP_DIR}/backend on the VPS -- an
+    escape hatch for one-off diagnostics (e.g. testing yt-dlp directly
+    inside the running api container, same environment/cookies file it
+    actually uses) without needing to SSH in by hand. Defaults to sudo,
+    matching every docker compose invocation elsewhere in this file -- pass
+    --sudo=False for a command that doesn't need it.
+
+    Usage:
+        fab ... run --cmd="docker compose ps"
+        fab ... run --cmd="docker compose exec api yt-dlp --version"
+        fab ... run --cmd="docker compose exec api yt-dlp --cookies /data/youtube_cookies.txt --extractor-args youtube:player_client=default,tv --verbose --dump-json --no-playlist https://youtu.be/CMPUAVKKK9k"
+    """
+    runner = c.sudo if sudo else c.run
+    runner(f"bash -c 'cd {APP_DIR}/backend && {cmd}'")
 
 
 @task
