@@ -1,0 +1,82 @@
+---
+title: "Live, Speaker-Tagged Transcription With Zero Server-Side Audio"
+description: "How Framewrite's live recording feature identifies who's talking in real time using a custom WASM speaker-embedding model, entirely in the browser."
+publishDate: 2026-10-08
+author: "Framewrite"
+tags: ["engineering", "wasm", "speech", "diarization"]
+draft: false
+---
+
+When you hit record on Framewrite's live transcription page, two things happen in parallel the moment someone stops talking: their words appear as text, and they're tagged with a speaker label — "Speaker 1," "Speaker 2" — correctly, consistently, turn after turn. No audio ever leaves the browser to make that happen. There's no websocket to a diarization service, no per-minute vendor bill, no round trip at all. The entire pipeline — voice activity detection, speech recognition, and speaker identification — runs client-side, in WebAssembly, inside a Web Worker.
+
+This post is about how that works, including the part that doesn't show up in any off-the-shelf library: we had to build our own WASM module to get it.
+
+## The gap in the ecosystem
+
+[sherpa-onnx](https://github.com/k2-fsa/sherpa-onnx) is the obvious foundation for this — it's a real, production-grade speech toolkit with first-class WebAssembly support, and it already runs elsewhere in our stack as a native library. It ships two WASM builds that looked relevant:
+
+- **`vad-asr`** — genuine streaming voice activity detection plus speech recognition. Feed it live audio, and it gives you partial captions as someone talks and a finalized transcript the moment VAD detects a pause. This one was exactly what we needed, unmodified.
+- **`speaker-diarization`** — speaker identification, which is the other half of the problem. Except it isn't streaming at all. We pulled the actual demo source (`wasm/speaker-diarization/app-speaker-diarization.js`) to check, and confirmed: it's strictly whole-buffer. You upload a complete file, it decodes the entire thing, and one call to `sd.process(float32Samples)` hands back every segment at once. No microphone input, no incremental API, no way to ask "who's talking *right now*."
+
+There's no official prebuilt WASM artifact for live, turn-by-turn diarization — because the underlying model architecture that does, embedding extraction, is designed to run once per utterance, not continuously. But the primitive it needs *is* already exposed in sherpa-onnx's C API: `SherpaOnnxCreateSpeakerEmbeddingExtractor` and its companion `ComputeEmbedding` call. It just had never been wrapped into a browser build, because nobody had needed that specific slice of the API in isolation before.
+
+So we built it.
+
+## Building a custom WASM target
+
+sherpa-onnx's own WASM demos (`vad-asr`, `speaker-diarization`, and others) all follow the same shape: a directory under `wasm/<name>/` containing a `CMakeLists.txt` and a `sherpa-onnx-wasm-main-<name>.cc` file that Embind/`extern "C"`-exports a slice of the C API for JavaScript to call. We followed that exact pattern for a new target, `speaker-embedding`, that exports only what a live pipeline actually needs: create an extractor, create a stream, feed it samples, pull out an embedding vector, and clean up. Nothing else from the offline pipeline — no clustering, no file I/O, no VAD — comes along for the ride.
+
+The build itself lives in `frontend/native/sherpa-speaker-embedding/` and is reproducible via `build-wasm.sh`, not a binary anyone had to hand-build once and commit blindly:
+
+- **sherpa-onnx is pinned to a specific commit** (`v1.10.30`), not whatever `main` happens to be on build day. This is a native build with a real toolchain dependency; floating on upstream would make the build silently non-reproducible.
+- **Emscripten 3.1.53**, installed and activated via `emsdk` as part of the script, not assumed to be present on the machine.
+- The script clones sherpa-onnx at that pinned commit, drops our `CMakeLists.txt` and `.cc` wrapper into `wasm/speaker-embedding/`, and then does something a little unusual: it patches two anchor points in sherpa-onnx's *own* `CMakeLists.txt` files with a small Python block, wiring in a new `SHERPA_ONNX_ENABLE_WASM_SPEAKER_EMBEDDING` option that doesn't exist upstream. Every other optional component — Python bindings, tests, GPU support, JNI, the websocket server — gets turned off, so the build stays focused on exactly one artifact.
+- `cmake` runs with `-DCMAKE_POLICY_VERSION_MINIMUM=3.5`, which exists purely to work around a dependency mismatch: `kaldi-native-fbank`, a transitive dependency, declares `cmake_minimum_required(VERSION 2.8)`, which modern CMake (4.0+) refuses to accept without that override. The kind of thing you only discover by actually running the build and reading the error.
+- The model itself — more on the choice below — gets fetched by the script via `curl` from sherpa-onnx's own GitHub releases and baked directly into the WASM module's virtual filesystem with Emscripten's `--preload-file`, so there's no separate model-loading step at runtime; it's already part of the `.data` file sitting next to the `.wasm`.
+
+The output is three files — `sherpa-onnx-wasm-main-speaker-embedding.js`, `.wasm`, and `.data` — checked into `frontend/public/wasm/speaker-embedding/` as versioned build artifacts, roughly 37MB combined (the model itself accounts for most of that). We treat this the same way we'd treat any other committed build output: reproducible from source via the script, not a mystery binary someone generated once and nobody can rebuild.
+
+### Picking a model
+
+The embedding model is [3D-Speaker's ERes2Net](https://github.com/alibaba-damo-academy/3D-Speaker) variant trained on VoxCeleb (`3dspeaker_speech_eres2net_sv_en_voxceleb_16k.onnx`), producing a 192-dimensional embedding per utterance at 16kHz. We considered two alternatives sherpa-onnx also ships converted ONNX versions of — WeSpeaker's CAM++ (29MB) and NeMo's TitaNet-Large (101MB) — but ERes2Net gave us the best accuracy-to-size tradeoff for a model that has to be downloaded by every visitor's browser before the feature is usable at all. Every megabyte here is something a real person waits on, once, before they can start recording.
+
+## The runtime pipeline
+
+None of this runs on the main thread. Here's the path audio actually takes:
+
+1. **Capture**: `getUserMedia({ audio: true })` hands us a `MediaStream`, fed into an `AudioContext` with a custom `AudioWorkletNode` (`pcmProcessor.ts`). The worklet batches the browser's native 128-sample render quanta into 4096-sample chunks and posts them off the audio thread immediately — nothing audio-related should ever block on JavaScript's event loop.
+2. **Hand-off to a Web Worker**: those chunks get transferred (not copied) into a dedicated worker, keeping both the audio thread and the UI thread free of any inference work.
+3. **Downsampling + VAD**: inside the worker, audio is downsampled to the 16kHz both models expect, and pushed through sherpa-onnx's Silero VAD via the official `vad-asr` build.
+4. **Speech recognition**: also via `vad-asr`, running an offline [Moonshine](https://github.com/usefulsensors/moonshine) ASR model. It's re-decoded periodically for live partial captions, and once more, cleanly, the moment VAD finalizes a turn — that final decode is what actually gets stored.
+5. **Speaker embedding**: only for turns VAD has finalized, and only if the turn is at least 1.2 seconds long — anything shorter doesn't carry enough signal for a reliable embedding, so we skip extraction and fall back to whatever speaker was talking in the previous turn rather than guessing from noise.
+6. **Speaker matching**: the new embedding gets compared, by cosine similarity, against every speaker embedding already seen in this session. Best match above a threshold reuses that label; otherwise, a new "Speaker N" is registered, numbered by first appearance — the same convention our backend's batch diarization already uses for uploaded files, so the two paths feel identical from a user's perspective even though one runs in a browser tab and the other runs in a Python worker.
+7. **Render**: the finalized turn, with its speaker label already resolved, appears in the transcript immediately.
+
+The matching function itself is intentionally simple — not a clustering library, not a running centroid per speaker, just:
+
+```ts
+function matchOrRegisterSpeaker(registry: SpeakerRegistry, embedding: Float32Array, threshold = 0.5): string {
+  let bestLabel: string | null = null;
+  let bestScore = -1;
+  for (let i = 0; i < registry.embeddings.length; i++) {
+    const score = cosineSimilarity(embedding, registry.embeddings[i]);
+    if (score > bestScore) { bestScore = score; bestLabel = registry.labels[i]; }
+  }
+  if (bestLabel && bestScore >= threshold) return bestLabel;
+  return registerNewSpeaker(registry, embedding);
+}
+```
+
+Greedy nearest-neighbor, no re-centroiding, no merge step. It's a lot less sophisticated than a real offline diarization pipeline, and that's deliberate — a live session only ever has a handful of distinct speakers, and the embeddings separate cleanly enough that anything fancier would be solving a problem we don't have. In practice, measured against real two-person test recordings, same-speaker turns land around 0.91–0.92 cosine similarity against each other, and different speakers land around 0.11 — a threshold of 0.5 sits comfortably in the gap between those two clusters with real margin on both sides.
+
+## Rejoining the batch pipeline
+
+Here's the part we were most careful about: everything above produces exactly the same `{ speaker, text, start_ts, end_ts }` segment shape our *existing* batch transcription pipeline already consumes after running AssemblyAI or Whisper over an uploaded file. So when you click Stop, the browser doesn't need a new, parallel path through the backend — it just POSTs the already-assembled segment list to `/api/live/finalize`, which writes them to a `precomputed_segments.json` file and creates a normal `audio`-type job.
+
+The one change to the batch pipeline itself is a single short-circuit, right at the top of the function that would otherwise extract audio and call the transcription engine: if `precomputed_segments.json` already exists for this job, read it and skip straight past transcription. Everything downstream — speaker-label normalization, the optional AI summary, document rendering in Markdown/Word/PDF, the speaker-rename endpoint — runs completely unmodified, because as far as that code is concerned, a live-recorded transcript and an uploaded-file transcript are indistinguishable.
+
+## What this buys you, and what it costs
+
+The honest tradeoffs: a first-time visitor downloads on the order of tens of megabytes of model weights before recording starts (cached after that), and per-turn latency is bounded by the VAD's silence-detection window — typically a few hundred milliseconds to about a second, since you can't label a turn as finished before the model decides someone stopped talking. That's an inherent property of turn-based diarization, not something specific to our implementation.
+
+In exchange: no audio is ever transcribed or identified anywhere but the recording device itself unless you explicitly choose to also upload the raw audio afterward. There's no per-minute or per-session cost that scales with usage, because there's no server-side inference happening at all. And there was no new backend infrastructure to build — no websocket server, no streaming protocol, no new way for audio to reach us — because the feature was designed, from the start, to hand off a finished result to infrastructure we already had.
