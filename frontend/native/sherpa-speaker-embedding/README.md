@@ -129,6 +129,6 @@ numbers, then `DISCRIMINATES SPEAKERS: YES` (exit code 0).
 
 The compiled `.js`/`.wasm`/`.data` (~50MB total, dominated by the 39MB
 preloaded embedding model) are checked into
-`frontend/public/wasm/speaker-embedding/` for the frontend to fetch at
+`frontend/public/wasm/v1/speaker-embedding/` for the frontend to fetch at
 runtime — see that decision's size/git tradeoff noted in
 `plan/realtime-diarization-plan.md`.

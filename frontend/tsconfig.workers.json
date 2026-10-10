@@ -1,13 +1,13 @@
 {
-  // Compiles the two worker/worklet entry points (workers/vadAsrWorker.ts,
-  // workers/pcmProcessor.ts) to plain classic-script JS under public/workers/, served
-  // as-is and loaded via `new Worker("/workers/vadAsrWorker.js")` /
-  // `audioWorklet.addModule("/workers/pcmProcessor.js")`.
+  // Compiles the worker/worklet entry points (workers/vadAsrWorker.ts,
+  // workers/embeddingWorker.ts, workers/pcmProcessor.ts) to plain classic-script JS under
+  // public/workers/, served as-is and loaded via `new Worker("/workers/vadAsrWorker.js")` /
+  // `new Worker("/workers/embeddingWorker.js")` / `audioWorklet.addModule("/workers/pcmProcessor.js")`.
   //
   // These are compiled separately from the main app rather than left to
   // Next/Turbopack's `new Worker(new URL(...))` bundling -- see the comment at the top of
   // workers/vadAsrWorker.ts for why that doesn't work under Turbopack as of Next 16.2.10.
-  // Both source files are intentionally free of `import`/`export` so tsc emits them as
+  // All three source files are intentionally free of `import`/`export` so tsc emits them as
   // plain global scripts (no leftover `export {}` marker, which would be a syntax error in
   // a classic, non-module Worker/AudioWorklet context).
   "extends": "./tsconfig.json",
@@ -21,5 +21,5 @@
     "isolatedModules": false,
     "incremental": false
   },
-  "include": ["workers/vadAsrWorker.ts", "workers/pcmProcessor.ts"]
+  "include": ["workers/vadAsrWorker.ts", "workers/embeddingWorker.ts", "workers/pcmProcessor.ts"]
 }

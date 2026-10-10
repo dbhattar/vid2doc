@@ -37,10 +37,24 @@ const nextConfig: NextConfig = {
       { key: "Cross-Origin-Opener-Policy", value: "same-origin" },
       { key: "Cross-Origin-Embedder-Policy", value: "credentialless" },
     ];
+    // The ~58MB of WASM/model assets under /wasm/ are static and rarely change -- there was
+    // no override here before, so a repeat visit's reload behavior depended entirely on the
+    // browser's own default HTTP heuristics rather than an explicit, long-lived cache. Paired
+    // with the /wasm/v1/ version segment (public/wasm/v1/vad-asr, public/wasm/v1/
+    // speaker-embedding) so a future model update bumps the path and gets fetched fresh,
+    // rather than "immutable" forcing stale clients to keep an old cached copy indefinitely.
+    // Deliberately NOT applied to /workers/* (our own actively-developed compiled worker JS,
+    // which changes on ordinary fixes and has no cache-busting tied to the build process --
+    // "immutable" there risks serving stale/buggy code to returning users) or /dashboard/live
+    // (a dynamic page).
+    const wasmHeaders = [
+      ...crossOriginIsolationHeaders,
+      { key: "Cache-Control", value: "public, max-age=31536000, immutable" },
+    ];
     return [
       { source: "/dashboard/live", headers: crossOriginIsolationHeaders },
       { source: "/workers/:path*", headers: crossOriginIsolationHeaders },
-      { source: "/wasm/:path*", headers: crossOriginIsolationHeaders },
+      { source: "/wasm/:path*", headers: wasmHeaders },
     ];
   },
 };

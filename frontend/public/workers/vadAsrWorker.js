@@ -1,7 +1,7 @@
 "use strict";
 const ctx = self;
-function post(message) {
-    ctx.postMessage(message);
+function post(message, transfer) {
+    ctx.postMessage(message, transfer !== null && transfer !== void 0 ? transfer : []);
 }
 function fail(message) {
     post({ type: "error", message });
@@ -49,30 +49,19 @@ const VAD_CONFIG = {
     bufferSizeInSeconds: 30,
 };
 // ---- constants ----------------------------------------------------------------------
-// Confirmed NOT the cause of the "sherpa-onnx decode failed" reports (reproduced with this
-// off, decode still failed) -- left as a toggle in case it's useful again, but back on.
-const EMBEDDING_ENABLED = true;
-const WASM_BASE = "/wasm/vad-asr/";
-const EMBEDDING_WASM_BASE = "/wasm/speaker-embedding/";
-// Virtual-FS path the model was preloaded at when the WASM build was compiled
-// (--preload-file assets@., with assets/embedding.onnx inside) -- not a real path on disk
-// here, see frontend/native/sherpa-speaker-embedding/README.md.
-const EMBEDDING_MODEL_PATH = "./embedding.onnx";
-// Below this, a speaker embedding is unreliable enough to do more harm than good -- the
-// model's own verification (frontend/native/sherpa-speaker-embedding/README.md) measured
-// same/different-speaker separation on 2-4s clips; VAD's own minSpeechDuration (0.25s,
-// below) lets much shorter segments through, and a noisy embedding from just a few hundred
-// ms of audio is exactly the kind of input that can fall below matchOrRegisterSpeaker's
-// similarity threshold against the true speaker's own past embeddings, spuriously
-// registering a brand-new speaker for what was actually a short interjection by someone
-// already in the conversation. Segments shorter than this skip embedding entirely (see
-// computeEmbeddingForSegment) -- `embedding` comes back undefined, and the live page falls
-// back to the previous turn's speaker (a much safer default for a short segment than a
-// fresh, unreliable match) rather than guessing wrong with false confidence.
-const MIN_RELIABLE_EMBEDDING_SECONDS = 1.2;
+// v1: bump this path segment (and the directory under public/wasm/) whenever these assets
+// change -- see next.config.ts's long-lived "immutable" Cache-Control override for why a
+// stale client must never be able to keep resolving this path to old content.
+const WASM_BASE = "/wasm/v1/vad-asr/";
 const SAMPLE_RATE = 16000;
-// Re-decode the in-progress utterance for a `partial` preview at most this often.
-const PARTIAL_INTERVAL_SAMPLES = Math.round(SAMPLE_RATE * 0.6);
+// Re-decode the in-progress utterance for a `partial` preview at most this often. Each
+// re-decode re-runs the *entire* in-progress buffer through the offline ASR model (see the
+// architecture note at the top of this file) -- there's no incremental decode state, so this
+// interval directly trades live-caption freshness for CPU cost. Raised from 0.6s to 1.0s
+// (previously ~1.7 redecodes/sec during continuous speech, now 1/sec) -- a non-streaming
+// model re-processing a growing buffer gets measurably more expensive per call as a turn
+// goes on, so this cuts total redecode work materially without feeling noticeably less live.
+const PARTIAL_INTERVAL_SAMPLES = Math.round(SAMPLE_RATE * 1.0);
 // Don't bother decoding a partial until there's at least this much speech buffered.
 const PARTIAL_MIN_SAMPLES = Math.round(SAMPLE_RATE * 0.3);
 // Cap on the in-progress-utterance buffer kept for the `partial` preview. VAD_CONFIG's own
@@ -94,15 +83,6 @@ let vad = null;
 let circularBuffer = null;
 let recognizer = null;
 let ready = false;
-// Loaded independently of (and never gates) the vad-asr `ready` flag above -- speaker
-// labeling is a best-effort layer on top of the transcript, not a hard dependency. If this
-// never becomes true (slow network, unsupported browser, load failure), every `final`
-// message just omits `embedding` and the main thread's degrade-to-one-speaker fallback
-// applies (see lib/liveEngine.ts's LiveTurn.embedding doc comment).
-let embeddingModule = null;
-let embeddingExtractor = 0;
-let embeddingDim = 0;
-let embeddingReady = false;
 // Raw (already 16kHz) samples of the utterance currently in progress, kept purely for the
 // `partial` preview -- cleared whenever VAD is no longer in the "detected" state. This is
 // separate from the VAD's own internal buffering; the VAD's `front()`/`pop()` segment
@@ -250,94 +230,7 @@ function emitPartialIfDue() {
         post({ type: "partial", text });
     }
 }
-function cStr(mod, str) {
-    const len = mod.lengthBytesUTF8(str) + 1;
-    const ptr = mod._malloc(len);
-    mod.stringToUTF8(str, ptr, len);
-    return ptr;
-}
-// Loads the custom speaker-embedding WASM build and creates one extractor for the whole
-// session (a fresh *stream* per turn, further below, is what actually holds a turn's
-// samples). Runs independently of loadWasmModule()/the vad-asr build -- kicked off
-// alongside it at the bottom of this file -- and never posts a fatal `error`: any failure
-// here just leaves embeddingReady false, logged for debugging, per the degradation
-// rationale on the module state above.
-async function loadEmbeddingModule() {
-    try {
-        importScripts(EMBEDDING_WASM_BASE + "sherpa-onnx-wasm-main-speaker-embedding.js");
-        const mod = await createSherpaOnnxSpeakerEmbeddingModule({
-            locateFile: (path) => EMBEDDING_WASM_BASE + path,
-        });
-        // SherpaOnnxSpeakerEmbeddingExtractorConfig: { const char *model; int32 num_threads;
-        // int32 debug; const char *provider; } -- 4 fields x 4 bytes, matches test-embedding.js.
-        const modelPtr = cStr(mod, EMBEDDING_MODEL_PATH);
-        const providerPtr = cStr(mod, "cpu");
-        const configPtr = mod._malloc(16);
-        mod.setValue(configPtr + 0, modelPtr, "i32");
-        mod.setValue(configPtr + 4, 1, "i32");
-        mod.setValue(configPtr + 8, 0, "i32");
-        mod.setValue(configPtr + 12, providerPtr, "i32");
-        const extractor = mod.ccall("SherpaOnnxCreateSpeakerEmbeddingExtractor", "number", ["number"], [configPtr]);
-        mod._free(modelPtr);
-        mod._free(providerPtr);
-        mod._free(configPtr);
-        if (!extractor) {
-            throw new Error("SherpaOnnxCreateSpeakerEmbeddingExtractor returned NULL");
-        }
-        embeddingModule = mod;
-        embeddingExtractor = extractor;
-        embeddingDim = mod.ccall("SherpaOnnxSpeakerEmbeddingExtractorDim", "number", ["number"], [extractor]);
-        embeddingReady = true;
-    }
-    catch (err) {
-        console.error("Speaker-embedding WASM module failed to load -- diarization will degrade to a single speaker:", err);
-    }
-}
-// Best-effort speaker embedding for one already-VAD-finalized turn's samples (16kHz,
-// matching SAMPLE_RATE) -- returns null (never throws) on any failure, same
-// one-speaker-fallback rationale as loadEmbeddingModule above. A fresh stream per call
-// mirrors test-embedding.js's proven usage; the extractor itself is reused for the whole
-// session.
-function computeEmbeddingForSegment(samples) {
-    if (!embeddingReady || !embeddingModule || !embeddingExtractor)
-        return null;
-    if (samples.length < MIN_RELIABLE_EMBEDDING_SECONDS * SAMPLE_RATE)
-        return null;
-    const mod = embeddingModule;
-    let stream = 0;
-    let samplesPtr = 0;
-    try {
-        stream = mod.ccall("SherpaOnnxSpeakerEmbeddingExtractorCreateStream", "number", ["number"], [embeddingExtractor]);
-        samplesPtr = mod._malloc(samples.length * 4);
-        mod.HEAPF32.set(samples, samplesPtr / 4);
-        mod.ccall("SherpaOnnxOnlineStreamAcceptWaveform", null, ["number", "number", "number", "number"], [stream, SAMPLE_RATE, samplesPtr, samples.length]);
-        mod.ccall("SherpaOnnxOnlineStreamInputFinished", null, ["number"], [stream]);
-        const isReady = mod.ccall("SherpaOnnxSpeakerEmbeddingExtractorIsReady", "number", ["number", "number"], [embeddingExtractor, stream]);
-        if (!isReady)
-            return null;
-        const embPtr = mod.ccall("SherpaOnnxSpeakerEmbeddingExtractorComputeEmbedding", "number", ["number", "number"], [embeddingExtractor, stream]);
-        if (!embPtr)
-            return null;
-        const embedding = new Float32Array(embeddingDim);
-        for (let i = 0; i < embeddingDim; i++) {
-            embedding[i] = mod.getValue(embPtr + i * 4, "float");
-        }
-        mod.ccall("SherpaOnnxSpeakerEmbeddingExtractorDestroyEmbedding", null, ["number"], [embPtr]);
-        return embedding;
-    }
-    catch (err) {
-        console.error("Speaker-embedding extraction failed for this turn, skipping:", err);
-        return null;
-    }
-    finally {
-        if (stream)
-            mod.ccall("SherpaOnnxDestroyOnlineStream", null, ["number"], [stream]);
-        if (samplesPtr)
-            mod._free(samplesPtr);
-    }
-}
 function drainFinishedSegments() {
-    var _a;
     if (!vad)
         return;
     while (!vad.isEmpty()) {
@@ -347,8 +240,11 @@ function drainFinishedSegments() {
         if (text) {
             const startTs = segment.start / SAMPLE_RATE;
             const endTs = startTs + segment.samples.length / SAMPLE_RATE;
-            const embedding = (_a = computeEmbeddingForSegment(segment.samples)) !== null && _a !== void 0 ? _a : undefined;
-            post({ type: "final", text, startTs, endTs, embedding });
+            // Transferred (zero-copy), not copied -- see workers/embeddingWorkerProtocol.ts for
+            // where this ends up: lib/sherpaLiveEngine.ts forwards it to the separate
+            // speaker-embedding worker, which is the only remaining use for it once decodeSamples
+            // above has already read the text out.
+            post({ type: "final", text, startTs, endTs, samples: segment.samples }, [segment.samples.buffer]);
         }
     }
 }
@@ -387,9 +283,20 @@ function processSamples(samples16k) {
 // upstream demo's `Module = {}` before its own <script> tag. Since this is a plain
 // assignment (not `var`/`let`), it's done via `globalThis` to stay valid under the strict
 // mode ES modules always run in.
+// Matches the exact format the vendored glue script's fetchRemotePackage() builds its
+// setStatus string from -- see this worker's module comment. Anything else (the initial
+// "Downloading data..." with no numbers yet, "Running...", or "") has no loaded/total pair
+// to report, so is simply not forwarded as a progress message.
+const DOWNLOAD_PROGRESS_RE = /Downloading data\.\.\. \((\d+)\/(\d+)\)/;
 function applyModuleConfig() {
     const moduleConfig = {
         locateFile: (path) => WASM_BASE + path,
+        setStatus: (status) => {
+            const match = DOWNLOAD_PROGRESS_RE.exec(status);
+            if (match) {
+                post({ type: "progress", loaded: Number(match[1]), total: Number(match[2]) });
+            }
+        },
         onRuntimeInitialized: () => {
             try {
                 vad = createVad(Module, VAD_CONFIG);
@@ -462,9 +369,3 @@ ctx.onmessage = (ev) => {
     }
 };
 loadWasmModule();
-// Loaded independently, in parallel -- never blocks vad-asr's own `ready` gate above (see
-// the module-state comment on embeddingReady). Gated by EMBEDDING_ENABLED above for now --
-// see that constant's comment.
-if (EMBEDDING_ENABLED) {
-    loadEmbeddingModule();
-}

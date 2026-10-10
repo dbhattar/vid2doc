@@ -22,6 +22,11 @@ export type LiveEngineCallbacks = {
   /** Fatal engine error (e.g. WASM/model failed to load) -- the page should
    * surface this and let the user retry, not keep waiting silently. */
   onError: (message: string) => void;
+  /** Optional, cosmetic-only: real byte-level progress while the engine's WASM/model bundle
+   * is still downloading (fires zero or more times before the engine resolves ready). A
+   * factory that can't report this just never calls it -- callers should treat "no updates
+   * yet" the same as an indeterminate/starting state, not an error. */
+  onLoadProgress?: (loaded: number, total: number) => void;
 };
 
 export interface LiveEngineHandle {

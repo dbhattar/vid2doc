@@ -20,6 +20,13 @@ export type MainToWorkerMessage = PcmChunkMessage | FlushMessage;
 
 export type ReadyMessage = { type: "ready" };
 
+/** Real byte-level download progress for the ~58MB WASM+model bundle, forwarded from the
+ * vendored glue script's own `Module.setStatus` hook (see vadAsrWorker.ts's
+ * applyModuleConfig) while it fetches its preloaded `.data` package. Purely cosmetic --
+ * doesn't speed anything up -- but lets the live page show real progress instead of a
+ * generic "Starting..." label during the first load. */
+export type ProgressMessage = { type: "progress"; loaded: number; total: number };
+
 /** A lightweight, non-final preview of the turn currently being spoken -- produced by
  * re-decoding the growing in-progress utterance on a timer, since this WASM build's VAD +
  * offline-ASR architecture has no native word-by-word streaming partials (see
@@ -27,16 +34,17 @@ export type ReadyMessage = { type: "ready" };
 export type PartialMessage = { type: "partial"; text: string };
 
 /** A VAD-endpointed turn has been fully decoded. `startTs`/`endTs` are seconds since this
- * worker (i.e. this recording session) started, matching LiveTurn's contract. `embedding` is
- * a best-effort speaker embedding for this turn's audio (from the custom speaker-embedding
- * WASM build, see the worker's module comment) -- omitted whenever that module isn't ready
- * yet or extraction failed for this turn, matching LiveTurn.embedding's own optionality. */
+ * worker (i.e. this recording session) started, matching LiveTurn's contract. `samples` is
+ * this turn's raw 16kHz audio (transferred, not copied) -- lib/sherpaLiveEngine.ts forwards
+ * it to the separate speaker-embedding worker (workers/embeddingWorker.ts) rather than this
+ * worker computing an embedding itself, so a slow embedding call never delays this worker's
+ * own processing of the next incoming audio chunk. */
 export type FinalMessage = {
   type: "final";
   text: string;
   startTs: number;
   endTs: number;
-  embedding?: Float32Array;
+  samples: Float32Array;
 };
 
 /** Acks a `flush` request once any trailing speech has been drained into `final` messages
@@ -47,6 +55,7 @@ export type WorkerErrorMessage = { type: "error"; message: string };
 
 export type WorkerToMainMessage =
   | ReadyMessage
+  | ProgressMessage
   | PartialMessage
   | FinalMessage
   | FlushedMessage

@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { memo, useCallback, useEffect, useRef, useState } from "react";
 
 import Button from "@/components/Button";
 import { apiFetch, ApiError } from "@/lib/api";
@@ -27,6 +27,37 @@ type FinalizedTurn = { speaker: string; text: string; start_ts: number; end_ts: 
 // plan/realtime-diarization-plan.md's degradation path.
 const UNKNOWN_SPEAKER_LABEL = "Speaker 1";
 
+// Split out of LivePage and memoized so that `partialText` updates (every ~1s while
+// recording, see workers/vadAsrWorker.ts's PARTIAL_INTERVAL_SAMPLES) only re-render the one
+// in-progress preview line below, not this whole finalized-transcript history -- without
+// this, every partial update re-mapped and re-rendered every past turn too, since both lived
+// in the same component's render scope. Only re-renders when `turns` itself changes.
+const LiveTranscriptTurns = memo(function LiveTranscriptTurns({ turns }: { turns: FinalizedTurn[] }) {
+  const speakers = [...new Set(turns.map((t) => t.speaker))];
+  return (
+    <>
+      {turns.map((turn, i) => {
+        const speakerIndex = speakers.indexOf(turn.speaker);
+        return (
+          <div key={i} className="flex gap-3">
+            <span
+              className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${speakerColorFor(speakerIndex).avatar}`}
+            >
+              {speakerInitials(turn.speaker)}
+            </span>
+            <div>
+              <p className="text-xs font-medium text-ink-soft">
+                {turn.speaker} &middot; {formatTimestamp(turn.start_ts)}
+              </p>
+              <p className="text-sm text-ink">{turn.text}</p>
+            </div>
+          </div>
+        );
+      })}
+    </>
+  );
+});
+
 export default function LivePage() {
   const router = useRouter();
   const [status, setStatus] = useState<Status>("idle");
@@ -35,6 +66,37 @@ export default function LivePage() {
   const [partialText, setPartialText] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [recordingStartedAt, setRecordingStartedAt] = useState<string | null>(null);
+  const [loadProgress, setLoadProgress] = useState<{ loaded: number; total: number } | null>(null);
+
+  // sherpa-onnx's vad-asr WASM build is a pthreads (multi-threaded) Emscripten build -- its
+  // internal worker-pool bootstrap unconditionally transfers a SharedArrayBuffer between
+  // workers at load time, which the browser only allows from a cross-origin-isolated page
+  // (self.crossOriginIsolated === true, gated on this route's COOP/COEP response headers --
+  // see next.config.ts). That isolation state is fixed at the top-level document's own
+  // navigation and never changes afterward: reaching this page via client-side routing
+  // (e.g. Sidebar's plain <Link href="/dashboard/live">, as opposed to a full page
+  // load/reload) means the browser never actually re-requested this route's document, so it
+  // keeps whichever (non-isolated) state the PREVIOUS page had -- the headers exist but were
+  // never fetched. A single full reload forces a genuine navigation that does fetch them,
+  // self-healing before the engine ever tries to load. Guarded by sessionStorage so a
+  // browser that can never become cross-origin isolated (shouldn't happen in any supported
+  // browser, but a backstop regardless) doesn't reload forever -- createLiveEngine's own
+  // error handling takes over from there if isolation still isn't active after one try.
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const key = "live-cross-origin-isolation-reload";
+    if (window.crossOriginIsolated) {
+      // Only ever meant to suppress a repeat reload while isolation is still broken --
+      // clear it once fixed so a later soft-nav into this page within the same tab session
+      // (if isolation somehow regresses again) still gets exactly one more retry rather than
+      // being silently blocked by a flag from an earlier, already-resolved visit.
+      sessionStorage.removeItem(key);
+      return;
+    }
+    if (sessionStorage.getItem(key)) return;
+    sessionStorage.setItem(key, "1");
+    window.location.reload();
+  }, []);
 
   const streamRef = useRef<MediaStream | null>(null);
   const engineRef = useRef<LiveEngineHandle | null>(null);
@@ -70,6 +132,7 @@ export default function LivePage() {
   async function handleStart() {
     setError(null);
     setStatus("starting");
+    setLoadProgress(null);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
@@ -104,12 +167,14 @@ export default function LivePage() {
           setStatus("idle");
           teardownMedia();
         },
+        onLoadProgress: (loaded, total) => setLoadProgress({ loaded, total }),
       });
       engineRef.current = engine;
       await engine.start(stream);
 
       setRecordingStartedAt(new Date().toISOString());
       setStatus("recording");
+      setLoadProgress(null);
     } catch (err) {
       teardownMedia();
       setStatus("idle");
@@ -167,7 +232,6 @@ export default function LivePage() {
   }
 
   const isRecording = status === "recording";
-  const speakers = [...new Set(turns.map((t) => t.speaker))];
 
   return (
     <div className="w-full px-6 py-10">
@@ -196,7 +260,11 @@ export default function LivePage() {
           {status === "idle" && (
             <Button onClick={handleStart}>Start recording</Button>
           )}
-          {status === "starting" && <Button disabled>Starting...</Button>}
+          {status === "starting" && (
+            <Button disabled>
+              {loadProgress ? `Loading... ${Math.round((loadProgress.loaded / loadProgress.total) * 100)}%` : "Starting..."}
+            </Button>
+          )}
           {isRecording && (
             <Button variant="outline" onClick={handleStop}>
               <span className="h-2 w-2 rounded-full bg-status-error" aria-hidden />
@@ -206,6 +274,15 @@ export default function LivePage() {
           {status === "finalizing" && <Button disabled>Finalizing...</Button>}
         </div>
 
+        {status === "starting" && loadProgress && (
+          <div className="mt-4 h-1.5 w-full overflow-hidden rounded-full bg-paper-shade">
+            <div
+              className="h-full rounded-full bg-accent transition-[width]"
+              style={{ width: `${Math.min(100, (loadProgress.loaded / loadProgress.total) * 100)}%` }}
+            />
+          </div>
+        )}
+
         {error && <p className="mt-3 text-sm text-status-error">{error}</p>}
       </div>
 
@@ -213,24 +290,7 @@ export default function LivePage() {
         <div className="mt-6 max-w-2xl rounded-lg border border-line bg-paper p-6 shadow-sm">
           <h2 className="font-display text-lg font-bold text-ink">Transcript</h2>
           <div className="mt-4 max-h-[28rem] space-y-3 overflow-y-auto pr-1">
-            {turns.map((turn, i) => {
-              const speakerIndex = speakers.indexOf(turn.speaker);
-              return (
-                <div key={i} className="flex gap-3">
-                  <span
-                    className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${speakerColorFor(speakerIndex).avatar}`}
-                  >
-                    {speakerInitials(turn.speaker)}
-                  </span>
-                  <div>
-                    <p className="text-xs font-medium text-ink-soft">
-                      {turn.speaker} &middot; {formatTimestamp(turn.start_ts)}
-                    </p>
-                    <p className="text-sm text-ink">{turn.text}</p>
-                  </div>
-                </div>
-              );
-            })}
+            <LiveTranscriptTurns turns={turns} />
             {partialText && (
               <div className="flex gap-3 opacity-60">
                 <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold bg-paper-shade text-ink-soft">
