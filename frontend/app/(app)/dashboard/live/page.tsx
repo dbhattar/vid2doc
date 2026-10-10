@@ -4,16 +4,17 @@ import { useRouter } from "next/navigation";
 import { memo, useCallback, useEffect, useRef, useState } from "react";
 
 import Button from "@/components/Button";
+import { MicrophoneIcon, PauseIcon, PlayIcon, StopIcon } from "@/components/icons";
 import { apiFetch, ApiError } from "@/lib/api";
 import { clearSession } from "@/lib/auth";
 import { formatTimestamp } from "@/lib/jobs";
 import type { LiveEngineHandle, LiveTurn } from "@/lib/liveEngine";
-import { createLiveEngine } from "@/lib/liveEngineProvider";
+import { createLiveEngine, preloadLiveEngine, subscribeToLoadProgress } from "@/lib/liveEngineProvider";
 import { createSpeakerRegistry, matchOrRegisterSpeaker, type SpeakerRegistry } from "@/lib/speakerMatch";
 import { speakerColorFor, speakerInitials } from "@/lib/speakerColors";
 import { useElapsedSeconds } from "@/lib/useElapsedSeconds";
 
-type Status = "idle" | "starting" | "recording" | "finalizing";
+type Status = "idle" | "starting" | "recording" | "paused" | "finalizing";
 
 type FinalizedTurn = { speaker: string; text: string; start_ts: number; end_ts: number };
 
@@ -67,6 +68,7 @@ export default function LivePage() {
   const [error, setError] = useState<string | null>(null);
   const [recordingStartedAt, setRecordingStartedAt] = useState<string | null>(null);
   const [loadProgress, setLoadProgress] = useState<{ loaded: number; total: number } | null>(null);
+  const [engineReady, setEngineReady] = useState(false);
 
   // sherpa-onnx's vad-asr WASM build is a pthreads (multi-threaded) Emscripten build -- its
   // internal worker-pool bootstrap unconditionally transfers a SharedArrayBuffer between
@@ -98,12 +100,38 @@ export default function LivePage() {
     window.location.reload();
   }, []);
 
+  // Starts the engine's one-time ~95MB WASM/model download as soon as this page mounts,
+  // instead of only once the user clicks Record -- avoids the "Starting..." wait (and the UI
+  // flicker that comes with it) happening only after they've already committed to recording.
+  // Guarded on crossOriginIsolated for the same reason as the effect above: if isolation
+  // isn't active yet, that effect's reload is already in flight (this mount is about to be
+  // discarded) or will never fix it (unsupported browser) -- either way, preloading from a
+  // non-isolated page would just fail the way it always has, so there's nothing useful to
+  // start yet. createLiveEngine() still works fine even if this never ran (it calls the same
+  // underlying preload itself) -- this is purely a head start, not a dependency.
+  useEffect(() => {
+    if (typeof window === "undefined" || !window.crossOriginIsolated) return;
+    const unsubscribe = subscribeToLoadProgress((loaded, total) => setLoadProgress({ loaded, total }));
+    preloadLiveEngine()
+      .then(() => setEngineReady(true))
+      .catch(() => {
+        // Swallowed here -- the same failure surfaces again (with a user-facing error) via
+        // handleStart's own createLiveEngine() call, which awaits this same cached promise.
+      });
+    return unsubscribe;
+  }, []);
+
   const streamRef = useRef<MediaStream | null>(null);
   const engineRef = useRef<LiveEngineHandle | null>(null);
   const recorderRef = useRef<MediaRecorder | null>(null);
   const recordedChunksRef = useRef<Blob[]>([]);
   const registryRef = useRef<SpeakerRegistry>(createSpeakerRegistry());
   const lastSpeakerRef = useRef<string | null>(null);
+  // Timestamp (ms) a pause began, if currently paused -- used to shift recordingStartedAt
+  // forward by the paused duration on resume, so the elapsed-time display (driven by
+  // useElapsedSeconds, which just measures wall-clock time since recordingStartedAt) excludes
+  // time spent paused instead of jumping forward the moment recording resumes.
+  const pauseStartRef = useRef<number | null>(null);
 
   const elapsedSeconds = useElapsedSeconds(recordingStartedAt ?? new Date().toISOString(), status === "recording");
 
@@ -132,7 +160,6 @@ export default function LivePage() {
   async function handleStart() {
     setError(null);
     setStatus("starting");
-    setLoadProgress(null);
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
       streamRef.current = stream;
@@ -174,7 +201,6 @@ export default function LivePage() {
 
       setRecordingStartedAt(new Date().toISOString());
       setStatus("recording");
-      setLoadProgress(null);
     } catch (err) {
       teardownMedia();
       setStatus("idle");
@@ -186,7 +212,28 @@ export default function LivePage() {
     }
   }
 
+  async function handlePause() {
+    await engineRef.current?.pause();
+    if (recorderRef.current?.state === "recording") {
+      recorderRef.current.pause();
+    }
+    pauseStartRef.current = Date.now();
+    setStatus("paused");
+  }
+
+  async function handleResume() {
+    const pausedMs = pauseStartRef.current ? Date.now() - pauseStartRef.current : 0;
+    pauseStartRef.current = null;
+    await engineRef.current?.resume();
+    if (recorderRef.current?.state === "paused") {
+      recorderRef.current.resume();
+    }
+    setRecordingStartedAt((prev) => (prev ? new Date(new Date(prev).getTime() + pausedMs).toISOString() : prev));
+    setStatus("recording");
+  }
+
   async function handleStop() {
+    pauseStartRef.current = null;
     setStatus("finalizing");
     setError(null);
 
@@ -232,19 +279,86 @@ export default function LivePage() {
   }
 
   const isRecording = status === "recording";
+  const isPaused = status === "paused";
+  // Once a session has actually started, the main section shows the real transcript instead
+  // of the idle/loading graphic -- including while "idle" if turns from a just-finished
+  // session are still sitting there because the save to the server failed (see handleStop's
+  // catch branch), so that transcript isn't visually discarded just because status reverted.
+  const showTranscript = isRecording || isPaused || status === "finalizing" || (status === "idle" && turns.length > 0);
+  const loadPercent = loadProgress ? Math.round((loadProgress.loaded / loadProgress.total) * 100) : null;
+  // Covers both "status is literally starting" (user clicked Record before preloading
+  // finished) and "still idle, but the background preload kicked off on mount hasn't
+  // resolved yet" -- either way, the hero below should read as "loading", not "ready".
+  const engineLoading = !engineReady && (status === "idle" || status === "starting");
 
   return (
-    <div className="w-full px-6 py-10">
-      <p className="font-sans text-xs font-semibold text-accent">Live → Transcript</p>
-      <h1 className="mt-2 font-display text-2xl font-bold tracking-tight text-ink">
+    <div className="flex h-full flex-col px-6 py-6">
+      <p className="shrink-0 font-sans text-xs font-semibold text-accent">Live → Transcript</p>
+      <h1 className="mt-2 shrink-0 font-display text-2xl font-bold tracking-tight text-ink">
         Record live, see who said what as it happens.
       </h1>
-      <p className="mt-1 max-w-2xl text-sm text-ink-soft">
+      <p className="mt-1 max-w-2xl shrink-0 text-sm text-ink-soft">
         Speech recognition and speaker diarization run entirely on your device -- nothing but the finished transcript
         is sent anywhere, and only if you choose to save it.
       </p>
 
-      <div className="mt-8 max-w-2xl rounded-lg border border-line bg-paper p-6 shadow-sm">
+      <div className="mt-6 min-h-0 flex-1">
+        {showTranscript ? (
+          <div className="mx-auto flex h-full w-full max-w-2xl flex-col rounded-lg border border-line bg-paper p-6 shadow-sm">
+            <h2 className="shrink-0 font-display text-lg font-bold text-ink">Transcript</h2>
+            <div className="mt-4 min-h-0 flex-1 space-y-3 overflow-y-auto pr-1">
+              <LiveTranscriptTurns turns={turns} />
+              {partialText && (
+                <div className="flex gap-3 opacity-60">
+                  <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold bg-paper-shade text-ink-soft">
+                    ...
+                  </span>
+                  <p className="text-sm italic text-ink-soft">{partialText}</p>
+                </div>
+              )}
+              {isRecording && turns.length === 0 && !partialText && (
+                <p className="text-sm text-ink-soft">Listening...</p>
+              )}
+              {isPaused && turns.length === 0 && !partialText && (
+                <p className="text-sm text-ink-soft">Paused.</p>
+              )}
+            </div>
+          </div>
+        ) : (
+          <div className="flex h-full flex-col items-center justify-center gap-4 text-center">
+            <div
+              className={`flex h-20 w-20 items-center justify-center rounded-full bg-accent-soft ${
+                engineLoading ? "animate-pulse" : ""
+              }`}
+            >
+              <MicrophoneIcon className="h-10 w-10 text-accent" />
+            </div>
+            <div className="max-w-sm">
+              <h2 className="font-display text-xl font-bold text-ink">
+                {engineLoading ? "Loading the on-device engine..." : "Ready when you are"}
+              </h2>
+              <p className="mt-1 text-sm text-ink-soft">
+                {engineLoading
+                  ? "Downloading the speech + speaker models. This only happens once per browser -- after that, it's cached."
+                  : "Press Record below to start a live transcript with speaker labels."}
+              </p>
+            </div>
+            {engineLoading && (
+              <div className="w-full max-w-xs">
+                <div className="h-1.5 w-full overflow-hidden rounded-full bg-paper-shade">
+                  <div
+                    className="h-full rounded-full bg-accent transition-[width]"
+                    style={{ width: `${loadPercent ?? 0}%` }}
+                  />
+                </div>
+                {loadPercent !== null && <p className="mt-1.5 text-xs text-ink-soft">{loadPercent}%</p>}
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+
+      <div className="mt-6 shrink-0 rounded-lg border border-line bg-paper p-4 shadow-sm">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <label className="flex items-center gap-2 text-sm text-ink">
             <input
@@ -257,54 +371,54 @@ export default function LivePage() {
             Save recording audio (for playback and reprocessing later)
           </label>
 
-          {status === "idle" && (
-            <Button onClick={handleStart}>Start recording</Button>
-          )}
-          {status === "starting" && (
-            <Button disabled>
-              {loadProgress ? `Loading... ${Math.round((loadProgress.loaded / loadProgress.total) * 100)}%` : "Starting..."}
-            </Button>
-          )}
-          {isRecording && (
-            <Button variant="outline" onClick={handleStop}>
-              <span className="h-2 w-2 rounded-full bg-status-error" aria-hidden />
-              Stop -- {formatTimestamp(elapsedSeconds)}
-            </Button>
-          )}
-          {status === "finalizing" && <Button disabled>Finalizing...</Button>}
-        </div>
+          <div className="flex items-center gap-3">
+            {(isRecording || isPaused) && (
+              <span className="flex items-center gap-2 text-sm font-medium text-ink-soft">
+                <span
+                  className={`h-2 w-2 rounded-full ${isRecording ? "animate-pulse bg-status-error" : "bg-ink-soft"}`}
+                  aria-hidden
+                />
+                {isPaused ? "Paused" : "Recording"} -- {formatTimestamp(elapsedSeconds)}
+              </span>
+            )}
 
-        {status === "starting" && loadProgress && (
-          <div className="mt-4 h-1.5 w-full overflow-hidden rounded-full bg-paper-shade">
-            <div
-              className="h-full rounded-full bg-accent transition-[width]"
-              style={{ width: `${Math.min(100, (loadProgress.loaded / loadProgress.total) * 100)}%` }}
-            />
+            {status === "idle" && (
+              <Button onClick={handleStart}>
+                <MicrophoneIcon className="h-4 w-4" />
+                Record
+              </Button>
+            )}
+            {status === "starting" && <Button disabled>{loadPercent !== null ? `Loading... ${loadPercent}%` : "Starting..."}</Button>}
+            {isRecording && (
+              <>
+                <Button variant="outline" onClick={handlePause}>
+                  <PauseIcon className="h-4 w-4" />
+                  Pause
+                </Button>
+                <Button variant="outline" onClick={handleStop}>
+                  <StopIcon className="h-4 w-4" />
+                  Stop
+                </Button>
+              </>
+            )}
+            {isPaused && (
+              <>
+                <Button onClick={handleResume}>
+                  <PlayIcon className="h-4 w-4" />
+                  Resume
+                </Button>
+                <Button variant="outline" onClick={handleStop}>
+                  <StopIcon className="h-4 w-4" />
+                  Stop
+                </Button>
+              </>
+            )}
+            {status === "finalizing" && <Button disabled>Finalizing...</Button>}
           </div>
-        )}
+        </div>
 
         {error && <p className="mt-3 text-sm text-status-error">{error}</p>}
       </div>
-
-      {(turns.length > 0 || partialText || isRecording) && (
-        <div className="mt-6 max-w-2xl rounded-lg border border-line bg-paper p-6 shadow-sm">
-          <h2 className="font-display text-lg font-bold text-ink">Transcript</h2>
-          <div className="mt-4 max-h-[28rem] space-y-3 overflow-y-auto pr-1">
-            <LiveTranscriptTurns turns={turns} />
-            {partialText && (
-              <div className="flex gap-3 opacity-60">
-                <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold bg-paper-shade text-ink-soft">
-                  ...
-                </span>
-                <p className="text-sm italic text-ink-soft">{partialText}</p>
-              </div>
-            )}
-            {isRecording && turns.length === 0 && !partialText && (
-              <p className="text-sm text-ink-soft">Listening...</p>
-            )}
-          </div>
-        </div>
-      )}
     </div>
   );
 }

@@ -17,10 +17,13 @@ import {
   MessageSquare,
   Monitor,
   Moon,
+  Pause,
+  Play,
   Radio,
   ScrollText,
   Share2,
   Shield,
+  Square,
   Sun,
   Users,
   Video,
@@ -89,6 +92,18 @@ export function MicrophoneIcon({ className }: IconProps) {
 
 export function LiveIcon({ className }: IconProps) {
   return <Radio className={className} aria-hidden />;
+}
+
+export function PauseIcon({ className }: IconProps) {
+  return <Pause className={className} aria-hidden />;
+}
+
+export function PlayIcon({ className }: IconProps) {
+  return <Play className={className} aria-hidden />;
+}
+
+export function StopIcon({ className }: IconProps) {
+  return <Square className={className} aria-hidden />;
 }
 
 export function GlobeIcon({ className }: IconProps) {

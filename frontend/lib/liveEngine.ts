@@ -31,6 +31,11 @@ export type LiveEngineCallbacks = {
 
 export interface LiveEngineHandle {
   start(stream: MediaStream): Promise<void>;
+  /** Suspends audio capture/processing without tearing the session down --
+   * VAD/ASR state is left exactly as it was, so resume() picks the
+   * in-progress utterance back up rather than starting a new one. */
+  pause(): Promise<void>;
+  resume(): Promise<void>;
   stop(): Promise<void>;
   dispose(): void;
 }

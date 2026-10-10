@@ -8,11 +8,16 @@
 //   - workers/embeddingWorker.ts -- speaker embeddings, one request per finalized turn.
 // Two separate workers, not one, specifically so a slow embedding computation never delays
 // the VAD/ASR worker's own processing of the next incoming audio chunk -- WASM execution on
-// a single worker thread is inherently serial, and the two used to share one. This file is
-// the orchestrator: it holds a finalized turn's text until that turn's embedding request
-// resolves (or times out), then calls callbacks.onFinal with both together -- so the
-// external contract (LiveEngineCallbacks/LiveTurn) is unchanged from before this split, and
-// neither lib/liveEngine.ts nor the live page needed to change at all.
+// a single worker thread is inherently serial, and the two used to share one.
+//
+// Both workers are a module-level singleton pool (below), not created fresh inside
+// createSherpaLiveEngine() -- preloadLiveEngine() lets the live page kick off the one-time
+// ~95MB WASM/model download as soon as it mounts (see page.tsx), rather than only once the
+// user clicks Record, and every createSherpaLiveEngine() call (including a second
+// recording in the same visit) reuses whatever's already loaded instead of redownloading.
+// createSherpaLiveEngine() itself is the per-session orchestrator: it holds a finalized
+// turn's text until that turn's embedding request resolves (or times out), then calls
+// callbacks.onFinal with both together.
 import type { LiveEngineCallbacks, LiveEngineFactory, LiveEngineHandle, LiveTurn } from "@/lib/liveEngine";
 import type { EmbeddingWorkerToMainMessage, MainToEmbeddingWorkerMessage } from "@/workers/embeddingWorkerProtocol";
 import type { MainToWorkerMessage, WorkerToMainMessage } from "@/workers/vadAsrProtocol";
@@ -38,15 +43,40 @@ const WORKER_URL = "/workers/vadAsrWorker.js";
 const EMBEDDING_WORKER_URL = "/workers/embeddingWorker.js";
 const PCM_PROCESSOR_URL = "/workers/pcmProcessor.js";
 
-function createWorker(): Worker {
-  return new Worker(WORKER_URL);
+// ---- module-level worker pool -----------------------------------------------------------
+//
+// Created at most once per page load (via preloadLiveEngine(), below) and never terminated
+// by an ordinary stop()/dispose() any more -- they live for as long as this page stays
+// mounted, exactly like any other in-memory module state. Reusing them across every
+// recording session in the same visit (not just the first) is deliberate: the worker's own
+// `ready` flag (workers/vadAsrWorker.ts) and the embedding extractor
+// (workers/embeddingWorker.ts) are both already designed to be loaded once and reused for
+// the module's whole lifetime -- recreating the workers per session was just redundantly
+// redoing that one-time load every time.
+let vadAsrWorker: Worker | null = null;
+let vadAsrWorkerReady: Promise<void> | null = null;
+let embeddingWorkerInstance: Worker | null = null;
+
+type ProgressListener = (loaded: number, total: number) => void;
+let latestProgress: { loaded: number; total: number } | null = null;
+const progressListeners = new Set<ProgressListener>();
+
+function notifyProgress(loaded: number, total: number) {
+  latestProgress = { loaded, total };
+  progressListeners.forEach((listener) => listener(loaded, total));
 }
 
-function createEmbeddingWorker(): Worker {
-  return new Worker(EMBEDDING_WORKER_URL);
+/** Replays the latest known progress immediately if loading already started before this
+ * call (so a late subscriber -- e.g. a user who clicks Record mid-download -- doesn't see a
+ * blank/zero progress bar), then keeps calling `listener` for every future update. Returns
+ * an unsubscribe function. */
+export function subscribeToLoadProgress(listener: ProgressListener): () => void {
+  if (latestProgress) listener(latestProgress.loaded, latestProgress.total);
+  progressListeners.add(listener);
+  return () => progressListeners.delete(listener);
 }
 
-function waitForReady(worker: Worker, onProgress?: (loaded: number, total: number) => void): Promise<void> {
+function waitForReady(worker: Worker): Promise<void> {
   return new Promise((resolve, reject) => {
     const timeout = setTimeout(() => {
       cleanup();
@@ -64,7 +94,7 @@ function waitForReady(worker: Worker, onProgress?: (loaded: number, total: numbe
         cleanup();
         resolve();
       } else if (msg.type === "progress") {
-        onProgress?.(msg.loaded, msg.total);
+        notifyProgress(msg.loaded, msg.total);
       } else if (msg.type === "error") {
         cleanup();
         reject(new Error(msg.message));
@@ -80,39 +110,60 @@ function waitForReady(worker: Worker, onProgress?: (loaded: number, total: numbe
   });
 }
 
+/** Starts loading both workers if they haven't been already -- safe to call more than once
+ * (a repeat call just returns the same in-flight/already-resolved promise), and safe to call
+ * speculatively before this page is actually cross-origin isolated yet (it then simply fails
+ * the same way createSherpaLiveEngine's own call into this always has, just discovered in
+ * the background instead of only once the user clicks Record). Call this as soon as the live
+ * page mounts (see page.tsx) rather than waiting for a recording session to actually start --
+ * the one-time ~95MB download/init is by far the slowest part of starting a session, so
+ * paying for it while the user is still looking at the page (or deciding whether to record)
+ * avoids the "Starting..." wait happening only after they've already clicked. */
+export function preloadLiveEngine(): Promise<void> {
+  if (!vadAsrWorker) {
+    vadAsrWorker = new Worker(WORKER_URL);
+    vadAsrWorkerReady = waitForReady(vadAsrWorker);
+  }
+  if (!embeddingWorkerInstance) {
+    embeddingWorkerInstance = new Worker(EMBEDDING_WORKER_URL);
+  }
+  return vadAsrWorkerReady!;
+}
+
 export const createSherpaLiveEngine: LiveEngineFactory = async (
   callbacks: LiveEngineCallbacks,
 ): Promise<LiveEngineHandle> => {
-  const worker = createWorker();
-
+  const unsubscribeProgress = callbacks.onLoadProgress ? subscribeToLoadProgress(callbacks.onLoadProgress) : null;
   try {
-    await waitForReady(worker, callbacks.onLoadProgress);
-  } catch (err) {
-    worker.terminate();
-    throw err;
+    await preloadLiveEngine();
+  } finally {
+    unsubscribeProgress?.();
   }
 
+  const worker = vadAsrWorker!;
   // Not gated on its own readiness the way the vad-asr worker is above -- embedding is a
   // best-effort layer on top of the transcript (see workers/embeddingWorker.ts), so
-  // recording can start as soon as VAD+ASR are ready, same as before this split. If this
-  // worker is slow to load (or fails/crashes), embedRequest's own timeout/error handling
-  // below just resolves every request with no embedding instead of blocking anything.
-  const embeddingWorker = createEmbeddingWorker();
+  // recording can start as soon as VAD+ASR are ready. If this worker is slow to load (or
+  // fails/crashes), embedSegment's own timeout/error handling below just resolves every
+  // request with no embedding instead of blocking anything.
+  const embeddingWorker = embeddingWorkerInstance!;
+
   let nextTurnId = 0;
   const pendingEmbeds = new Map<number, (embedding: Float32Array | null) => void>();
 
-  embeddingWorker.addEventListener("message", (ev: MessageEvent<EmbeddingWorkerToMainMessage>) => {
+  // Named (not inline) so dispose() can remove exactly this session's listener -- both
+  // workers are now shared across every session in this page visit, so a listener left
+  // behind from a previous (stopped) session would otherwise keep firing into that old
+  // session's now-irrelevant closures indefinitely.
+  function onEmbeddingMessage(ev: MessageEvent<EmbeddingWorkerToMainMessage>) {
     const msg = ev.data;
     const resolve = pendingEmbeds.get(msg.turnId);
     if (resolve) {
       pendingEmbeds.delete(msg.turnId);
       resolve(msg.embedding);
     }
-  });
-  // A crashed embedding worker shouldn't be fatal to the session (same best-effort
-  // rationale as a load failure) -- every still-pending request just falls through to its
-  // own timeout below instead of hanging forever with no response ever coming.
-  embeddingWorker.addEventListener("error", () => {});
+  }
+  embeddingWorker.addEventListener("message", onEmbeddingMessage);
 
   function embedSegment(samples: Float32Array): Promise<Float32Array | null> {
     const turnId = nextTurnId++;
@@ -175,10 +226,15 @@ export const createSherpaLiveEngine: LiveEngineFactory = async (
     } else if (msg.type === "error") {
       callbacks.onError(msg.message);
     }
-    // "flushed" acks are consumed directly by stop()'s own one-shot listener below.
+    // "progress"/"ready" are consumed by preloadLiveEngine's own listener (via waitForReady,
+    // long since torn down by the time a session exists); "flushed" acks are consumed
+    // directly by stop()'s own one-shot listener below.
+  }
+  function onWorkerError(ev: ErrorEvent) {
+    callbacks.onError(ev.message || "Speech recognition worker crashed.");
   }
   worker.addEventListener("message", onWorkerMessage);
-  worker.addEventListener("error", (ev) => callbacks.onError(ev.message || "Speech recognition worker crashed."));
+  worker.addEventListener("error", onWorkerError);
 
   function disconnectAudioGraph() {
     sourceNode?.disconnect();
@@ -209,6 +265,22 @@ export const createSherpaLiveEngine: LiveEngineFactory = async (
       sourceNode.connect(workletNode);
       workletNode.connect(silentGain);
       silentGain.connect(audioContext.destination);
+    },
+
+    // Suspending the AudioContext stops the AudioWorkletNode from being pulled for audio at
+    // all -- no PCM reaches the vad-asr worker while paused -- without disconnecting the
+    // graph or touching any VAD/ASR state, so resume() continues the in-progress utterance
+    // exactly where it left off instead of starting a new one.
+    async pause() {
+      if (audioContext && audioContext.state === "running") {
+        await audioContext.suspend();
+      }
+    },
+
+    async resume() {
+      if (audioContext && audioContext.state === "suspended") {
+        await audioContext.resume();
+      }
     },
 
     async stop() {
@@ -243,12 +315,15 @@ export const createSherpaLiveEngine: LiveEngineFactory = async (
       audioContext = null;
     },
 
+    // Deliberately does NOT terminate either worker any more -- they're a page-lifetime pool
+    // (see the module comment above), reused by the next recording session in this same
+    // visit. Only this session's own listeners and audio graph are torn down.
     dispose() {
       disposed = true;
       disconnectAudioGraph();
       worker.removeEventListener("message", onWorkerMessage);
-      worker.terminate();
-      embeddingWorker.terminate();
+      worker.removeEventListener("error", onWorkerError);
+      embeddingWorker.removeEventListener("message", onEmbeddingMessage);
       if (audioContext && audioContext.state !== "closed") {
         audioContext.close().catch(() => {});
       }
