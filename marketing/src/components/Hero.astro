@@ -1,4 +1,12 @@
 ---
+// The voice-agent widget's backend (api.oshara.ai) only allows requests from
+// the real production origin -- loading it from a local `astro dev` origin
+// just 403s on every fetch it makes (appearance/events) and spams the
+// console for nothing, so skip it entirely in dev rather than configuring
+// around a restriction that exists on purpose. `import.meta.env.DEV` is
+// Astro/Vite's own "this is `astro dev`, not a production build" flag, so
+// this never affects the deployed site.
+const isDev = import.meta.env.DEV;
 ---
 
 <section class="hero">
@@ -12,12 +20,16 @@
     </div>
     <div class="hero-side">
       <div class="voice-embed" data-reveal style="--reveal-delay: 160ms">
-        <script
-          src="https://api.oshara.ai/widget.js"
-          data-agent="framewrite"
-          data-inline="true"
-          data-close-button-hide>
-        </script>
+        {isDev ? (
+          <p class="voice-embed-placeholder">Voice agent widget (production only)</p>
+        ) : (
+          <script
+            src="https://api.oshara.ai/widget.js"
+            data-agent="framewrite"
+            data-inline="true"
+            data-close-button-hide>
+          </script>
+        )}
       </div>
     </div>
   </div>
@@ -128,5 +140,19 @@
     max-width: 420px;
     overflow: hidden;
     border-radius: 16px; /* our container, our corners */
+  }
+
+  .voice-embed-placeholder {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    margin: 0;
+    padding: 24px;
+    text-align: center;
+    font-size: 0.85rem;
+    color: var(--ink-soft);
+    border: var(--border-width) dashed var(--line);
+    border-radius: inherit;
   }
 </style>

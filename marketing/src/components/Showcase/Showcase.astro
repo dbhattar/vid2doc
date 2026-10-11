@@ -6,9 +6,31 @@
     <p class="eyebrow">See it in action</p>
     <h2>Real videos, turned into real documents</h2>
 
-    <div class="showcase-grid" id="showcase-grid"></div>
+    <div class="showcase-carousel">
+      <button type="button" class="showcase-nav showcase-nav--prev" id="showcase-prev" aria-label="Previous examples" hidden>
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 18l-6-6 6-6" /></svg>
+      </button>
+      <div class="showcase-track" id="showcase-grid"></div>
+      <button type="button" class="showcase-nav showcase-nav--next" id="showcase-next" aria-label="Next examples" hidden>
+        <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 18l6-6-6-6" /></svg>
+      </button>
+    </div>
   </div>
 </section>
+
+{/* Overlaid on top of the current page instead of navigating to a separate
+    one -- a visitor clicking a card stays on the marketing site throughout.
+    Lives outside .container/.showcase on purpose: position:fixed below is
+    relative to the viewport, which only works cleanly with no transformed
+    ancestor establishing its own containing block (none here do). */}
+<div class="showcase-modal-overlay" id="showcase-modal-overlay" hidden>
+  <div class="showcase-modal" id="showcase-modal" role="dialog" aria-modal="true" aria-labelledby="showcase-modal-title">
+    <button type="button" class="showcase-modal-close" id="showcase-modal-close" aria-label="Close">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6L6 18M6 6l12 12" /></svg>
+    </button>
+    <div id="showcase-modal-body"></div>
+  </div>
+</div>
 
 <style>
   .showcase {
@@ -22,31 +44,133 @@
     margin: 0 0 36px;
   }
 
-  .showcase-grid {
-    display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 20px;
+  .showcase-carousel {
+    position: relative;
   }
 
-  @media (max-width: 900px) {
-    .showcase-grid {
-      grid-template-columns: repeat(2, 1fr);
-    }
+  .showcase-track {
+    display: flex;
+    gap: 20px;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scroll-behavior: smooth;
+    /* Hide the scrollbar -- the nav buttons + snap are the intended way to
+       move through the carousel; a visible scrollbar here reads as a stray
+       grid-gone-wrong rather than a deliberate carousel. Dragging/trackpad
+       scrolling still works either way. */
+    scrollbar-width: none;
+  }
+
+  .showcase-track::-webkit-scrollbar {
+    display: none;
+  }
+
+  .showcase-nav {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    z-index: 2;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    height: 40px;
+    border-radius: var(--radius-full);
+    border: var(--border-width) solid var(--line);
+    background: var(--paper);
+    color: var(--ink);
+    box-shadow: var(--shadow-md);
+    cursor: pointer;
+    transition: transform var(--duration-fast) var(--ease-spring), box-shadow var(--duration-fast) var(--ease);
+  }
+
+  .showcase-nav:hover {
+    transform: translateY(-50%) scale(1.06);
+    box-shadow: var(--shadow-lg);
+  }
+
+  .showcase-nav--prev {
+    left: -20px;
+  }
+
+  .showcase-nav--next {
+    right: -20px;
   }
 
   @media (max-width: 640px) {
-    .showcase-grid {
-      grid-template-columns: 1fr;
+    /* No room for off-card arrows on narrow screens -- swipe/scroll takes
+       over entirely there. */
+    .showcase-nav {
+      display: none;
     }
+  }
+
+  /* A same-specificity `display: flex` below would otherwise beat the
+     browser's own `[hidden] { display: none }` rule (author styles win
+     cascade ties against the UA stylesheet) -- without this, toggling the
+     `hidden` property/attribute from JS (openModal/closeModal) would have no
+     visible effect at all, and the overlay would stay permanently on screen,
+     uninteractive-looking though it is actually still responding to clicks. */
+  .showcase-modal-overlay[hidden] {
+    display: none;
+  }
+
+  .showcase-modal-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 1000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 24px;
+    background: rgba(20, 19, 26, 0.55);
+  }
+
+  .showcase-modal {
+    position: relative;
+    width: 100%;
+    max-width: 720px;
+    max-height: 90vh;
+    overflow-y: auto;
+    background: var(--paper);
+    border-radius: var(--radius-lg);
+    box-shadow: var(--shadow-lg);
+    padding: 32px;
+  }
+
+  .showcase-modal-close {
+    position: absolute;
+    top: 16px;
+    right: 16px;
+    z-index: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border-radius: var(--radius-full);
+    border: var(--border-width) solid var(--line);
+    background: var(--paper);
+    color: var(--ink-soft);
+    cursor: pointer;
+    transition: color var(--duration-fast) var(--ease), border-color var(--duration-fast) var(--ease);
+  }
+
+  .showcase-modal-close:hover {
+    color: var(--ink);
+    border-color: var(--ink-soft);
   }
 </style>
 
-{/* Global, not scoped: the cards below are built by showcase.ts via
-    document.createElement at runtime, so they never get Astro's build-time
-    scope class -- same gotcha Testimonials.astro already solves. */}
+{/* Global, not scoped: the cards + modal contents below are built by
+    showcase.ts via document.createElement at runtime, so they never get
+    Astro's build-time scope class -- same gotcha Testimonials.astro already
+    solves. */}
 <style is:global>
   .showcase-card {
     display: block;
+    flex: 0 0 clamp(240px, 32vw, 340px);
+    scroll-snap-align: start;
     padding: 24px;
     border: var(--border-width) solid var(--accent);
     border-radius: var(--radius-lg);
@@ -59,6 +183,9 @@
     box-shadow: var(--shadow-accent);
     text-decoration: none;
     color: inherit;
+    text-align: left;
+    font: inherit;
+    cursor: pointer;
     transition: transform var(--duration-fast) var(--ease-spring), box-shadow var(--duration-fast) var(--ease);
   }
 
@@ -88,6 +215,179 @@
     margin: 0;
     font-size: 0.82rem;
     color: var(--ink-soft);
+  }
+
+  /* ---- modal contents ---- */
+
+  .showcase-modal-video {
+    display: block;
+    width: 100%;
+    border-radius: var(--radius-md);
+    background: var(--paper-shade);
+    margin-bottom: 20px;
+  }
+
+  .showcase-modal-title {
+    font-size: var(--step-2);
+    margin: 0 0 6px;
+    padding-right: 36px; /* clears the close button */
+  }
+
+  .showcase-modal-meta {
+    margin: 0 0 20px;
+    font-size: 0.88rem;
+    color: var(--ink-soft);
+  }
+
+  .showcase-modal-actions {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    margin-bottom: 4px;
+  }
+
+  .showcase-modal-actions .btn-primary,
+  .showcase-modal-actions .btn-secondary {
+    font-size: 0.88rem;
+    padding: 10px 18px;
+  }
+
+  .showcase-modal-loading {
+    padding: 12px 0;
+    text-align: center;
+    color: var(--ink-soft);
+    font-size: 0.9rem;
+  }
+
+  /* ---- rendered document (showcase.ts's renderDocumentInto) ---- */
+
+  .showcase-modal-document {
+    margin-top: 24px;
+    padding-top: 24px;
+    border-top: var(--border-width) solid var(--line);
+  }
+
+  .showcase-modal-document h1 {
+    font-size: 1.4rem;
+    margin: 0 0 16px;
+    padding-bottom: 10px;
+    border-bottom: var(--border-width) solid var(--line);
+  }
+
+  .showcase-modal-document h2 {
+    font-size: 1.1rem;
+    margin: 28px 0 12px;
+  }
+
+  .showcase-modal-document h3 {
+    font-size: 0.98rem;
+    margin: 22px 0 8px;
+  }
+
+  .showcase-modal-document p {
+    margin: 0 0 16px;
+    font-size: 0.92rem;
+    line-height: 1.65;
+    color: var(--ink);
+  }
+
+  .showcase-modal-document a {
+    color: var(--accent);
+    text-decoration: underline;
+  }
+
+  .showcase-modal-document a:hover {
+    text-decoration: none;
+  }
+
+  .showcase-modal-document em {
+    color: var(--ink-soft);
+  }
+
+  .showcase-modal-document ul,
+  .showcase-modal-document ol {
+    margin: 0 0 16px;
+    padding-left: 22px;
+    font-size: 0.92rem;
+    color: var(--ink);
+  }
+
+  .showcase-modal-document li {
+    margin-bottom: 4px;
+  }
+
+  .showcase-modal-document blockquote {
+    margin: 0 0 16px;
+    padding-left: 16px;
+    border-left: 3px solid var(--accent);
+    color: var(--ink-soft);
+    font-style: italic;
+  }
+
+  .showcase-modal-document code {
+    border: var(--border-width) solid var(--line);
+    background: var(--paper-shade);
+    border-radius: 4px;
+    padding: 1px 5px;
+    font-family: var(--font-mono);
+    font-size: 0.82rem;
+  }
+
+  .showcase-modal-document pre {
+    margin: 0 0 16px;
+    overflow-x: auto;
+    border: var(--border-width) solid var(--line);
+    background: var(--paper-shade);
+    border-radius: var(--radius-sm);
+    padding: 12px;
+  }
+
+  .showcase-modal-document pre code {
+    border: none;
+    background: none;
+    padding: 0;
+  }
+
+  .showcase-modal-table-wrap {
+    margin: 0 0 16px;
+    overflow-x: auto;
+  }
+
+  .showcase-modal-document table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.86rem;
+  }
+
+  .showcase-modal-document th,
+  .showcase-modal-document td {
+    border: var(--border-width) solid var(--line);
+    padding: 8px 10px;
+    text-align: left;
+  }
+
+  .showcase-modal-document thead {
+    background: var(--ink);
+    color: var(--paper);
+    font-size: 0.78rem;
+  }
+
+  .showcase-modal-document img {
+    width: 100%;
+    border-radius: var(--radius-sm);
+    border: var(--border-width) solid var(--line);
+    margin: 0 0 16px;
+  }
+
+  .showcase-modal-summary {
+    margin: 0 0 20px;
+    padding: 16px;
+    border-radius: var(--radius-md);
+    background: var(--paper-shade);
+  }
+
+  .showcase-modal-summary p:last-child {
+    margin-bottom: 0;
   }
 </style>
 
