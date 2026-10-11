@@ -1,0 +1,29 @@
+{
+  "sampleRate": 16000,
+  "turns": [
+    {
+      "speakerId": "A",
+      "text": "So the plan is to migrate the database next week,",
+      "startSample": 0,
+      "endSample": 46486,
+      "startSec": 0,
+      "endSec": 2.905375
+    },
+    {
+      "speakerId": "B",
+      "text": "Sounds good.",
+      "startSample": 51286,
+      "endSample": 66251,
+      "startSec": 3.205375,
+      "endSec": 4.1406875
+    },
+    {
+      "speakerId": "A",
+      "text": "and then update the API clients after that.",
+      "startSample": 71051,
+      "endSample": 111675,
+      "startSec": 4.4406875,
+      "endSec": 6.9796875
+    }
+  ]
+}

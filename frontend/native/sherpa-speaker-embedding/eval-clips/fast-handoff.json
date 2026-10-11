@@ -1,0 +1,45 @@
+{
+  "sampleRate": 16000,
+  "turns": [
+    {
+      "speakerId": "A",
+      "text": "I think we should launch the feature today.",
+      "startSample": 0,
+      "endSample": 33375,
+      "startSec": 0,
+      "endSec": 2.0859375
+    },
+    {
+      "speakerId": "B",
+      "text": "Really?",
+      "startSample": 38175,
+      "endSample": 46185,
+      "startSec": 2.3859375,
+      "endSec": 2.8865625
+    },
+    {
+      "speakerId": "A",
+      "text": "Yes, I'm confident it's ready.",
+      "startSample": 50185,
+      "endSample": 82950,
+      "startSec": 3.1365625,
+      "endSec": 5.184375
+    },
+    {
+      "speakerId": "B",
+      "text": "Okay, let's do it.",
+      "startSample": 89350,
+      "endSample": 116123,
+      "startSec": 5.584375,
+      "endSec": 7.2576875
+    },
+    {
+      "speakerId": "A",
+      "text": "Great, I'll notify the team.",
+      "startSample": 119323,
+      "endSample": 149957,
+      "startSec": 7.4576875,
+      "endSec": 9.3723125
+    }
+  ]
+}

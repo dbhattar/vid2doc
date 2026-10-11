@@ -69,18 +69,18 @@ const EMBEDDING_WASM_BASE = "/wasm/v1/speaker-embedding/";
 // (--preload-file assets@., with assets/embedding.onnx inside) -- not a real path on disk
 // here, see frontend/native/sherpa-speaker-embedding/README.md.
 const EMBEDDING_MODEL_PATH = "./embedding.onnx";
-// Below this, a speaker embedding is unreliable enough to do more harm than good -- the
-// model's own verification (frontend/native/sherpa-speaker-embedding/README.md) measured
-// same/different-speaker separation on 2-4s clips; VAD's own minSpeechDuration (0.25s) lets
-// much shorter segments through, and a noisy embedding from just a few hundred ms of audio
-// is exactly the kind of input that can fall below matchOrRegisterSpeaker's similarity
-// threshold against the true speaker's own past embeddings, spuriously registering a
-// brand-new speaker for what was actually a short interjection by someone already in the
-// conversation. Segments shorter than this skip embedding entirely -- `embedding` comes
-// back null, and the live page falls back to the previous turn's speaker (a much safer
-// default for a short segment than a fresh, unreliable match) rather than guessing wrong
-// with false confidence.
-const MIN_RELIABLE_EMBEDDING_SECONDS = 1.2;
+// Below this, there's genuinely not enough audio for ERes2Net's frame-pooling window to
+// extract anything meaningful -- a hard model-capability floor, not a trust judgment (that
+// decision now lives in speakerMatch.ts's confidence-margin matching, which can reject a
+// short-but-above-this-floor embedding as unconfident rather than this file guessing by
+// duration alone). Previously 1.2s and named MIN_RELIABLE_EMBEDDING_SECONDS, gating "trust"
+// directly by duration -- lowered + renamed because that single hard cutoff meant genuinely
+// short speaker turns (a quick interjection, a fast back-and-forth) could NEVER get a real
+// identity check at all, always falling back to "assume same as previous speaker" regardless
+// of how distinct the voices actually were. VAD's own minSpeechDuration (0.25s) lets shorter
+// segments through than even this floor; those still skip embedding entirely. See
+// plan/live-diarization-accuracy-plan.md.
+const MIN_EMBEDDABLE_SECONDS = 0.6;
 const EMBEDDING_SAMPLE_RATE = 16000;
 
 let embeddingModule: EmbeddingWasmModule | null = null;
@@ -140,7 +140,7 @@ async function loadEmbeddingModule() {
 // for the worker's whole lifetime.
 function computeEmbeddingForSegment(samples: Float32Array): Float32Array | null {
   if (!embeddingReady || !embeddingModule || !embeddingExtractor) return null;
-  if (samples.length < MIN_RELIABLE_EMBEDDING_SECONDS * EMBEDDING_SAMPLE_RATE) return null;
+  if (samples.length < MIN_EMBEDDABLE_SECONDS * EMBEDDING_SAMPLE_RATE) return null;
   const mod = embeddingModule;
   let stream = 0;
   let samplesPtr = 0;

@@ -172,11 +172,27 @@ declare function createVad(mod: SherpaWasmModule, config?: VadModelConfig): VadA
 // boundary (VAD may not split at the exact instant this duration is crossed).
 const MAX_SAFE_ASR_INPUT_SECONDS = 8;
 
+// How long a pause has to be before VAD treats a turn as finished.
+// Previously 0.5s -- lowered since VAD's silence gap is the ONLY mechanism
+// that can ever split two different speakers into separate segments (it has
+// no concept of speaker identity at all): a real back-to-back speaker
+// handoff commonly leaves well under 500ms of gap, so 0.5s routinely merged
+// two different people into one segment with one speaker decision. 0.3s
+// still comfortably covers a mid-sentence breath (~150-250ms) without
+// splitting it, while catching more real handoffs. The tradeoff -- more
+// same-speaker self-splits, i.e. one sentence occasionally becoming two
+// segments -- is deliberately accepted: speakerMatch.ts's confidence-margin
+// matching + per-speaker running centroid (see its own comments) make
+// re-matching a self-split back to the SAME speaker far more reliable than
+// the alternative failure mode this fixes (two DIFFERENT speakers silently
+// merged into one). See plan/live-diarization-accuracy-plan.md.
+const MIN_SILENCE_DURATION = 0.3;
+
 const VAD_CONFIG: VadModelConfig = {
   sileroVad: {
     model: "./silero_vad.onnx",
     threshold: 0.5,
-    minSilenceDuration: 0.5,
+    minSilenceDuration: MIN_SILENCE_DURATION,
     minSpeechDuration: 0.25,
     maxSpeechDuration: MAX_SAFE_ASR_INPUT_SECONDS,
     windowSize: 512,
@@ -184,7 +200,7 @@ const VAD_CONFIG: VadModelConfig = {
   tenVad: {
     model: "",
     threshold: 0.5,
-    minSilenceDuration: 0.5,
+    minSilenceDuration: MIN_SILENCE_DURATION,
     minSpeechDuration: 0.25,
     maxSpeechDuration: MAX_SAFE_ASR_INPUT_SECONDS,
     windowSize: 256,

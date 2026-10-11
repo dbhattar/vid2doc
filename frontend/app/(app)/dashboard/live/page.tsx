@@ -19,13 +19,15 @@ type Status = "idle" | "starting" | "recording" | "paused" | "finalizing";
 type FinalizedTurn = { speaker: string; text: string; start_ts: number; end_ts: number };
 
 // Fallback for the very first turn of a session, if even that one has no usable embedding
-// (engine still loading it, browser can't support it, or the turn was too short for a
-// reliable embedding -- see workers/vadAsrWorker.ts's MIN_RELIABLE_EMBEDDING_SECONDS). Every
-// later turn without a usable embedding instead reuses the previous turn's speaker (see
-// lastSpeakerRef below) -- a short, unreliable-to-embed segment is far more likely to be a
-// continuation of whoever was just speaking than a brand-new person, so that's a safer
-// default than resetting to this label mid-conversation. See
-// plan/realtime-diarization-plan.md's degradation path.
+// (engine still loading it, browser can't support it, or the turn was too short for the
+// embedding worker to attempt extraction at all -- see workers/embeddingWorker.ts's
+// MIN_EMBEDDABLE_SECONDS). Every later turn without a usable (or confidently matched --
+// see lib/speakerMatch.ts's SpeakerMatch.confident) embedding instead reuses the previous
+// turn's speaker (see lastSpeakerRef below) -- a short or ambiguous segment is far more
+// likely to be a continuation of whoever was just speaking than a brand-new person, so
+// that's a safer default than resetting to this label mid-conversation. See
+// plan/realtime-diarization-plan.md's degradation path and
+// plan/live-diarization-accuracy-plan.md for the confidence-margin matching itself.
 const UNKNOWN_SPEAKER_LABEL = "Speaker 1";
 
 // Split out of LivePage and memoized so that `partialText` updates (every ~1s while
@@ -182,9 +184,11 @@ export default function LivePage() {
       const engine = await createLiveEngine({
         onPartial: (text) => setPartialText(text),
         onFinal: (turn: LiveTurn) => {
-          const speaker = turn.embedding
-            ? matchOrRegisterSpeaker(registryRef.current, turn.embedding)
-            : (lastSpeakerRef.current ?? UNKNOWN_SPEAKER_LABEL);
+          // Both "no embedding at all" and "embedding present but not a confident match"
+          // collapse into the same fallback -- see matchOrRegisterSpeaker's own comments for
+          // why an unconfident match shouldn't be trusted as a real identity decision.
+          const match = turn.embedding ? matchOrRegisterSpeaker(registryRef.current, turn.embedding) : null;
+          const speaker = match?.confident ? match.label : (lastSpeakerRef.current ?? match?.label ?? UNKNOWN_SPEAKER_LABEL);
           lastSpeakerRef.current = speaker;
           setTurns((prev) => [...prev, { speaker, text: turn.text, start_ts: turn.startTs, end_ts: turn.endTs }]);
           setPartialText("");

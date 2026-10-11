@@ -1,0 +1,21 @@
+{
+  "sampleRate": 16000,
+  "turns": [
+    {
+      "speakerId": "A",
+      "text": "The quarterly results were strong,",
+      "startSample": 0,
+      "endSample": 27686,
+      "startSec": 0,
+      "endSec": 1.730375
+    },
+    {
+      "speakerId": "A",
+      "text": "and the board was very pleased.",
+      "startSample": 31686,
+      "endSample": 56892,
+      "startSec": 1.980375,
+      "endSec": 3.55575
+    }
+  ]
+}

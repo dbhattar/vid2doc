@@ -43,6 +43,13 @@ const WORKER_URL = "/workers/vadAsrWorker.js";
 const EMBEDDING_WORKER_URL = "/workers/embeddingWorker.js";
 const PCM_PROCESSOR_URL = "/workers/pcmProcessor.js";
 
+// Matches workers/vadAsrWorker.ts's own SAMPLE_RATE -- requesting it directly from the
+// AudioContext constructor (see start() below) asks the browser to do real, anti-aliased
+// resampling at the native audio-engine level, rather than relying entirely on
+// vadAsrWorker.ts's manual downsampleTo16k (box/linear averaging, no anti-alias filtering).
+// See plan/live-diarization-accuracy-plan.md.
+const TARGET_SAMPLE_RATE = 16000;
+
 // ---- module-level worker pool -----------------------------------------------------------
 //
 // Created at most once per page load (via preloadLiveEngine(), below) and never terminated
@@ -247,7 +254,18 @@ export const createSherpaLiveEngine: LiveEngineFactory = async (
 
   return {
     async start(stream: MediaStream) {
-      audioContext = new AudioContext();
+      // `sampleRate` is a request, not a guarantee -- most desktop browsers honor it (real
+      // resampling at the hardware/OS level, before the graph ever runs), but some
+      // mobile/older browsers or device-driver combinations can throw for an unsupported
+      // rate. downsampleTo16k's existing linear-resample path (vadAsrWorker.ts) already
+      // handles whatever rate actually comes through the `pcm` message below, so falling
+      // back to an unconstrained AudioContext here is a safe degrade to today's behavior,
+      // not a new failure mode.
+      try {
+        audioContext = new AudioContext({ sampleRate: TARGET_SAMPLE_RATE });
+      } catch {
+        audioContext = new AudioContext();
+      }
       await audioContext.audioWorklet.addModule(PCM_PROCESSOR_URL);
 
       sourceNode = audioContext.createMediaStreamSource(stream);
