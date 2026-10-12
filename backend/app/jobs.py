@@ -43,6 +43,7 @@ def _job_to_dict(job: Job) -> dict:
         "public_reviewed_at": job.public_reviewed_at,
         "public_reviewed_by": str(job.public_reviewed_by) if job.public_reviewed_by else None,
         "public_rejection_reason": job.public_rejection_reason,
+        "public_hidden": job.public_hidden,
         "chat_enabled_at": job.chat_enabled_at,
         "chat_archive_prefix": job.chat_archive_prefix,
         "chat_video_key": job.chat_video_key,
@@ -298,22 +299,28 @@ def count_all_jobs(job_type: str | None = None) -> int:
         session.close()
 
 
-def list_jobs_by_public_status(status: str, limit: int = 20, offset: int = 0) -> list[dict]:
+def list_jobs_by_public_status(
+    status: str, limit: int = 20, offset: int = 0, exclude_hidden: bool = False
+) -> list[dict]:
     """Admin-only (see routes/admin.py) -- powers the public-showcase
     moderation queue (status="pending") and its approved/rejected history.
     Same outerjoin-to-User shape as list_all_jobs, for the same reason: the
-    queue needs to show who submitted each one."""
+    queue needs to show who submitted each one.
+
+    exclude_hidden defaults to False so the admin moderation queue keeps
+    seeing hidden items too (it's the only place admin can un-hide one) --
+    only the public showcase route (routes/public_jobs.py) opts into True,
+    to leave admin-hidden items out of the homepage carousel."""
     session = get_session()
     try:
-        rows = (
+        query = (
             session.query(Job, User)
             .outerjoin(User, Job.user_id == User.id)
             .filter(Job.public_status == status)
-            .order_by(Job.public_consented_at.desc())
-            .limit(limit)
-            .offset(offset)
-            .all()
         )
+        if exclude_hidden:
+            query = query.filter(Job.public_hidden.is_(False))
+        rows = query.order_by(Job.public_consented_at.desc()).limit(limit).offset(offset).all()
         return [
             {**_job_to_dict(j), "email": u.email if u else None, "display_name": u.display_name if u else None}
             for j, u in rows
@@ -322,10 +329,13 @@ def list_jobs_by_public_status(status: str, limit: int = 20, offset: int = 0) ->
         session.close()
 
 
-def count_jobs_by_public_status(status: str) -> int:
+def count_jobs_by_public_status(status: str, exclude_hidden: bool = False) -> int:
     session = get_session()
     try:
-        return session.query(Job).filter(Job.public_status == status).count()
+        query = session.query(Job).filter(Job.public_status == status)
+        if exclude_hidden:
+            query = query.filter(Job.public_hidden.is_(False))
+        return query.count()
     finally:
         session.close()
 

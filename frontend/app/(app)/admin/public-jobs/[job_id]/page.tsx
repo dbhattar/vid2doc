@@ -23,6 +23,9 @@ type AdminPublicJobDetail = {
   public_status: "pending" | "approved" | "rejected";
   public_refund_cents: number | null;
   public_consented_at: string | null;
+  // Only meaningful once public_status === "approved" -- see
+  // backend/app/models.py's Job.public_hidden.
+  public_hidden: boolean;
   document_url?: string;
   video_url?: string;
 };
@@ -86,6 +89,24 @@ export default function AdminPublicJobDetailPage() {
     }
   }
 
+  // Unlike approve/reject above, this stays on the page (no public_status
+  // change, no navigation away) -- just flips public_hidden and reflects it
+  // in local state, same reversible-display-toggle reasoning as the list
+  // page's identical handler.
+  async function handleToggleHidden() {
+    if (!submission) return;
+    setBusy(true);
+    try {
+      const action = submission.public_hidden ? "unhide" : "hide";
+      await apiFetch(`/api/admin/public-jobs/${submission.id}/${action}`, { method: "POST" });
+      setSubmission((prev) => (prev ? { ...prev, public_hidden: !prev.public_hidden } : prev));
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Failed to update visibility.");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   if (error) return <p className="w-full px-6 py-10 text-sm text-status-error">{error}</p>;
   if (!submission) return <p className="w-full px-6 py-10 text-sm text-ink-soft">Loading...</p>;
 
@@ -138,9 +159,31 @@ export default function AdminPublicJobDetailPage() {
           </button>
         </div>
       )}
-      {submission.public_status !== "pending" && (
+      {submission.public_status === "approved" && (
+        <div className="mt-6 flex items-center gap-3">
+          <p className="text-sm text-ink-soft">
+            {submission.public_hidden ? (
+              <>
+                Approved, but currently <strong className="text-ink">hidden</strong> from the homepage showcase.
+              </>
+            ) : (
+              <>
+                Approved and <strong className="text-ink">visible</strong> on the homepage showcase.
+              </>
+            )}
+          </p>
+          <button
+            onClick={handleToggleHidden}
+            disabled={busy}
+            className={buttonClassName(submission.public_hidden ? "primary" : "outline", "disabled:cursor-default")}
+          >
+            {busy ? "Working..." : submission.public_hidden ? "Show on homepage" : "Hide from homepage"}
+          </button>
+        </div>
+      )}
+      {submission.public_status === "rejected" && (
         <p className="mt-6 text-sm text-ink-soft">
-          Already <strong className="text-ink">{submission.public_status}</strong>.
+          Already <strong className="text-ink">rejected</strong>.
         </p>
       )}
 

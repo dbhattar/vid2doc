@@ -179,6 +179,14 @@ class Job(Base):
     # Internal only -- never surfaced to the job owner (see
     # routes/public_jobs.py), just an audit trail for admins.
     public_rejection_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Admin-only: excludes an already-"approved" item from the homepage
+    # carousel (GET /api/public/showcase) without touching public_status,
+    # the refund, or the S3 archive -- public_status's own "approved is
+    # permanent, no un-publish path" design (see that column's comment
+    # above) stays true; this is a separate, reversible display toggle
+    # layered on top. Direct permalink access (/showcase/{job_id}) is
+    # unaffected by this flag. See routes/admin.py's hide/unhide endpoints.
+    public_hidden: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     # Chat-with-document: owner opts a completed job into a permanently
     # archived (private) copy of its document + transcript + source media,
     # so a Q&A chat can keep working past the 7-day local retention sweep

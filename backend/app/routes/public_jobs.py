@@ -64,10 +64,13 @@ def _build_showcase_response(job: dict, full: bool = False) -> dict:
 
 @router.get("/api/public/showcase")
 def list_showcase(limit: int = Query(default=20, ge=1, le=50), offset: int = Query(default=0, ge=0)) -> dict:
-    approved = jobs.list_jobs_by_public_status("approved", limit=limit, offset=offset)
+    # exclude_hidden=True -- admin-curated: see Job.public_hidden and
+    # routes/admin.py's hide/unhide endpoints. Direct permalink access
+    # (get_showcase_job below) is deliberately unaffected by this flag.
+    approved = jobs.list_jobs_by_public_status("approved", limit=limit, offset=offset, exclude_hidden=True)
     return {
         "jobs": [_build_showcase_response(j) for j in approved],
-        "total": jobs.count_jobs_by_public_status("approved"),
+        "total": jobs.count_jobs_by_public_status("approved", exclude_hidden=True),
     }
 
 

@@ -160,3 +160,30 @@ def reject_admin_public_job(
         raise HTTPException(status_code=404, detail="Job not found")
     except public_jobs.PublicJobNotPending as e:
         raise HTTPException(status_code=409, detail=f"Job is already {e.actual_status}")
+
+
+def _set_public_hidden(job_id: str, hidden: bool) -> dict:
+    """Shared by hide/unhide below -- a display-only flag flip, not a money-
+    moving state transition like approve/reject, so no row-locking (see
+    jobs.update_job's own docstring on when the plain get+setattr+commit
+    shape is sufficient). Only meaningful for an "approved" job -- pending/
+    rejected items never appear on the showcase regardless, so there's
+    nothing for admin to hide/unhide on those."""
+    job = jobs.get_job(job_id)
+    if not job or job["public_status"] != "approved":
+        raise HTTPException(status_code=404, detail="Job not found")
+    jobs.update_job(job_id, public_hidden=hidden)
+    return jobs.get_job(job_id)
+
+
+@router.post("/api/admin/public-jobs/{job_id}/hide")
+def hide_admin_public_job(job_id: str, current_user: dict = Depends(get_current_admin_user)):
+    """Excludes an approved item from the homepage carousel -- see
+    Job.public_hidden's own comment. Does not touch public_status, the
+    refund, or the S3 archive; the direct permalink keeps working."""
+    return _set_public_hidden(job_id, True)
+
+
+@router.post("/api/admin/public-jobs/{job_id}/unhide")
+def unhide_admin_public_job(job_id: str, current_user: dict = Depends(get_current_admin_user)):
+    return _set_public_hidden(job_id, False)
