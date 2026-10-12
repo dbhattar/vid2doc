@@ -55,6 +55,21 @@ class Settings:
     # gates POST /api/billing/checkout/topup. Set to "false" to disable.
     PAYMENTS_ENABLED = os.environ.get("PAYMENTS_ENABLED", "true").strip().lower() != "false"
 
+    # Kill switch for the live-transcription "research" side panel (opt-in,
+    # see routes/live.py's POST /api/live/research) -- gates the endpoint
+    # outright (503) regardless of the frontend's own checkbox. Free to end
+    # users for now (no wallet charge -- see live_research.py's rate
+    # limiting for the only cost safety net in place); this flag exists so
+    # the feature can be paused instantly if OpenAI web-search cost runs
+    # away, without a deploy. Set to "false" to disable.
+    LIVE_RESEARCH_ENABLED = os.environ.get("LIVE_RESEARCH_ENABLED", "true").strip().lower() != "false"
+    # Separate from OPENAI_MODEL (used by the vision/structured-output
+    # pipeline stages) since web-search-tool support can be a distinct
+    # subset of OpenAI's models from plain structured-output support --
+    # verify this default actually supports the `web_search` tool as of
+    # whenever this is deployed; override here if not.
+    LIVE_RESEARCH_OPENAI_MODEL = os.environ.get("LIVE_RESEARCH_OPENAI_MODEL", "gpt-5.4-mini")
+
     DATABASE_URL = os.environ.get(
         "DATABASE_URL", "postgresql+psycopg2://vid2doc:vid2doc@postgres:5432/vid2doc"
     )

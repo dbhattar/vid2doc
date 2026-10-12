@@ -67,6 +67,10 @@ def build_job_response(job: dict, request: Request) -> dict:
             response["document_pdf_url"] = f"{base}/document.pdf"
         if (doc_dir / "transcript.json").exists():
             response["document_transcript_json_url"] = f"{base}/transcript.json"
+        # Only present for a live-recording session that had the opt-in
+        # research panel enabled -- see routes/live.py's finalize_live_session.
+        if (doc_dir / "research.md").exists():
+            response["research_url"] = f"{base}/research.md"
     if job["status"] == "failed":
         response["error"] = job["error_message"]
     return response

@@ -11,7 +11,7 @@ import ChatEnableControl from "@/components/ChatEnableControl";
 import ChatPanel from "@/components/ChatPanel";
 import DocumentPreview from "@/components/DocumentPreview";
 import FrameReviewPanel from "@/components/FrameReviewPanel";
-import { ArchiveIcon, ClapperboardIcon, DriveIcon, JsonFileIcon, MarkdownFileIcon, MicrophoneIcon, PdfFileIcon, VideoCameraIcon, WordFileIcon } from "@/components/icons";
+import { ArchiveIcon, ClapperboardIcon, DriveIcon, GlobeIcon, JsonFileIcon, MarkdownFileIcon, MicrophoneIcon, PdfFileIcon, VideoCameraIcon, WordFileIcon } from "@/components/icons";
 import MediaPreviewPlayer, { type MediaPreviewHandle } from "@/components/MediaPreviewPlayer";
 import ProgressStepper from "@/components/ProgressStepper";
 import PublicConsentControl from "@/components/PublicConsentControl";
@@ -298,6 +298,12 @@ export default function JobDetailPage() {
                     Download Transcript JSON
                   </Button>
                 )}
+                {job.research_url && (
+                  <Button variant="outline" onClick={() => downloadAuthenticated(job.research_url!, `${job.job_id}.research.md`)}>
+                    <GlobeIcon className="h-5 w-5 text-accent" />
+                    Download Research
+                  </Button>
+                )}
                 {driveConnected ? (
                   <Button variant="outline" onClick={handleSaveToDrive} disabled={savingToDrive}>
                     <DriveIcon className="h-5 w-5" />
@@ -379,6 +385,12 @@ export default function JobDetailPage() {
             {job.status === "done" && !job.retention_expired && job.document_url && (
               <Card className="p-6">
                 <DocumentPreview markdownUrl={job.document_url} bordered={false} />
+              </Card>
+            )}
+
+            {job.status === "done" && !job.retention_expired && job.research_url && (
+              <Card className="p-6">
+                <DocumentPreview markdownUrl={job.research_url} bordered={false} />
               </Card>
             )}
 

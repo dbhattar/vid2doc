@@ -18,6 +18,10 @@ export type Job = {
   document_docx_url?: string;
   document_pdf_url?: string;
   document_transcript_json_url?: string;
+  // Present only for a live-recording session that had the opt-in research
+  // panel enabled -- see backend/app/routes/live.py's finalize_live_session
+  // and app/live_research.py's render_research_document.
+  research_url?: string;
   // job_type === "video_gen" only, once status === "done" -- see
   // backend/app/routes/video_output.py.
   video_url?: string;

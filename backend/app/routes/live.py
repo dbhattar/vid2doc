@@ -4,19 +4,30 @@ import uuid
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from pydantic import BaseModel
 
-from .. import billing, jobs
+from .. import billing, jobs, live_research
 from ..config import settings
 from ..deps import get_current_user
 from ..media import save_upload
 
 router = APIRouter()
 
+# Server-side caps on the live-research request body -- independent of
+# whatever cadence/accumulation logic the frontend uses, so a modified or
+# misbehaving client can't blow up the prompt size (and therefore cost)
+# sent to OpenAI on every call.
+MAX_RECENT_TEXT_CHARS = 4000
+MAX_COVERED_TOPICS = 15
+MAX_TOPIC_CHARS = 80
+
 
 @router.post("/api/live/finalize", status_code=202)
 async def finalize_live_session(
     title: str = Form("Live Recording"),
     segments: str = Form(...),
+    research_notes: str = Form("[]"),
+    research_references: str = Form("[]"),
     audio: UploadFile | None = File(None),
     current_user: dict = Depends(get_current_user),
 ):
@@ -28,7 +39,16 @@ async def finalize_live_session(
     /api/transcribe_audio. pipeline.py's _transcribe_segments() finds
     precomputed_segments.json and skips straight past audio extraction and
     transcribe_diarize() (the same file YouTube-caption-derived transcripts
-    use -- see pipeline.py's _download_if_needed)."""
+    use -- see pipeline.py's _download_if_needed).
+
+    research_notes/research_references (both optional, from the opt-in live
+    research panel -- see live_research.py) are pre-shaped and already
+    deduped client-side; written here as document/research.md so it survives
+    the pipeline run (doc_dir.mkdir(exist_ok=True) in pipeline.py never wipes
+    pre-existing files) and ends up served by the ordinary
+    GET /api/documents/{job_id}/research.md route once the job is done, same
+    as document.docx/document.pdf (see routes/status.py's "advertised if
+    present" pattern)."""
     try:
         parsed_segments = json.loads(segments)
     except json.JSONDecodeError:
@@ -71,6 +91,16 @@ async def finalize_live_session(
 
     (output_dir / "precomputed_segments.json").write_text(json.dumps(parsed_segments))
 
+    try:
+        notes = json.loads(research_notes)
+        references = json.loads(research_references)
+    except json.JSONDecodeError:
+        notes, references = [], []
+    if notes or references:
+        doc_dir = output_dir / "document"
+        doc_dir.mkdir(parents=True, exist_ok=True)
+        (doc_dir / "research.md").write_text(live_research.render_research_document(notes, references))
+
     jobs.create_job(
         job_id,
         source_path,
@@ -82,3 +112,41 @@ async def finalize_live_session(
         job_type="audio",
     )
     return {"job_id": job_id, "status": "queued"}
+
+
+class LiveResearchRequest(BaseModel):
+    recent_text: str
+    covered_topics: list[str] = []
+
+
+@router.post("/api/live/research")
+def get_live_research(body: LiveResearchRequest, current_user: dict = Depends(get_current_user)) -> dict:
+    """Opt-in, best-effort: the frontend calls this periodically during a
+    live session with whatever's been said since the last call, and gets
+    back a short research note on the current topic (or null -- see
+    live_research.get_research_note's own docstring for why that's a real,
+    expected response, not an error case). Stateless -- no Job row, no
+    persistence, nothing billed (see plan/live-research-panel-plan.md for
+    why: free for now, with LIVE_RESEARCH_ENABLED as the kill switch and
+    live_research.check_rate_limit as the only cost safety net)."""
+    if not settings.LIVE_RESEARCH_ENABLED:
+        raise HTTPException(status_code=503, detail="Live research is temporarily unavailable.")
+
+    text = body.recent_text.strip()[:MAX_RECENT_TEXT_CHARS]
+    if not text:
+        raise HTTPException(status_code=400, detail="recent_text must not be empty")
+    covered_topics = [t[:MAX_TOPIC_CHARS] for t in body.covered_topics[:MAX_COVERED_TOPICS]]
+
+    try:
+        live_research.check_rate_limit(current_user["id"])
+    except live_research.LiveResearchRateLimitedError:
+        raise HTTPException(status_code=429, detail="Too many live-research requests -- please slow down.")
+
+    try:
+        note = live_research.get_research_note(text, covered_topics)
+    except live_research.LiveResearchUnavailableError:
+        raise HTTPException(status_code=503, detail="Live research is temporarily unavailable -- no OpenAI API key configured")
+    except Exception:
+        raise HTTPException(status_code=502, detail="Could not fetch research right now -- please try again shortly")
+
+    return {"note": note}

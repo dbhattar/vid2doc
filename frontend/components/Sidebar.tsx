@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect } from "react";
 
-import { BillingIcon, ChevronIcon, ClapperboardIcon, CloseIcon, DashboardIcon, DocumentIcon, DriveIcon, KeyIcon, LiveIcon, MicrophoneIcon, ShieldIcon, VideoCameraIcon, WalletIcon } from "@/components/icons";
+import { BillingIcon, ChevronIcon, CloseIcon, DashboardIcon, DocumentIcon, DriveIcon, KeyIcon, LiveIcon, MicrophoneIcon, ShieldIcon, VideoCameraIcon, WalletIcon } from "@/components/icons";
 import ThemeToggle from "@/components/ThemeToggle";
 import UserMenu from "@/components/UserMenu";
 import type { CurrentUser } from "@/lib/auth";
@@ -16,7 +16,8 @@ const PRIMARY_NAV_LINKS = [
   { href: "/dashboard/video", label: "Video", Icon: VideoCameraIcon },
   { href: "/dashboard/audio", label: "Audio", Icon: MicrophoneIcon },
   { href: "/dashboard/live", label: "Live", Icon: LiveIcon },
-  { href: "/dashboard/video-gen", label: "Video Gen", Icon: ClapperboardIcon },
+  // Video Gen nav item hidden for now (page/route/backend untouched, still
+  // reachable directly at /dashboard/video-gen) -- re-add when ready.
   { href: "/documents", label: "Documents", Icon: DocumentIcon },
 ];
 
