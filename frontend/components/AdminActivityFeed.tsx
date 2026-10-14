@@ -17,7 +17,14 @@ export type AdminActivityEvent =
   | (BaseEvent & { type: "job"; job_id: string; job_type: JobType; status: JobStatus; title: string | null })
   | (BaseEvent & {
       type: "wallet";
-      entry_type: "topup" | "usage_charge" | "usage_refund" | "signup_bonus";
+      entry_type:
+        | "topup"
+        | "usage_charge"
+        | "usage_refund"
+        | "signup_bonus"
+        | "public_refund"
+        | "chat_enable_charge"
+        | "chat_enable_refund";
       amount_cents: number;
       // Only set for usage_charge/usage_refund -- a topup/signup_bonus has no related job.
       // job_id/job_type can still be null even then if the related job no longer exists
@@ -68,7 +75,12 @@ function eventText(event: AdminActivityEvent): React.ReactNode {
     ) : (
       "a job"
     );
-    if (event.entry_type === "usage_refund") return <>Refunded {amount} for {jobDescription}</>;
+    if (event.entry_type === "usage_refund" || event.entry_type === "chat_enable_refund") {
+      return <>Refunded {amount} for {jobDescription}</>;
+    }
+    if (event.entry_type === "public_refund") {
+      return <>Received {amount} discount for making {jobDescription} public</>;
+    }
     return <>Charged {amount} for {jobDescription}</>;
   }
   return (
