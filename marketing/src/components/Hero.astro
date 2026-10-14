@@ -1,12 +1,4 @@
 ---
-// The voice-agent widget's backend (api.oshara.ai) only allows requests from
-// the real production origin -- loading it from a local `astro dev` origin
-// just 403s on every fetch it makes (appearance/events) and spams the
-// console for nothing, so skip it entirely in dev rather than configuring
-// around a restriction that exists on purpose. `import.meta.env.DEV` is
-// Astro/Vite's own "this is `astro dev`, not a production build" flag, so
-// this never affects the deployed site.
-const isDev = import.meta.env.DEV;
 ---
 
 <section class="hero">
@@ -17,20 +9,22 @@ const isDev = import.meta.env.DEV;
       <h1 data-reveal style="--reveal-delay: 80ms">
         Turn video into <em>documents.</em>
       </h1>
+      <p class="hero-sub" data-reveal style="--reveal-delay: 120ms">
+        Upload a video, get back an organized document with the right images in place. Pay-as-you-go, no subscription.
+      </p>
+      <a href="https://app.framewrite.cc/login" class="hero-button" data-reveal style="--reveal-delay: 200ms">
+        Get started free &rarr;
+      </a>
     </div>
     <div class="hero-side">
-      <div class="voice-embed" data-reveal style="--reveal-delay: 160ms">
-        {isDev ? (
-          <p class="voice-embed-placeholder">Voice agent widget (production only)</p>
-        ) : (
-          <script
-            src="https://api.oshara.ai/widget.js"
-            data-agent="framewrite"
-            data-inline="true"
-            data-close-button-hide>
-          </script>
-        )}
-      </div>
+      <aside class="refund-card" data-reveal style="--reveal-delay: 160ms">
+        <p class="refund-kicker">Get money back</p>
+        <p class="refund-title">Make your document public, get a refund.</p>
+        <p class="refund-body">
+          Share your finished document and video, and once approved we refund part of what you paid. Approved
+          submissions are featured on this homepage.
+        </p>
+      </aside>
     </div>
   </div>
 </section>
@@ -126,33 +120,79 @@ const isDev = import.meta.env.DEV;
     color: var(--accent);
   }
 
+  .hero-sub {
+    margin: 22px 0 28px;
+    max-width: 44ch;
+    font-size: var(--step-1);
+    line-height: 1.5;
+    color: var(--ink-soft);
+  }
+
+  .hero-button {
+    display: inline-block;
+    font-family: var(--font-body);
+    font-size: 0.95rem;
+    font-weight: 600;
+    background: var(--accent);
+    color: var(--accent-ink);
+    border: var(--border-width) solid var(--accent);
+    border-radius: var(--radius-md);
+    padding: 14px 26px;
+    text-decoration: none;
+    box-shadow: var(--shadow-accent);
+    transition: transform var(--duration-fast) var(--ease-spring), box-shadow var(--duration-fast) var(--ease);
+  }
+
+  .hero-button:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+  }
+
   .hero-side {
     display: flex;
     align-items: center;
     justify-content: center;
-    padding-top: 8px;
   }
 
-  .voice-embed {
-    position: relative; /* required -- the panel is absolutely positioned */
-    height: 620px; /* required -- the panel fills the container */
+  .refund-card {
     width: 100%;
     max-width: 420px;
-    overflow: hidden;
-    border-radius: 16px; /* our container, our corners */
+    padding: 28px 30px;
+    border: calc(var(--border-width) * 2) solid var(--accent);
+    border-radius: var(--radius-lg);
+    background: var(--paper);
+    box-shadow: var(--shadow-accent);
   }
 
-  .voice-embed-placeholder {
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    height: 100%;
+  .refund-card p {
     margin: 0;
-    padding: 24px;
-    text-align: center;
-    font-size: 0.85rem;
+  }
+
+  .refund-kicker {
+    display: inline-block;
+    margin-bottom: 14px !important;
+    padding: 4px 12px;
+    border-radius: 999px;
+    background: var(--accent);
+    color: var(--accent-ink);
+    font-family: var(--font-mono);
+    font-size: 0.76rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  .refund-title {
+    font-family: var(--font-display);
+    font-size: var(--step-3);
+    font-weight: 800;
+    line-height: 1.15;
+    margin-bottom: 12px !important;
+  }
+
+  .refund-body {
+    font-size: 0.95rem;
+    line-height: 1.6;
     color: var(--ink-soft);
-    border: var(--border-width) dashed var(--line);
-    border-radius: inherit;
   }
 </style>

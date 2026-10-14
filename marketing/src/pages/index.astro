@@ -6,7 +6,6 @@ import Testimonials from '../components/Testimonials/Testimonials.astro';
 import Showcase from '../components/Showcase/Showcase.astro';
 import FeatureGrid from '../components/FeatureGrid.astro';
 import PricingTable from '../components/PricingTable.astro';
-import PublicProgramCta from '../components/PublicProgramCta.astro';
 import FAQ from '../components/FAQ.astro';
 import FinalCta from '../components/FinalCta.astro';
 import Newsletter from '../components/Newsletter/Newsletter.astro';
@@ -14,7 +13,7 @@ import Newsletter from '../components/Newsletter/Newsletter.astro';
 
 <MarketingLayout
   title="Framewrite — Video into documents."
-  description="Framewrite turns your video or audio into a searchable, organized document with the right images in place. Pay-as-you-go, no subscription."
+  description="Framewrite turns your video into a searchable, organized document with the right images in place. Pay-as-you-go, no subscription."
   path="/"
 >
   <Hero />
@@ -28,7 +27,6 @@ import Newsletter from '../components/Newsletter/Newsletter.astro';
   <Showcase />
   <Reveal><FeatureGrid /></Reveal>
   <Reveal><PricingTable /></Reveal>
-  <Reveal><PublicProgramCta /></Reveal>
   <Reveal><FAQ /></Reveal>
   {/* EnterpriseCta unmounted for now, not deleted -- add back if there's enterprise traction. */}
   <Reveal><FinalCta /></Reveal>
