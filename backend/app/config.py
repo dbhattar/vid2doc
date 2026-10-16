@@ -96,6 +96,10 @@ class Settings:
     # anthropic (default): claude-sonnet-5. openai: gpt-5.4-mini (vision + structured outputs, cost-efficient).
     LLM_PROVIDER = os.environ.get("LLM_PROVIDER", "anthropic")
     OPENAI_MODEL = os.environ.get("OPENAI_MODEL", "gpt-5.4-mini")
+    # Model for AI agents (app/agents.py): needs function calling plus the
+    # built-in `web_search` tool on the Responses API in one request. Free to
+    # end users for now -- override here if the default doesn't support both.
+    AGENT_OPENAI_MODEL = os.environ.get("AGENT_OPENAI_MODEL", OPENAI_MODEL)
 
     WORKER_POLL_SECONDS = float(os.environ.get("WORKER_POLL_SECONDS", 2.0))
 

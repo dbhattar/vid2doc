@@ -17,7 +17,7 @@ wallet-funded) -- there are no subscription plans/tiers.
 import uuid
 from datetime import datetime
 
-from sqlalchemy import BigInteger, Boolean, DateTime, Float, ForeignKey, String, Text, func
+from sqlalchemy import JSON, BigInteger, Boolean, DateTime, Float, ForeignKey, String, Text, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
@@ -291,4 +291,66 @@ class ProcessedWebhookEvent(Base):
     __tablename__ = "processed_webhook_events"
 
     id: Mapped[str] = mapped_column(String, primary_key=True)  # Stripe event id, e.g. "evt_..."
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class Agent(Base):
+    """A user-assembled AI agent (see app/agents.py): a knowledge base of
+    attached document snapshots, tools/skills picked from the in-code catalog
+    in app/agent_catalog.py (stored here as id lists, not rows), and a
+    rolling `memory` summary of earlier conversations."""
+
+    __tablename__ = "agents"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)  # str(uuid.uuid4())
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    instructions: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    tool_ids: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    skill_ids: Mapped[list] = mapped_column(JSON, nullable=False, default=list)
+    memory: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
+class AgentDocument(Base):
+    """Snapshot of a finished job's document + transcript text, copied when
+    attached to an agent -- jobs' local files are deleted after 7 days
+    (retention.py), and agents must keep working after that. job_id is
+    deliberately not a FK, same convention as WalletLedgerEntry.related_job_id."""
+
+    __tablename__ = "agent_documents"
+    __table_args__ = (UniqueConstraint("agent_id", "job_id", name="uq_agent_documents_agent_job"),)
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    agent_id: Mapped[str] = mapped_column(String, ForeignKey("agents.id"), nullable=False, index=True)
+    job_id: Mapped[str] = mapped_column(String, nullable=False)
+    title: Mapped[str] = mapped_column(String, nullable=False)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class AgentConversation(Base):
+    __tablename__ = "agent_conversations"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    agent_id: Mapped[str] = mapped_column(String, ForeignKey("agents.id"), nullable=False, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    # Set once this conversation has been folded into Agent.memory.
+    summarized_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class AgentMessage(Base):
+    __tablename__ = "agent_messages"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    conversation_id: Mapped[str] = mapped_column(
+        String, ForeignKey("agent_conversations.id"), nullable=False, index=True
+    )
+    role: Mapped[str] = mapped_column(String, nullable=False)  # "user" | "assistant"
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    # Assistant-only: names of tools the agent called to produce this reply.
+    tools_used: Mapped[list | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

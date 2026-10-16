@@ -49,6 +49,16 @@ step if this needs to survive a VPS being rebuilt or scale past one host.
    (`reportlab`) — pure-Python rendering, no external binaries or native
    libraries needed in the image.
 
+## AI agents (proof of concept)
+
+Users can assemble an agent from a knowledge base (finished documents,
+snapshotted into the DB on attach so they outlive the 7-day retention),
+tools and skills picked from the in-code catalog (`app/agent_catalog.py`),
+and memory (a rolling summary written when a new conversation starts).
+`app/agents.py` runs an OpenAI Responses API tool loop (`AGENT_OPENAI_MODEL`);
+routes are in `routes/agents.py`. Free for now (rate limit + turn cap only).
+Verify with `validation/milestone_agents.py`.
+
 ## API
 
 Every endpoint except `/health` and `/api/auth/google` requires

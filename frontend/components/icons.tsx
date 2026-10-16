@@ -1,4 +1,5 @@
 import {
+  Bot,
   Check,
   ChevronDown,
   ChevronLeft,
@@ -72,6 +73,10 @@ export function WalletIcon({ className }: IconProps) {
 
 export function FeedbackIcon({ className }: IconProps) {
   return <MessageSquare className={className} aria-hidden />;
+}
+
+export function BotIcon({ className }: IconProps) {
+  return <Bot className={className} aria-hidden />;
 }
 
 export function ChatIcon({ className }: IconProps) {
