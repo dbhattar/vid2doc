@@ -21,9 +21,13 @@ def _owned_agent(agent_id: str, current_user: dict) -> dict:
     return agent
 
 
-def _validate_catalog_ids(tool_ids: list[str], skill_ids: list[str]) -> None:
+def _validate_catalog_ids(tool_ids: list[str], skill_ids: list[str], user: dict) -> None:
     if not all(agent_catalog.is_valid_tool(t) for t in tool_ids):
         raise HTTPException(status_code=400, detail="Unknown tool")
+    for tool_id in tool_ids:
+        reason = agent_catalog.unavailable_reason(tool_id, user)
+        if reason:
+            raise HTTPException(status_code=400, detail=f"{agent_catalog.TOOLS[tool_id]['name']} isn't available: {reason}")
     if not all(agent_catalog.is_valid_skill(s) for s in skill_ids):
         raise HTTPException(status_code=400, detail="Unknown skill")
 
@@ -70,7 +74,7 @@ class MessageRequest(BaseModel):
 
 @router.get("/api/agents/catalog")
 def get_catalog(current_user: dict = Depends(get_current_user)) -> dict:
-    return agent_catalog.catalog()
+    return agent_catalog.catalog(current_user)
 
 
 @router.get("/api/agents")
@@ -80,7 +84,7 @@ def list_agents(current_user: dict = Depends(get_current_user)) -> dict:
 
 @router.post("/api/agents", status_code=201)
 def create_agent(body: AgentCreateRequest, current_user: dict = Depends(get_current_user)) -> dict:
-    _validate_catalog_ids(body.tool_ids, body.skill_ids)
+    _validate_catalog_ids(body.tool_ids, body.skill_ids, current_user)
     # Validate every job before creating anything, so a bad job_id doesn't
     # leave a half-built agent behind.
     for job_id in body.job_ids:
@@ -106,7 +110,7 @@ def update_agent(agent_id: str, body: AgentUpdateRequest, current_user: dict = D
     fields = body.model_dump(exclude_none=True)
     if "name" in fields:
         fields["name"] = fields["name"].strip()
-    _validate_catalog_ids(fields.get("tool_ids", []), fields.get("skill_ids", []))
+    _validate_catalog_ids(fields.get("tool_ids", []), fields.get("skill_ids", []), current_user)
     return agents.update_agent(agent_id, **fields)
 
 
@@ -175,7 +179,7 @@ def post_message(
     except agents.AgentRateLimitedError:
         raise HTTPException(status_code=429, detail="Too many messages too quickly -- please wait a few minutes")
     try:
-        return agents.post_message(agent, conversation_id, body.message)
+        return agents.post_message(agent, conversation_id, body.message, current_user)
     except agents.AgentUnavailableError:
         raise HTTPException(status_code=503, detail="Agents are temporarily unavailable -- no LLM provider configured")
     except Exception:

@@ -59,6 +59,37 @@ and memory (a rolling summary written when a new conversation starts).
 routes are in `routes/agents.py`. Free for now (rate limit + turn cap only).
 Verify with `validation/milestone_agents.py`.
 
+### Adding an agent tool
+
+Tools are auto-discovered: drop a module into `app/agent_tools/` that defines
+a module-level `TOOL` dict -- no route, migration or frontend change (the
+picker renders from `GET /api/agents/catalog`). The file name is the tool id
+stored on agents, so never rename a shipped one; `_`-prefixed modules are
+helpers. Shape:
+
+```python
+TOOL = {
+    "order": 70,                      # catalog sort order (optional)
+    "name": "Shown in the picker",
+    "description": "One line for the picker.",
+    "available": lambda user: None,   # optional; return a reason string if this
+                                      # user can't use it right now (e.g. not connected)
+    "functions": [{                   # OpenAI function tool(s), plus the callable
+        "type": "function", "name": "my_tool", "description": "...",
+        "parameters": {...}, "strict": True,
+        "run": run,                   # run(ctx, args) -> str for the model
+    }],                               # (or "builtin": {...} for an OpenAI-hosted tool)
+}
+```
+
+`ctx` is `{"documents", "client", "user"}`. Return plain-string messages for
+expected failures (not connected, not configured) so the model can relay
+them; exceptions become a generic "tool failed". Re-check `available` inside
+`run` (state can change after an agent is created), wrap anything from outside
+Framewrite with `_common.wrap_untrusted`, and rate-limit side-effecting tools
+with `_common.rate_limited`. Results are capped at `MAX_TOOL_RESULT_CHARS`.
+Add a chip label in `frontend/components/AgentChat.tsx`'s `TOOL_LABELS`.
+
 ## API
 
 Every endpoint except `/health` and `/api/auth/google` requires

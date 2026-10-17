@@ -13,6 +13,9 @@ const TOOL_LABELS: Record<string, string> = {
   read_document: "read a document",
   web_search: "searched the web",
   research_topic: "researched a topic",
+  fetch_url: "fetched a web page",
+  email_me: "emailed you",
+  save_to_drive: "saved to Drive",
 };
 
 // Compact chat-bubble styling for the markdown agents reply with (cf. the

@@ -24,20 +24,30 @@ function CheckboxList({
 }) {
   return (
     <div className="space-y-2">
-      {items.map((item) => (
-        <label key={item.id} className="flex cursor-pointer items-start gap-2.5 text-sm">
-          <input
-            type="checkbox"
-            checked={selected.includes(item.id)}
-            onChange={() => onToggle(item.id)}
-            className="mt-1"
-          />
-          <span>
-            <span className="font-medium text-ink">{item.name}</span>
-            <span className="block text-xs text-ink-soft">{item.description}</span>
-          </span>
-        </label>
-      ))}
+      {items.map((item) => {
+        const disabled = item.available === false;
+        return (
+          <label
+            key={item.id}
+            className={`flex items-start gap-2.5 text-sm ${disabled ? "cursor-not-allowed opacity-60" : "cursor-pointer"}`}
+          >
+            <input
+              type="checkbox"
+              checked={!disabled && selected.includes(item.id)}
+              disabled={disabled}
+              onChange={() => onToggle(item.id)}
+              className="mt-1"
+            />
+            <span>
+              <span className="font-medium text-ink">{item.name}</span>
+              <span className="block text-xs text-ink-soft">{item.description}</span>
+              {disabled && item.unavailable_reason && (
+                <span className="block text-xs text-status-warning">{item.unavailable_reason}</span>
+              )}
+            </span>
+          </label>
+        );
+      })}
     </div>
   );
 }

@@ -1,6 +1,14 @@
 import { apiFetch } from "@/lib/api";
 
-export type CatalogItem = { id: string; name: string; description: string };
+export type CatalogItem = {
+  id: string;
+  name: string;
+  description: string;
+  // Tools only: false when this user can't use the tool right now (e.g.
+  // Google Drive not connected), with the reason to show. Skills omit both.
+  available?: boolean;
+  unavailable_reason?: string | null;
+};
 export type AgentCatalog = { tools: CatalogItem[]; skills: CatalogItem[] };
 
 export type AgentDocument = { id: string; job_id: string; title: string; created_at: string };
