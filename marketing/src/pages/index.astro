@@ -4,6 +4,7 @@ import Hero from '../components/Hero.astro';
 import Reveal from '../components/Reveal.astro';
 import Testimonials from '../components/Testimonials/Testimonials.astro';
 import Showcase from '../components/Showcase/Showcase.astro';
+import AgentsSection from '../components/AgentsSection.astro';
 import FeatureGrid from '../components/FeatureGrid.astro';
 import PricingTable from '../components/PricingTable.astro';
 import FAQ from '../components/FAQ.astro';
@@ -13,7 +14,7 @@ import Newsletter from '../components/Newsletter/Newsletter.astro';
 
 <MarketingLayout
   title="Framewrite — Video into documents."
-  description="Framewrite turns your video into a searchable, organized document with the right images in place. Pay-as-you-go, no subscription."
+  description="Framewrite turns your video into a searchable, organized document with the right images in place, then lets you build AI agents on your documents. Pay-as-you-go, no subscription."
   path="/"
 >
   <Hero />
@@ -25,6 +26,7 @@ import Newsletter from '../components/Newsletter/Newsletter.astro';
   {/* Same "hidden until real data confirms it" reasoning as Testimonials
       above -- see Showcase.astro/showcase.ts. */}
   <Showcase />
+  <Reveal><AgentsSection /></Reveal>
   <Reveal><FeatureGrid /></Reveal>
   <Reveal><PricingTable /></Reveal>
   <Reveal><FAQ /></Reveal>

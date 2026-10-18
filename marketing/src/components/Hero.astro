@@ -5,18 +5,30 @@
   <div class="hero-glow" aria-hidden="true"></div>
   <div class="container hero-grid">
     <div>
-      <p class="eyebrow" data-reveal><span class="rec-dot"></span> Now live</p>
+      <p class="eyebrow" data-reveal><span class="rec-dot"></span> Now with AI agents</p>
       <h1 data-reveal style="--reveal-delay: 80ms">
         Turn video into <em>documents.</em>
       </h1>
       <p class="hero-sub" data-reveal style="--reveal-delay: 120ms">
-        Upload a video, get back an organized document with the right images in place. Pay-as-you-go, no subscription.
+        Upload a video, get back an organized document with the right images in place. Then put your documents to
+        work with AI agents that use tools and remember past conversations. Pay-as-you-go, no subscription.
       </p>
       <a href="https://app.framewrite.cc/login" class="hero-button" data-reveal style="--reveal-delay: 200ms">
         Get started free &rarr;
       </a>
     </div>
     <div class="hero-side">
+      <a href="#agents" class="agent-card" data-reveal style="--reveal-delay: 120ms">
+        <p class="agent-kicker">New: AI agents</p>
+        <p class="agent-title">Build an agent from your documents.</p>
+        <p class="agent-body">Give it a knowledge base, tools and skills. It remembers every conversation.</p>
+        <ul class="agent-chips" aria-label="What an agent is made of">
+          <li>Knowledge base</li>
+          <li>Tools</li>
+          <li>Memory</li>
+          <li>Skills</li>
+        </ul>
+      </a>
       <aside class="refund-card" data-reveal style="--reveal-delay: 160ms">
         <p class="refund-kicker">Get money back</p>
         <p class="refund-title">Make your document public, get a refund.</p>
@@ -150,8 +162,74 @@
 
   .hero-side {
     display: flex;
+    flex-direction: column;
     align-items: center;
     justify-content: center;
+    gap: 20px;
+  }
+
+  .agent-card {
+    display: block;
+    width: 100%;
+    max-width: 420px;
+    padding: 24px 30px;
+    border: calc(var(--border-width) * 2) solid var(--accent);
+    border-radius: var(--radius-lg);
+    background: var(--accent);
+    color: var(--accent-ink);
+    text-decoration: none;
+    box-shadow: var(--shadow-accent);
+    transition: transform var(--duration-fast) var(--ease-spring), box-shadow var(--duration-fast) var(--ease);
+  }
+
+  .agent-card:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-lg);
+  }
+
+  .agent-card p {
+    margin: 0;
+  }
+
+  .agent-kicker {
+    margin-bottom: 10px !important;
+    font-family: var(--font-mono);
+    font-size: 0.76rem;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    opacity: 0.85;
+  }
+
+  .agent-title {
+    font-family: var(--font-display);
+    font-size: var(--step-2);
+    font-weight: 800;
+    line-height: 1.15;
+    margin-bottom: 8px !important;
+  }
+
+  .agent-body {
+    font-size: 0.92rem;
+    line-height: 1.5;
+    opacity: 0.9;
+  }
+
+  .agent-chips {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin: 14px 0 0;
+    padding: 0;
+    list-style: none;
+  }
+
+  .agent-chips li {
+    padding: 3px 11px;
+    border: 1px solid color-mix(in srgb, var(--accent-ink) 45%, transparent);
+    border-radius: 999px;
+    font-size: 0.8rem;
+    font-weight: 600;
   }
 
   .refund-card {
