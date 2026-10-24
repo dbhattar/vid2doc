@@ -1,0 +1,64 @@
+# Minimal Linux VM with Docker + gVisor (runsc) for testing sandboxed,
+# long-running workloads on an Apple Silicon Mac. See README.md in this folder.
+#
+#   limactl start --name=gvisor local_test/gvisor/lima-gvisor.yaml
+#
+# gVisor's default `systrap` platform works inside a plain VM, so nested
+# virtualization is not needed.
+
+vmType: vz # Apple Virtualization.framework; use "qemu" if vz isn't available
+arch: aarch64
+cpus: 4
+memory: 6GiB
+disk: 30GiB
+
+images:
+  - location: https://cloud-images.ubuntu.com/releases/24.04/release/ubuntu-24.04-server-cloudimg-arm64.img
+    arch: aarch64
+
+# Deliberately isolated: nothing from the Mac is shared into the VM.
+mounts: []
+
+# Docker only -- no containerd/nerdctl.
+containerd:
+  system: false
+  user: false
+
+provision:
+  - mode: system
+    script: |
+      #!/bin/bash
+      set -eux -o pipefail
+
+      # Docker (Ubuntu's own package is enough for this). Lima's user joins the
+      # docker group so `docker` works without sudo in new shells.
+      if ! command -v docker >/dev/null; then
+        apt-get update
+        DEBIAN_FRONTEND=noninteractive apt-get install -y docker.io
+      fi
+      usermod -aG docker "{{.User}}"
+
+      # gVisor from its signed apt repository.
+      if ! command -v runsc >/dev/null; then
+        apt-get install -y --no-install-recommends ca-certificates curl gnupg
+        curl -fsSL https://gvisor.dev/archive.key | gpg --dearmor -o /usr/share/keyrings/gvisor-archive-keyring.gpg
+        echo "deb [arch=$(dpkg --print-architecture) signed-by=/usr/share/keyrings/gvisor-archive-keyring.gpg] https://storage.googleapis.com/gvisor/releases release main" \
+          > /etc/apt/sources.list.d/gvisor.list
+        apt-get update
+        apt-get install -y runsc
+      fi
+
+      # Registers the "runsc" runtime in /etc/docker/daemon.json.
+      runsc install
+      systemctl restart docker
+
+probes:
+  - description: "Docker is up with the runsc runtime registered"
+    script: |
+      #!/bin/bash
+      set -eux -o pipefail
+      if ! timeout 30s bash -c "until sudo docker info 2>/dev/null | grep -q runsc; do sleep 3; done"; then
+        echo >&2 "docker/runsc is not ready yet"
+        exit 1
+      fi
+    hint: "See /var/log/cloud-init-output.log inside the VM (limactl shell gvisor)."
