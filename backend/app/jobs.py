@@ -44,6 +44,7 @@ def _job_to_dict(job: Job) -> dict:
         "public_reviewed_by": str(job.public_reviewed_by) if job.public_reviewed_by else None,
         "public_rejection_reason": job.public_rejection_reason,
         "public_hidden": job.public_hidden,
+        "public_upfront": job.public_upfront,
         "chat_enabled_at": job.chat_enabled_at,
         "chat_archive_prefix": job.chat_archive_prefix,
         "chat_video_key": job.chat_video_key,
@@ -65,6 +66,7 @@ def create_job(
     source_url: str | None = None,
     aspect_ratio: str = "16:9",
     extract_frames: bool = True,
+    public_upfront: bool = False,
 ) -> None:
     session = get_session()
     try:
@@ -83,6 +85,7 @@ def create_job(
                 client_ip=client_ip,
                 aspect_ratio=aspect_ratio,
                 extract_frames=extract_frames,
+                public_upfront=public_upfront,
             )
         )
         session.commit()

@@ -16,6 +16,7 @@ def _user_to_dict(user: User) -> dict:
         "avatar_url": user.avatar_url,
         "stripe_customer_id": user.stripe_customer_id,
         "is_admin": user.is_admin,
+        "announcements_opt_out": user.announcements_opt_out,
         "created_at": user.created_at,
     }
 
@@ -64,6 +65,34 @@ def set_admin_status(user_id: str | uuid.UUID, is_admin: bool) -> dict | None:
         user.is_admin = is_admin
         session.commit()
         return _user_to_dict(user)
+    finally:
+        session.close()
+
+
+def list_announcement_recipients() -> list[dict]:
+    """Every user who hasn't unsubscribed from announcements."""
+    session = get_session()
+    try:
+        rows = session.query(User).filter(User.announcements_opt_out.is_(False)).order_by(User.created_at).all()
+        return [_user_to_dict(u) for u in rows]
+    finally:
+        session.close()
+
+
+def set_announcements_opt_out(user_id: str | uuid.UUID, opt_out: bool) -> bool:
+    if isinstance(user_id, str):
+        try:
+            user_id = uuid.UUID(user_id)
+        except ValueError:
+            return False
+    session = get_session()
+    try:
+        user = session.get(User, user_id)
+        if not user:
+            return False
+        user.announcements_opt_out = opt_out
+        session.commit()
+        return True
     finally:
         session.close()
 

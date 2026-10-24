@@ -40,6 +40,10 @@ class User(Base):
     # ADMIN_EMAILS only ever grants, never revokes, so removing an email
     # from that list doesn't silently demote someone still using the app.
     is_admin: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # Set via the unsubscribe link in admin announcement emails (see
+    # app/announcements.py). Only gates announcements -- never job/billing
+    # emails, which are transactional.
+    announcements_opt_out: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     api_keys: Mapped[list["ApiKey"]] = relationship(back_populates="user")
@@ -154,9 +158,8 @@ class Job(Base):
     # ever enters the moderation queue (see public_jobs.submit_public_consent).
     public_status: Mapped[str | None] = mapped_column(String, nullable=True, index=True)  # null|pending|approved|rejected
     public_consented_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    # Computed once, at opt-in time, from billed_cents * PUBLIC_CONSENT_REFUND_PERCENT
-    # -- locked in before an admin ever reviews it, so a later change to that
-    # setting can't alter what the user was promised.
+    # Computed once, at opt-in time (currently all of billed_cents, 0 for an
+    # upfront-public job) -- locked in before an admin ever reviews it.
     public_refund_cents: Mapped[int | None] = mapped_column(BigInteger, nullable=True)
     # S3 key prefix the permanent archive was written under (currently always
     # f"public/{job.id}/", but recorded rather than re-derived so a future
@@ -187,6 +190,12 @@ class Job(Base):
     # layered on top. Direct permalink access (/showcase/{job_id}) is
     # unaffected by this flag. See routes/admin.py's hide/unhide endpoints.
     public_hidden: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # True when the owner chose "make public" at upload time (free -- billed_cents
+    # is 0) instead of opting in afterwards for a full refund. pipeline.py
+    # submits it for admin review as soon as it finishes (see
+    # public_jobs.submit_upfront_public_job). Like public_status, never
+    # un-set: such a job can't be deleted by its owner.
+    public_upfront: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
     # Chat-with-document: owner opts a completed job into a permanently
     # archived (private) copy of its document + transcript + source media,
     # so a Q&A chat can keep working past the 7-day local retention sweep

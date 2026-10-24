@@ -7,7 +7,9 @@ from .config import settings
 logger = logging.getLogger(__name__)
 
 
-def send_email(to_email: str, subject: str, text: str, html: str | None = None) -> bool:
+def send_email(
+    to_email: str, subject: str, text: str, html: str | None = None, headers: dict[str, str] | None = None
+) -> bool:
     """Sends via Mailgun's REST API. No-op (returns False) if Mailgun isn't
     configured -- callers should treat email as best-effort, never something
     a request should fail over."""
@@ -18,6 +20,8 @@ def send_email(to_email: str, subject: str, text: str, html: str | None = None) 
     data = {"from": settings.MAILGUN_FROM_EMAIL, "to": [to_email], "subject": subject, "text": text}
     if html:
         data["html"] = html
+    for name, value in (headers or {}).items():
+        data[f"h:{name}"] = value
     if settings.MAILGUN_TEST_MODE:
         data["o:testmode"] = "yes"
 

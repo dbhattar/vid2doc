@@ -30,6 +30,7 @@ def build_job_response(job: dict, request: Request) -> dict:
         # that locked-in value takes over instead, per public_jobs.py's own
         # comment on why it's locked at opt-in rather than always recomputed.
         response["public_status"] = job["public_status"]
+        response["public_upfront"] = job["public_upfront"]
         response["public_consent_refund_cents"] = (
             job["public_refund_cents"]
             if job["public_refund_cents"] is not None

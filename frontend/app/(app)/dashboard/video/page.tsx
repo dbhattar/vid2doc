@@ -46,6 +46,7 @@ export default function VideoPage() {
   const [source, setSource] = useState<"file" | "youtube">("file");
   const [youtubeUrl, setYoutubeUrl] = useState("");
   const [extractFrames, setExtractFrames] = useState(true);
+  const [makePublic, setMakePublic] = useState(false);
   const [fileDurationSeconds, setFileDurationSeconds] = useState<number | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -109,6 +110,7 @@ export default function VideoPage() {
       const formData = new FormData();
       formData.append("video", file);
       formData.append("extract_frames", String(extractFrames));
+      formData.append("make_public", String(makePublic));
       await apiFetch("/api/convert_to_doc", { method: "POST", body: formData });
       if (fileInputRef.current) fileInputRef.current.value = "";
       setSelectedFileName(null);
@@ -134,7 +136,7 @@ export default function VideoPage() {
     try {
       await apiFetch("/api/convert_from_youtube", {
         method: "POST",
-        body: JSON.stringify({ url, extract_frames: extractFrames }),
+        body: JSON.stringify({ url, extract_frames: extractFrames, make_public: makePublic }),
       });
       setYoutubeUrl("");
       loadJobs();
@@ -271,13 +273,36 @@ export default function VideoPage() {
             Extract frames (slides, diagrams, tables)
           </label>
           <p className="mt-1 text-xs text-ink-soft">
-            {source === "file" && fileDurationSeconds != null
+            {makePublic
+              ? "Free -- public conversions aren't charged"
+              : source === "file" && fileDurationSeconds != null
               ? extractFrames
                 ? `$${(estimatedCostCents(fileDurationSeconds, true) / 100).toFixed(2)} with visuals`
                 : `$${(estimatedCostCents(fileDurationSeconds, false) / 100).toFixed(2)} transcript-only`
               : extractFrames
                 ? "$1.00/hour with visuals"
                 : "$0.40/hour transcript-only -- no slides, diagrams, or tables"}
+          </p>
+
+          <label className="mt-4 flex items-center gap-2 text-sm text-ink">
+            <input
+              type="checkbox"
+              checked={makePublic}
+              onChange={(e) => setMakePublic(e.target.checked)}
+              className="h-4 w-4 rounded border-line accent-accent"
+            />
+            Make this public (free)
+          </label>
+          <p className="mt-1 text-xs text-ink-soft">
+            {makePublic ? (
+              <>
+                <strong>Permanent:</strong> once it finishes, the video and document are submitted for review to be
+                publicly viewable (and possibly featured on the Framewrite homepage), and you can&apos;t delete them
+                afterwards.
+              </>
+            ) : (
+              "Public conversions cost nothing, but can never be taken down."
+            )}
           </p>
 
           {uploadError && (

@@ -148,6 +148,9 @@ export default function AdminPage() {
           <p className="mt-1 text-sm text-ink-soft">Platform-wide usage and revenue.</p>
         </div>
         <div className="flex items-center gap-4">
+          <Link href="/admin/announcements" className="text-sm font-medium text-accent hover:underline">
+            Send announcement &rarr;
+          </Link>
           <Link href="/admin/public-jobs" className="text-sm font-medium text-accent hover:underline">
             Public showcase queue &rarr;
           </Link>

@@ -238,8 +238,13 @@ time and shouldn't also carry cleanup latency:
 
 A user can opt a completed `job_type == "video"` job into the public
 showcase (see `app/public_jobs.py`, `routes/public_jobs.py`) in exchange for
-a partial refund of what they were billed; an admin must approve it
+a full refund of what they were billed, or choose "public" when uploading
+(`make_public` on `/api/convert_to_doc` and `/api/convert_from_youtube`), in
+which case the job costs nothing and is submitted for review automatically
+when it finishes (`Job.public_upfront`). An admin must approve it
 (`/admin/public-jobs`) before the refund is issued or it's publicly listed.
+Either way it is permanent: the owner can't delete a job once it's in the
+showcase flow, and a rejected upfront job is still free.
 Approved content needs to survive forever, so it's archived to S3 at
 opt-in time (before admin review, not after) rather than relying on the
 `data/` directories retention.py sweeps after 7 days — see that file's
@@ -280,7 +285,6 @@ docker compose up --build
 | `STRIPE_SECRET_KEY` | Stripe API secret key (test-mode for dev) — no Price ids needed, top-up amount is chosen at checkout time |
 | `STRIPE_WEBHOOK_SECRET` | Verifies `POST /api/billing/webhook` signatures — from `stripe listen` locally, or the dashboard's webhook config in prod |
 | `FRONTEND_URL` | Where Stripe Checkout redirects back to after a session |
-| `PUBLIC_CONSENT_REFUND_PERCENT` | % of `billed_cents` refunded once an admin approves a public-showcase opt-in (see "Public showcase" above). Placeholder default — set a real value before launch |
 | `PUBLIC_ARCHIVE_S3_BUCKET`, `PUBLIC_ARCHIVE_S3_REGION`, `PUBLIC_ARCHIVE_BASE_URL`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | Permanent S3 archive for the public showcase — see [`s3-showcase-setup.md`](s3-showcase-setup.md) for one-time bucket setup |
 | `NEXT_PUBLIC_API_BASE_URL` | Frontend build arg (not read by the backend itself) — public URL the browser uses to reach this API |
 | `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | Frontend build arg — same value as `GOOGLE_CLIENT_ID` above |

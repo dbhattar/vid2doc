@@ -1,8 +1,11 @@
 """Business logic for the public-showcase opt-in feature (see
 routes/public_jobs.py, routes/admin.py's public-jobs endpoints). A user
 opts a completed job_type=="video" job into a public, permanent listing in
-exchange for a partial refund of billed_cents; an admin must approve it
-before the refund is issued or it's publicly listed.
+exchange for a full refund of billed_cents -- or chooses public at upload
+time, in which case the job is free (billed_cents == 0) and submitted for
+review the moment it finishes. Either way an admin must approve it before
+the refund is issued or it's publicly listed, and the owner can never delete
+it afterwards.
 
 Archive-then-queue, not queue-then-archive: the S3 archive is uploaded
 SYNCHRONOUSLY inside submit_public_consent, before the job ever enters the
@@ -26,7 +29,6 @@ the alternative (private-until-approved + an ACL flip on approval)
 reintroduces the exact cross-system consistency problem this design avoids.
 """
 
-import math
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -61,11 +63,11 @@ def archive_prefix_for(job_id: str) -> str:
 
 
 def compute_refund_cents(billed_cents: int) -> int:
-    """Shared by submit_public_consent (which locks this in at opt-in time)
-    and routes/status.py (which shows it as a live preview -- "you'd get $X
-    back" -- before the user has opted in at all, so the confirmation UI can
-    show a real number instead of a vague percentage)."""
-    return math.floor(billed_cents * settings.PUBLIC_CONSENT_REFUND_PERCENT / 100)
+    """Always everything that was billed (0 for a job made public up front).
+    Shared by submit_public_consent (which locks this in at opt-in time) and
+    routes/status.py (which shows it as a live preview before the user has
+    opted in at all)."""
+    return billed_cents
 
 
 def _gather_archive_files(doc_dir: Path) -> list[Path]:
@@ -170,6 +172,25 @@ def submit_public_consent(job: dict, doc_dir: Path) -> dict:
         public_archived_at=now,
     )
     return {"public_status": "pending", "public_refund_cents": refund_cents}
+
+
+def submit_upfront_public_job(job_id: str) -> None:
+    """Called by pipeline.py right after a public_upfront job reaches "done".
+    Best-effort: an archive failure (S3 down, source already gone) must not
+    fail a job that otherwise succeeded. The job just stays un-submitted
+    (public_status NULL), and the owner can still use the normal
+    "make public" button on it, which now refunds nothing since nothing was
+    billed. Swallows every exception for the same reason emails.py does."""
+    try:
+        job = jobs.get_job(job_id)
+        if not job or not job["public_upfront"] or job["public_status"] is not None:
+            return
+        if job["status"] != "done" or job["job_type"] != "video":
+            return
+        doc_dir = (settings.OUTPUT_DIR / job_id / "document").resolve()
+        submit_public_consent(job, doc_dir)
+    except Exception as e:
+        print(f"Upfront public submission failed for job {job_id}: {e}", flush=True)
 
 
 def approve_public_job(job_id: str, admin_user_id: str) -> dict:

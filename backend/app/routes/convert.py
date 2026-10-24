@@ -16,6 +16,7 @@ router = APIRouter()
 async def convert_to_doc(
     video: UploadFile = File(...),
     extract_frames: bool = Form(True),
+    make_public: bool = Form(False),
     current_user: dict = Depends(get_current_user),
 ):
     ext = Path(video.filename or "").suffix.lower()
@@ -43,9 +44,16 @@ async def convert_to_doc(
     # work as an "audio" job (transcribe + compose, no frame capture/
     # classification), so it's billed at that lower rate instead. Charged
     # before the job row exists (see models.py's note on related_job_id).
+    # Choosing "make public" up front makes the job free (see
+    # app/public_jobs.py) -- nothing is charged, so there's nothing to check
+    # the balance against either.
     billing_job_type = "video" if extract_frames else "audio"
     try:
-        billed_cents = billing.charge_for_job(current_user["id"], job_id, duration, job_type=billing_job_type)
+        billed_cents = (
+            0
+            if make_public
+            else billing.charge_for_job(current_user["id"], job_id, duration, job_type=billing_job_type)
+        )
     except billing.InsufficientBalanceError as e:
         shutil.rmtree(upload_dir, ignore_errors=True)
         raise HTTPException(
@@ -66,5 +74,6 @@ async def convert_to_doc(
         title=title_from_filename(video.filename or "", fallback="Untitled video"),
         job_type="video",
         extract_frames=extract_frames,
+        public_upfront=make_public,
     )
     return {"job_id": job_id, "status": "queued"}

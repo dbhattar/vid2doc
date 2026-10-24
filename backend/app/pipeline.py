@@ -2,7 +2,7 @@ import json
 import os
 from pathlib import Path
 
-from . import billing, emails, jobs, users, youtube
+from . import billing, emails, jobs, public_jobs, users, youtube
 from .config import settings
 from .exceptions import PipelineError
 from .stages import assemble, assemble_video, audio, classify, compose, frames, highlights, render_scene, scenes, stock_media, transcribe
@@ -195,6 +195,7 @@ def _finalize_document(
         print(f"PDF export failed for job {job_id}: {e}", flush=True)
 
     jobs.update_job(job_id, status="done", progress_stage="done", document_path=str(doc_path))
+    public_jobs.submit_upfront_public_job(job_id)
     emails.notify_job_status_change(job_id)
 
 

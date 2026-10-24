@@ -14,6 +14,7 @@ router = APIRouter()
 class YoutubeConvertRequest(BaseModel):
     url: str = Field(min_length=1, max_length=2000)
     extract_frames: bool = True
+    make_public: bool = False
 
 
 @router.post("/api/convert_from_youtube", status_code=202)
@@ -51,8 +52,13 @@ def convert_from_youtube(body: YoutubeConvertRequest, current_user: dict = Depen
     # See routes/convert.py's identical treatment: skipping frame extraction
     # does the same work as an "audio" job, so it's billed at that rate.
     billing_job_type = "video" if body.extract_frames else "audio"
+    # Free if made public up front -- see routes/convert.py.
     try:
-        billed_cents = billing.charge_for_job(current_user["id"], job_id, duration, job_type=billing_job_type)
+        billed_cents = (
+            0
+            if body.make_public
+            else billing.charge_for_job(current_user["id"], job_id, duration, job_type=billing_job_type)
+        )
     except billing.InsufficientBalanceError as e:
         raise HTTPException(
             status_code=402,
@@ -72,5 +78,6 @@ def convert_from_youtube(body: YoutubeConvertRequest, current_user: dict = Depen
         title=title,
         job_type="video",
         extract_frames=body.extract_frames,
+        public_upfront=body.make_public,
     )
     return {"job_id": job_id, "status": "queued"}

@@ -153,6 +153,8 @@ def delete_job(job_id: str, current_user: dict = Depends(get_current_user)):
         raise HTTPException(
             status_code=400, detail="Only failed, cancelled, or awaiting-review jobs can be deleted"
         )
+    if job["public_status"] is not None:
+        raise HTTPException(status_code=400, detail="Jobs in the public showcase can't be deleted")
 
     if job["status"] == "awaiting_review" and job.get("user_id") and job.get("billed_cents"):
         billing.refund_job_charge(job["user_id"], job_id, job["billed_cents"])

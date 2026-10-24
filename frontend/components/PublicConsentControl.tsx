@@ -9,7 +9,7 @@ import { formatCents } from "@/lib/billing";
 import type { Job } from "@/lib/jobs";
 
 /** Owner-only: opts a completed job_type === "video" job into the public
- * showcase in exchange for a partial refund. Modeled on ShareControl.tsx's
+ * showcase in exchange for a full refund. Modeled on ShareControl.tsx's
  * shape, with one addition ShareControl doesn't need: an inline confirm
  * step before submitting, since this moves real money and -- unlike
  * ShareControl's toggle -- is irreversible once approved. */
@@ -41,8 +41,9 @@ export default function PublicConsentControl({ job, onUpdated }: { job: Job; onU
     return (
       <div className="mt-4 rounded-lg border border-line bg-paper-shade p-4">
         <p className="text-sm text-ink">
-          Submitted for review. You&apos;ll get your {refundAmount} refund once an admin approves this for the public
-          showcase.
+          {job.public_upfront || !job.public_consent_refund_cents
+            ? "Submitted for review. It will be listed publicly once an admin approves it."
+            : `Submitted for review. You'll get your ${refundAmount} refund once an admin approves this for the public showcase.`}
         </p>
       </div>
     );
@@ -78,7 +79,7 @@ export default function PublicConsentControl({ job, onUpdated }: { job: Job; onU
     return (
       <div className="mt-4 rounded-lg border border-line bg-paper-shade p-4">
         <p className="text-sm text-ink">
-          Making this public gets you a {refundAmount} refund, but is <strong>permanent</strong> -- the document will
+          Making this public refunds the full {refundAmount} you paid, but is <strong>permanent</strong> -- the document will
           be publicly viewable (and may be featured on the Framewrite homepage) with no way to take it down later.
         </p>
         <div className="mt-3 flex items-center gap-3">
@@ -102,7 +103,7 @@ export default function PublicConsentControl({ job, onUpdated }: { job: Job; onU
     <div className="mt-4">
       <button onClick={() => setConfirming(true)} className={buttonClassName("outline")}>
         <GlobeIcon className="h-4 w-4" />
-        Make public for a refund
+        Make public for a full refund
       </button>
       {error && <p className="mt-2 text-sm text-status-error">{error}</p>}
     </div>

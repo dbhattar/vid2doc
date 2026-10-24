@@ -32,6 +32,8 @@ export type Job = {
   // job_type === "video" only -- see backend/app/routes/status.py, app/public_jobs.py.
   // null means never opted in to the public showcase.
   public_status?: PublicConsentStatus | null;
+  // True when the owner chose "make public" at upload time (free, nothing to refund).
+  public_upfront?: boolean;
   // Live preview (computed from billed_cents) before opt-in; the actual,
   // locked-in refund amount once opted in. Always present alongside
   // public_status for a video job.

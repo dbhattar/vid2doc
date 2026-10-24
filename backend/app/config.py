@@ -144,13 +144,9 @@ class Settings:
     # up every other queued job behind it.
     VIDEO_GEN_MAX_DURATION_SECONDS = int(os.environ.get("VIDEO_GEN_MAX_DURATION_SECONDS", 20 * 60))
 
-    # Public showcase: opt a completed job_type=="video" job into a public,
-    # permanent listing in exchange for a partial refund (see
-    # app/public_jobs.py, routes/public_jobs.py). % of billed_cents refunded
-    # once an admin approves -- locked into Job.public_refund_cents at
-    # opt-in time, not re-read at approval time, so a later change here
-    # never alters what an already-pending submission was promised.
-    PUBLIC_CONSENT_REFUND_PERCENT = int(os.environ.get("PUBLIC_CONSENT_REFUND_PERCENT", 20))
+    # Public showcase: a completed job_type=="video" job can be made public
+    # for a full refund, or chosen as public at upload time to be free (see
+    # app/public_jobs.py, routes/public_jobs.py).
     # Permanent S3 archive for approved (and, transiently, pending/rejected --
     # see app/public_jobs.py's module docstring) public-consent jobs. Must
     # survive the 7-day local retention sweep (retention.py) -- use a
@@ -167,8 +163,8 @@ class Settings:
     # Chat-with-document: flat one-time fee (cents) to permanently enable
     # chat on a completed job -- unlimited messages after that, not metered
     # per-message (see app/billing.py's charge_for_chat). Placeholder value
-    # -- CHANGE THIS before launch, same as PUBLIC_CONSENT_REFUND_PERCENT
-    # above. Archived to the same bucket/region as PUBLIC_ARCHIVE_S3_BUCKET/
+    # -- CHANGE THIS before launch.
+    # Archived to the same bucket/region as PUBLIC_ARCHIVE_S3_BUCKET/
     # PUBLIC_ARCHIVE_S3_REGION, just under a private "chat/" prefix instead
     # of "public/" (see app/chat_jobs.py) -- no separate bucket needed.
     CHAT_ENABLE_FEE_CENTS = int(os.environ.get("CHAT_ENABLE_FEE_CENTS", 50))

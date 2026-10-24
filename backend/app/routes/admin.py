@@ -1,7 +1,8 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
-from pydantic import BaseModel
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
+from pydantic import BaseModel, Field
 
-from .. import activity, billing, feedback, jobs, public_jobs, users
+from .. import activity, announcements, billing, feedback, jobs, public_jobs, users
+from ..config import settings
 from ..deps import get_current_admin_user
 from .public_jobs import _build_showcase_response
 
@@ -187,3 +188,39 @@ def hide_admin_public_job(job_id: str, current_user: dict = Depends(get_current_
 @router.post("/api/admin/public-jobs/{job_id}/unhide")
 def unhide_admin_public_job(job_id: str, current_user: dict = Depends(get_current_admin_user)):
     return _set_public_hidden(job_id, False)
+
+
+class AnnouncementRequest(BaseModel):
+    subject: str = Field(min_length=1, max_length=announcements.MAX_SUBJECT_CHARS)
+    body: str = Field(min_length=1, max_length=announcements.MAX_BODY_CHARS)
+    # True sends only to the calling admin -- a preview before the real send.
+    test: bool = False
+
+
+def _require_mailgun() -> None:
+    if not settings.MAILGUN_API_KEY or not settings.MAILGUN_DOMAIN:
+        raise HTTPException(status_code=503, detail="Email isn't configured (MAILGUN_API_KEY/MAILGUN_DOMAIN).")
+
+
+@router.get("/api/admin/announcements/audience")
+def get_announcement_audience(current_user: dict = Depends(get_current_admin_user)):
+    return {"recipient_count": len(users.list_announcement_recipients())}
+
+
+@router.post("/api/admin/announcements")
+def send_admin_announcement(
+    body: AnnouncementRequest, background_tasks: BackgroundTasks, current_user: dict = Depends(get_current_admin_user)
+):
+    """Test sends go out inline (one email, and the admin wants to know it
+    worked). A real send runs as a background task -- one email per user is
+    too slow to hold the request open -- so the response only says how many
+    people it's going to, not how many succeeded (see the logs for that)."""
+    _require_mailgun()
+    if body.test:
+        sent = announcements.send_announcement_to_user(current_user, body.subject, body.body)
+        if not sent:
+            raise HTTPException(status_code=502, detail="Mailgun rejected the test email.")
+        return {"test": True, "recipient_count": 1}
+    recipient_count = len(users.list_announcement_recipients())
+    background_tasks.add_task(announcements.send_announcement, body.subject, body.body)
+    return {"test": False, "recipient_count": recipient_count}
