@@ -363,3 +363,39 @@ class AgentMessage(Base):
     # Assistant-only: names of tools the agent called to produce this reply.
     tools_used: Mapped[list | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class Announcement(Base):
+    """An admin-composed email (see app/announcements.py). One row per compose,
+    one AnnouncementDelivery per recipient -- the worker sends the deliveries
+    one at a time with a delay between them."""
+
+    __tablename__ = "announcements"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    subject: Mapped[str] = mapped_column(String, nullable=False)
+    body: Mapped[str] = mapped_column(Text, nullable=False)
+    created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
+    # Template options -- see announcements.render_announcement.
+    tag: Mapped[str] = mapped_column(String, nullable=False, default="Update")
+    cta_label: Mapped[str | None] = mapped_column(String, nullable=True)
+    cta_url: Mapped[str | None] = mapped_column(String, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class AnnouncementDelivery(Base):
+    """status: pending -> sending -> sent | failed | skipped (the user
+    unsubscribed between queueing and sending)."""
+
+    __tablename__ = "announcement_deliveries"
+    __table_args__ = (UniqueConstraint("announcement_id", "user_id"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    announcement_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("announcements.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    status: Mapped[str] = mapped_column(String, nullable=False, default="pending", index=True)
+    claimed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

@@ -291,6 +291,7 @@ docker compose up --build
 | `NEXT_PUBLIC_GA_MEASUREMENT_ID` | Frontend build arg — Google Analytics measurement ID, same property as the marketing site |
 | `MAILGUN_API_KEY`, `MAILGUN_DOMAIN` | Transactional email (welcome email, job-completion/failure email) — no-op if unset, so local dev/CI never need real credentials |
 | `MAILGUN_NEWSLETTER_LIST` | Mailgun mailing list address (e.g. `news@mg.framewrite.cc`) the marketing site's newsletter signup adds subscribers to — the list itself is a one-time manual creation in the Mailgun dashboard, not something the code creates. No-op if unset |
+| `ANNOUNCEMENT_SEND_DELAY_SECONDS` | Pause between individual admin-announcement emails (default `2`). Announcements are queued as per-user deliveries and sent one at a time by a thread in the `worker` container — see `app/announcements.py` |
 
 To apply schema changes without restarting a container: `docker compose run --rm api alembic upgrade head` (this also runs automatically on every container boot).
 

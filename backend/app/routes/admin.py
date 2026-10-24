@@ -1,4 +1,4 @@
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from .. import activity, announcements, billing, feedback, jobs, public_jobs, users
@@ -195,6 +195,20 @@ class AnnouncementRequest(BaseModel):
     body: str = Field(min_length=1, max_length=announcements.MAX_BODY_CHARS)
     # True sends only to the calling admin -- a preview before the real send.
     test: bool = False
+    # None means everyone who hasn't unsubscribed; a list means just those users.
+    user_ids: list[str] | None = Field(default=None, max_length=100_000)
+    tag: str = announcements.DEFAULT_TAG
+    cta_label: str | None = Field(default=None, max_length=60)
+    cta_url: str | None = Field(default=None, max_length=2000)
+
+
+def _validated_cta(body: "AnnouncementRequest") -> None:
+    if body.tag not in announcements.TAGS:
+        raise HTTPException(status_code=400, detail="Unknown tag.")
+    try:
+        announcements.validate_cta(body.cta_label, body.cta_url)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 def _require_mailgun() -> None:
@@ -207,20 +221,42 @@ def get_announcement_audience(current_user: dict = Depends(get_current_admin_use
     return {"recipient_count": len(users.list_announcement_recipients())}
 
 
+@router.post("/api/admin/announcements/preview")
+def preview_admin_announcement(body: AnnouncementRequest, current_user: dict = Depends(get_current_admin_user)):
+    """Renders the email exactly as the calling admin would receive it."""
+    _validated_cta(body)
+    html_body, _, _ = announcements.render_announcement(
+        current_user, body.subject, body.body, body.tag, body.cta_label, body.cta_url
+    )
+    return {"html": html_body}
+
+
+@router.get("/api/admin/announcements")
+def list_admin_announcements(current_user: dict = Depends(get_current_admin_user)):
+    return {"announcements": announcements.list_recent_announcements()}
+
+
 @router.post("/api/admin/announcements")
-def send_admin_announcement(
-    body: AnnouncementRequest, background_tasks: BackgroundTasks, current_user: dict = Depends(get_current_admin_user)
-):
+def send_admin_announcement(body: AnnouncementRequest, current_user: dict = Depends(get_current_admin_user)):
     """Test sends go out inline (one email, and the admin wants to know it
-    worked). A real send runs as a background task -- one email per user is
-    too slow to hold the request open -- so the response only says how many
-    people it's going to, not how many succeeded (see the logs for that)."""
+    worked). A real send only queues one delivery per recipient -- the worker
+    sends them individually, with a delay between each (see
+    app/announcements.py) -- so the response says how many are queued, and
+    GET /api/admin/announcements shows progress."""
     _require_mailgun()
+    _validated_cta(body)
     if body.test:
-        sent = announcements.send_announcement_to_user(current_user, body.subject, body.body)
+        sent = announcements.send_announcement_to_user(
+            current_user, body.subject, body.body, body.tag, body.cta_label, body.cta_url
+        )
         if not sent:
             raise HTTPException(status_code=502, detail="Mailgun rejected the test email.")
         return {"test": True, "recipient_count": 1}
-    recipient_count = len(users.list_announcement_recipients())
-    background_tasks.add_task(announcements.send_announcement, body.subject, body.body)
-    return {"test": False, "recipient_count": recipient_count}
+    if body.user_ids is not None and not body.user_ids:
+        raise HTTPException(status_code=400, detail="Select at least one user.")
+    announcement_id, recipient_count = announcements.queue_announcement(
+        body.subject, body.body, current_user["id"], body.user_ids, body.tag, body.cta_label, body.cta_url
+    )
+    if recipient_count == 0:
+        raise HTTPException(status_code=400, detail="None of the selected users can receive announcements.")
+    return {"test": False, "id": announcement_id, "recipient_count": recipient_count}

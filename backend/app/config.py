@@ -101,6 +101,9 @@ class Settings:
     # end users for now -- override here if the default doesn't support both.
     AGENT_OPENAI_MODEL = os.environ.get("AGENT_OPENAI_MODEL", OPENAI_MODEL)
 
+    # Pause between individual announcement emails (see app/announcements.py)
+    # -- keeps a big send from hammering Mailgun or looking like a burst.
+    ANNOUNCEMENT_SEND_DELAY_SECONDS = float(os.environ.get("ANNOUNCEMENT_SEND_DELAY_SECONDS", 2.0))
     WORKER_POLL_SECONDS = float(os.environ.get("WORKER_POLL_SECONDS", 2.0))
 
     # Mailgun: transactional email (e.g. the first-login welcome email, see
