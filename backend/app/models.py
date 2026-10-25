@@ -362,6 +362,9 @@ class AgentMessage(Base):
     content: Mapped[str] = mapped_column(Text, nullable=False)
     # Assistant-only: names of tools the agent called to produce this reply.
     tools_used: Mapped[list | None] = mapped_column(JSON, nullable=True)
+    # Assistant-only: web pages the reply cited, [{"title", "url"}], shown
+    # under the reply (never part of `content`, so never read aloud).
+    sources: Mapped[list | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 

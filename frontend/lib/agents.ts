@@ -34,6 +34,8 @@ export type AgentMessage = {
   content: string;
   // Assistant-only: names of the tools the agent called for this reply.
   tools_used: string[];
+  // Assistant-only: web pages the reply cited. Shown under it, never read aloud.
+  sources: { title: string; url: string }[];
   created_at: string;
 };
 
@@ -49,4 +51,12 @@ export function fetchAgents() {
 
 export function fetchAgent(id: string) {
   return apiFetch<AgentDetail>(`/api/agents/${id}`);
+}
+
+// OpenAI web search leaves citation markers in a reply -- "\ue200cite\ue202turn0search0\ue201",
+// wrapped in invisible private-use characters, so they show up as "citeturn0search0".
+// The backend strips them from new replies (agents.py's strip_citation_markers); this
+// covers messages saved before that.
+export function stripCitationMarkers(text: string): string {
+  return text.replace(/\ue200[^\ue201]*\ue201|[\ue000-\uf8ff]/g, "");
 }

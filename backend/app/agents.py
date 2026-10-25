@@ -19,6 +19,7 @@ in-process per-user rate limit below (same trade-off as live_research.py).
 import json
 import logging
 import os
+import re
 import time
 import uuid
 from datetime import datetime, timezone
@@ -27,6 +28,33 @@ from . import agent_catalog
 from .config import settings
 from .db import get_session
 from .models import Agent, AgentConversation, AgentDocument, AgentMessage
+
+# OpenAI's web_search tool marks citations inline as private-use-character
+# wrapped tokens ("\ue200cite\ue202turn0search0\ue201"). The characters are
+# invisible, so users see (and text-to-speech reads out) "citeturn0search0".
+# Sources aren't rendered anywhere, so drop the markers entirely.
+_CITATION_MARKER = re.compile("\ue200[^\ue201]*\ue201|[\ue000-\uf8ff]")
+
+
+def strip_citation_markers(text: str) -> str:
+    return _CITATION_MARKER.sub("", text)
+
+
+def collect_sources(response) -> list[dict]:
+    """The web pages a Responses API response cited (url_citation annotations
+    on its message text), as [{"title", "url"}]. http(s) only -- these end up
+    in an href on the frontend."""
+    found = []
+    for item in response.output:
+        if item.type != "message":
+            continue
+        for part in item.content:
+            for ann in getattr(part, "annotations", None) or []:
+                url = getattr(ann, "url", None)
+                if getattr(ann, "type", None) == "url_citation" and url and url.lower().startswith(("http://", "https://")):
+                    found.append({"title": (getattr(ann, "title", None) or url)[:200], "url": url})
+    return found
+
 
 logger = logging.getLogger(__name__)
 
@@ -94,6 +122,7 @@ def _message_to_dict(m: AgentMessage) -> dict:
         "role": m.role,
         "content": m.content,
         "tools_used": m.tools_used or [],
+        "sources": m.sources or [],
         "created_at": m.created_at,
     }
 
@@ -279,7 +308,13 @@ def list_messages(conversation_id: str) -> list[dict]:
         session.close()
 
 
-def _add_message(conversation_id: str, role: str, content: str, tools_used: list[str] | None = None) -> dict:
+def _add_message(
+    conversation_id: str,
+    role: str,
+    content: str,
+    tools_used: list[str] | None = None,
+    sources: list[dict] | None = None,
+) -> dict:
     session = get_session()
     try:
         m = AgentMessage(
@@ -288,6 +323,7 @@ def _add_message(conversation_id: str, role: str, content: str, tools_used: list
             role=role,
             content=content,
             tools_used=tools_used,
+            sources=sources or None,
             created_at=_now(),
         )
         session.add(m)
@@ -367,7 +403,8 @@ def _build_tools(tool_ids: list[str]) -> tuple[list[dict], dict]:
 
 
 def run_agent(agent: dict, history: list[dict], user_message: str, user: dict) -> dict:
-    """One user turn: returns {"answer": str, "tools_used": [names]}.
+    """One user turn: returns {"answer": str, "tools_used": [names],
+    "sources": [{"title", "url"}]}.
     `history` is the current conversation's earlier messages
     ({"role", "content"}); tool traces from earlier turns aren't replayed."""
     client = _get_client()
@@ -385,7 +422,9 @@ def run_agent(agent: dict, history: list[dict], user_message: str, user: dict) -
     response = client.responses.create(input=items, **kwargs)
 
     tools_used: list[str] = []
+    sources: list[dict] = []
     for _ in range(MAX_TOOL_TURNS):
+        sources += collect_sources(response)
         calls = [o for o in response.output if o.type == "function_call"]
         tools_used += ["web_search" for o in response.output if o.type == "web_search_call"]
         if not calls:
@@ -403,10 +442,16 @@ def run_agent(agent: dict, history: list[dict], user_message: str, user: dict) -
         response = client.responses.create(previous_response_id=response.id, input=outputs, **kwargs)
     else:
         tools_used += ["web_search" for o in response.output if o.type == "web_search_call"]
+        sources += collect_sources(response)
 
-    answer = (response.output_text or "").strip() or "Sorry, I couldn't finish working that out -- please try again."
+    answer = strip_citation_markers(response.output_text or "").strip() or "Sorry, I couldn't finish working that out -- please try again."
     seen: set[str] = set()
-    return {"answer": answer, "tools_used": [t for t in tools_used if not (t in seen or seen.add(t))]}
+    seen_urls: set[str] = set()
+    return {
+        "answer": answer,
+        "tools_used": [t for t in tools_used if not (t in seen or seen.add(t))],
+        "sources": [s for s in sources if not (s["url"] in seen_urls or seen_urls.add(s["url"]))],
+    }
 
 
 def post_message(agent: dict, conversation_id: str, user_message: str, user: dict) -> dict:
@@ -416,7 +461,7 @@ def post_message(agent: dict, conversation_id: str, user_message: str, user: dic
     history = [{"role": m["role"], "content": m["content"]} for m in list_messages(conversation_id)]
     _add_message(conversation_id, "user", user_message)
     result = run_agent(agent, history, user_message, user)
-    return _add_message(conversation_id, "assistant", result["answer"], result["tools_used"])
+    return _add_message(conversation_id, "assistant", result["answer"], result["tools_used"], result["sources"])
 
 
 MEMORY_PROMPT = """You maintain a short memory for an AI agent about its user. Given the current memory and a conversation that just ended, return the updated memory: durable facts, preferences, ongoing projects and decisions worth remembering next time. Drop small talk and anything already stale. Use brief bullet points, under 200 words total. Return only the memory text."""
@@ -447,7 +492,7 @@ def _summarize_pending_conversations(agent: dict) -> None:
                         instructions=MEMORY_PROMPT,
                         input=f"Current memory:\n{memory or '(empty)'}\n\nConversation:\n{transcript}",
                     )
-                    memory = (response.output_text or memory).strip()[:MAX_MEMORY_CHARS]
+                    memory = strip_citation_markers(response.output_text or memory).strip()[:MAX_MEMORY_CHARS]
                 except Exception:
                     logger.exception("Agent memory summarization failed")
                     break  # leave this and later conversations pending for the next attempt

@@ -8,7 +8,7 @@ import AgentVoiceControls, { useSpeech, useVoiceSettings } from "@/components/Ag
 import { buttonClassName } from "@/components/Button";
 import { SpeakerIcon, SpeakerOffIcon } from "@/components/icons";
 import { ApiError, apiFetch } from "@/lib/api";
-import type { AgentMessage } from "@/lib/agents";
+import { stripCitationMarkers, type AgentMessage } from "@/lib/agents";
 import { markdownToSpeech, speak, stopSpeaking } from "@/lib/phononSpeech";
 
 const TOOL_LABELS: Record<string, string> = {
@@ -93,7 +93,7 @@ export default function AgentChat({ agentId, conversationId }: { agentId: string
     if (speech.speakingId === m.id) {
       stopSpeaking();
     } else {
-      void speak(m.id, markdownToSpeech(m.content), voice.voiceId).catch(() => {});
+      void speak(m.id, markdownToSpeech(stripCitationMarkers(m.content)), voice.voiceId).catch(() => {});
     }
   }
 
@@ -107,13 +107,13 @@ export default function AgentChat({ agentId, conversationId }: { agentId: string
     setInput("");
     setMessages((prev) => [
       ...prev,
-      { id: `local-${Date.now()}`, role: "user", content: message, tools_used: [], created_at: new Date().toISOString() },
+      { id: `local-${Date.now()}`, role: "user", content: message, tools_used: [], sources: [], created_at: new Date().toISOString() },
     ]);
 
     try {
       const reply = await apiFetch<AgentMessage>(basePath, { method: "POST", body: JSON.stringify({ message }) });
       setMessages((prev) => [...prev, reply]);
-      if (voice.auto) void speak(reply.id, markdownToSpeech(reply.content), voice.voiceId).catch(() => {});
+      if (voice.auto) void speak(reply.id, markdownToSpeech(stripCitationMarkers(reply.content)), voice.voiceId).catch(() => {});
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Failed to get an answer.");
     } finally {
@@ -137,7 +137,7 @@ export default function AgentChat({ agentId, conversationId }: { agentId: string
                 m.content
               ) : (
                 <ReactMarkdown remarkPlugins={[remarkGfm]} components={MARKDOWN_COMPONENTS}>
-                  {m.content}
+                  {stripCitationMarkers(m.content)}
                 </ReactMarkdown>
               )}
             </div>
@@ -157,6 +157,20 @@ export default function AgentChat({ agentId, conversationId }: { agentId: string
                   </>
                 )}
               </button>
+            )}
+            {m.sources?.length > 0 && (
+              <div className="mt-1 text-xs text-ink-soft">
+                <p className="font-medium">Sources</p>
+                <ol className="mt-0.5 list-decimal space-y-0.5 pl-5">
+                  {m.sources.map((s) => (
+                    <li key={s.url}>
+                      <a href={s.url} target="_blank" rel="noreferrer" className="text-accent hover:underline">
+                        {s.title}
+                      </a>
+                    </li>
+                  ))}
+                </ol>
+              </div>
             )}
             {m.tools_used.length > 0 && (
               <p className="mt-1 text-xs text-ink-soft">
