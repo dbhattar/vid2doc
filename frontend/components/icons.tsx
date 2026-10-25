@@ -28,6 +28,8 @@ import {
   Sun,
   Users,
   Video,
+  Volume2,
+  VolumeX,
   Wallet,
   X,
 } from "lucide-react";
@@ -109,6 +111,14 @@ export function PlayIcon({ className }: IconProps) {
 
 export function StopIcon({ className }: IconProps) {
   return <Square className={className} aria-hidden />;
+}
+
+export function SpeakerIcon({ className }: IconProps) {
+  return <Volume2 className={className} aria-hidden />;
+}
+
+export function SpeakerOffIcon({ className }: IconProps) {
+  return <VolumeX className={className} aria-hidden />;
 }
 
 export function GlobeIcon({ className }: IconProps) {

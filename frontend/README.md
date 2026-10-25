@@ -43,6 +43,22 @@ Both are `NEXT_PUBLIC_` vars, meaning they're inlined into the JS bundle at
 **build time** — changing them requires a rebuild, not just a container
 restart.
 
+## Agent voice (on-device TTS)
+
+Agent replies can be read aloud with Gradium's Phonon (`phonon-31m-en`) running
+as WebAssembly in the browser -- nothing is sent to a server. See
+`lib/phononSpeech.ts` and `components/AgentVoiceControls.tsx`. The first use
+downloads ~65MB from Hugging Face into the browser's Cache API; after that it
+works offline (needs https or localhost to cache). Voices other than the
+built-in default (37 English ones, `lib/phononVoices.ts`) are ~250KB each,
+fetched the first time they're picked.
+
+The `phonon-tts` package is **not bundled** -- `npm run copy:phonon` (run by
+`dev` and `build`) copies it from `node_modules` to `public/phonon/` (gitignored)
+and it's loaded at runtime, because Turbopack hangs `next build` when it bundles
+the package. Runs single-threaded; the threaded build would need
+`Cross-Origin-Embedder-Policy: require-corp` on the page.
+
 ## Deployment
 
 Dockerized alongside the backend, not deployed to Vercel/Netlify — see the

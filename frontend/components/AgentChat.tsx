@@ -4,9 +4,12 @@ import { useEffect, useRef, useState } from "react";
 import ReactMarkdown, { type Components } from "react-markdown";
 import remarkGfm from "remark-gfm";
 
+import AgentVoiceControls, { useSpeech, useVoiceSettings } from "@/components/AgentVoiceControls";
 import { buttonClassName } from "@/components/Button";
+import { SpeakerIcon, SpeakerOffIcon } from "@/components/icons";
 import { ApiError, apiFetch } from "@/lib/api";
 import type { AgentMessage } from "@/lib/agents";
+import { markdownToSpeech, speak, stopSpeaking } from "@/lib/phononSpeech";
 
 const TOOL_LABELS: Record<string, string> = {
   search_documents: "searched documents",
@@ -65,6 +68,8 @@ export default function AgentChat({ agentId, conversationId }: { agentId: string
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [voice, updateVoice] = useVoiceSettings();
+  const speech = useSpeech();
   const scrollContainerRef = useRef<HTMLDivElement>(null);
   const basePath = `/api/agents/${agentId}/conversations/${conversationId}/messages`;
 
@@ -80,6 +85,17 @@ export default function AgentChat({ agentId, conversationId }: { agentId: string
     const container = scrollContainerRef.current;
     if (container) container.scrollTop = container.scrollHeight;
   }, [messages, busy]);
+
+  // Also silences any reply still being read when the conversation changes or the page closes.
+  useEffect(() => stopSpeaking, []);
+
+  function toggleSpeak(m: AgentMessage) {
+    if (speech.speakingId === m.id) {
+      stopSpeaking();
+    } else {
+      void speak(m.id, markdownToSpeech(m.content), voice.voiceId).catch(() => {});
+    }
+  }
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -97,6 +113,7 @@ export default function AgentChat({ agentId, conversationId }: { agentId: string
     try {
       const reply = await apiFetch<AgentMessage>(basePath, { method: "POST", body: JSON.stringify({ message }) });
       setMessages((prev) => [...prev, reply]);
+      if (voice.auto) void speak(reply.id, markdownToSpeech(reply.content), voice.voiceId).catch(() => {});
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Failed to get an answer.");
     } finally {
@@ -106,6 +123,7 @@ export default function AgentChat({ agentId, conversationId }: { agentId: string
 
   return (
     <div className="flex h-[32rem] flex-col">
+      <AgentVoiceControls settings={voice} onChange={updateVoice} />
       <div ref={scrollContainerRef} className="flex-1 space-y-3 overflow-y-auto pr-1">
         {loaded && messages.length === 0 && <p className="text-sm text-ink-soft">Say something to your agent.</p>}
         {messages.map((m) => (
@@ -123,6 +141,23 @@ export default function AgentChat({ agentId, conversationId }: { agentId: string
                 </ReactMarkdown>
               )}
             </div>
+            {m.role === "assistant" && !m.id.startsWith("local-") && (
+              <button
+                type="button"
+                onClick={() => toggleSpeak(m)}
+                className="mt-1 inline-flex items-center gap-1 text-xs text-ink-soft hover:text-ink"
+              >
+                {speech.speakingId === m.id ? (
+                  <>
+                    <SpeakerOffIcon className="h-3.5 w-3.5" /> Stop
+                  </>
+                ) : (
+                  <>
+                    <SpeakerIcon className="h-3.5 w-3.5" /> Listen
+                  </>
+                )}
+              </button>
+            )}
             {m.tools_used.length > 0 && (
               <p className="mt-1 text-xs text-ink-soft">
                 Used: {m.tools_used.map((t) => TOOL_LABELS[t] ?? t).join(", ")}
