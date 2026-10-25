@@ -44,6 +44,9 @@ export default function VideoPage() {
   const [cancellingJobId, setCancellingJobId] = useState<string | null>(null);
   const [cancelError, setCancelError] = useState<string | null>(null);
   const [source, setSource] = useState<"file" | "youtube">("file");
+  // YouTube import is admin-only for now (backend enforces it too). Stays
+  // false until /api/auth/me answers, so non-admins never see it flash in.
+  const [isAdmin, setIsAdmin] = useState(false);
   const [youtubeUrl, setYoutubeUrl] = useState("");
   const [extractFrames, setExtractFrames] = useState(true);
   const [makePublic, setMakePublic] = useState(false);
@@ -91,6 +94,12 @@ export default function VideoPage() {
   useEffect(() => {
     loadJobs();
   }, [loadJobs]);
+
+  useEffect(() => {
+    apiFetch<{ is_admin: boolean }>("/api/auth/me")
+      .then((me) => setIsAdmin(me.is_admin))
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (!jobs || !jobs.some(isActiveJob)) return;
@@ -206,33 +215,35 @@ export default function VideoPage() {
 
       <div className="mt-8 max-w-xl">
         <form
-          onSubmit={source === "file" ? handleUpload : handleYoutubeSubmit}
+          onSubmit={source === "file" || !isAdmin ? handleUpload : handleYoutubeSubmit}
           className="w-full rounded-lg border border-line bg-paper p-6 shadow-sm"
         >
-          <div className="flex gap-2 font-sans text-xs font-medium">
-            <button
-              type="button"
-              onClick={() => setSource("file")}
-              className={`rounded-md border px-3 py-1 transition-all duration-150 ease-[var(--ease-spring)] hover:-translate-y-0.5 ${
-                source === "file" ? "border-ink bg-ink text-paper" : "border-line text-ink-soft hover:border-ink"
-              }`}
-            >
-              Upload file
-            </button>
-            <button
-              type="button"
-              onClick={() => setSource("youtube")}
-              className={`rounded-md border px-3 py-1 transition-all duration-150 ease-[var(--ease-spring)] hover:-translate-y-0.5 ${
-                source === "youtube" ? "border-ink bg-ink text-paper" : "border-line text-ink-soft hover:border-ink"
-              }`}
-            >
-              YouTube link
-            </button>
-          </div>
+          {isAdmin && (
+            <div className="flex gap-2 font-sans text-xs font-medium">
+              <button
+                type="button"
+                onClick={() => setSource("file")}
+                className={`rounded-md border px-3 py-1 transition-all duration-150 ease-[var(--ease-spring)] hover:-translate-y-0.5 ${
+                  source === "file" ? "border-ink bg-ink text-paper" : "border-line text-ink-soft hover:border-ink"
+                }`}
+              >
+                Upload file
+              </button>
+              <button
+                type="button"
+                onClick={() => setSource("youtube")}
+                className={`rounded-md border px-3 py-1 transition-all duration-150 ease-[var(--ease-spring)] hover:-translate-y-0.5 ${
+                  source === "youtube" ? "border-ink bg-ink text-paper" : "border-line text-ink-soft hover:border-ink"
+                }`}
+              >
+                YouTube link
+              </button>
+            </div>
+          )}
 
           <p className="mt-3 text-xs text-ink-soft">MP4, MOV, MKV, WebM, AVI, or M4V, up to 90 minutes.</p>
 
-          {source === "file" ? (
+          {source === "file" || !isAdmin ? (
             <div className="mt-4 flex flex-col gap-3 sm:flex-row sm:items-stretch">
               <label className="flex flex-1 cursor-pointer items-center rounded-md border border-dashed border-line px-4 py-3 text-sm text-ink-soft transition-colors hover:border-accent hover:bg-accent-soft/40">
                 <input

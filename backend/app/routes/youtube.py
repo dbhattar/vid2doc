@@ -29,6 +29,11 @@ def convert_from_youtube(body: YoutubeConvertRequest, current_user: dict = Depen
     routes/convert.py's identical bypass) mainly so they can build longer
     showcase documents for demos -- re-checked at download time too, against
     admin status as of then, not now."""
+    # Admin-only for now: YouTube bot-checks datacenter IPs, so downloads
+    # fail unreliably without fresh exported cookies (see README step 7).
+    if not current_user.get("is_admin"):
+        raise HTTPException(status_code=403, detail="YouTube import isn't available yet.")
+
     url = body.url.strip()
     if not is_youtube_url(url):
         raise HTTPException(status_code=400, detail="That doesn't look like a YouTube URL.")

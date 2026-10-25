@@ -332,7 +332,9 @@ frontend) from one `docker compose up`, not just the API.
    `stripe listen` instead — see Billing above. Test mode and live mode each
    need their own webhook endpoint registered separately.)
 6. `docker compose up -d --build`
-7. YouTube import (`POST /api/convert_from_youtube`) will likely fail on a
+7. YouTube import (`POST /api/convert_from_youtube`) is admin-only for now
+   (403 for everyone else, and hidden in the frontend) because it is unreliable
+   -- it will likely fail on a
    VPS with `Sign in to confirm you're not a bot` -- YouTube bot-checks
    datacenter IPs even for public videos. Fix: export cookies from a real,
    logged-in YouTube session in a browser (e.g. the "Get cookies.txt
