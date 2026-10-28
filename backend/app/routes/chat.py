@@ -82,7 +82,7 @@ def post_chat_message(job_id: str, body: ChatMessageRequest, current_user: dict 
     except Exception:
         raise HTTPException(status_code=502, detail="Could not get an answer -- please try again")
 
-    return chat_jobs.add_chat_message(job_id, "assistant", result["answer"], result.get("citation_seconds"))
+    return chat_jobs.add_chat_message(job_id, "assistant", result["answer"], result.get("citations"))
 
 
 @router.get("/api/jobs/{job_id}/chat/media-url")

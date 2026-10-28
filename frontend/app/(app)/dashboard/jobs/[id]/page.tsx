@@ -371,7 +371,7 @@ export default function JobDetailPage() {
                   kind={job.job_type === "audio" ? "audio" : "video"}
                   className="w-full rounded-md bg-ink"
                 />
-                <ChatPanel jobId={job.job_id} onCitationClick={(seconds) => chatMediaRef.current?.seekTo(seconds)} />
+                <ChatPanel jobId={job.job_id} onCitationClick={(start, end) => chatMediaRef.current?.playRange(start, end)} />
               </Card>
             )}
 

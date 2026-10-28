@@ -14,15 +14,15 @@ function formatTimestamp(seconds: number): string {
 }
 
 /** Message list + input for a chat-enabled job (see GET/POST
- * /api/jobs/{id}/chat/messages). An assistant message with a non-null
- * citation_seconds renders a clickable timestamp that calls onCitationClick
- * -- the job detail page wires this to MediaPreviewPlayer's seekTo. */
+ * /api/jobs/{id}/chat/messages). Each of an assistant message's citations
+ * renders a button that calls onCitationClick -- the job detail page wires
+ * this to MediaPreviewPlayer's playRange. */
 export default function ChatPanel({
   jobId,
   onCitationClick,
 }: {
   jobId: string;
-  onCitationClick: (seconds: number) => void;
+  onCitationClick: (startSeconds: number, endSeconds: number | null) => void;
 }) {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loaded, setLoaded] = useState(false);
@@ -30,6 +30,16 @@ export default function ChatPanel({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const scrollContainerRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  useEffect(() => {
+    // Grow with the text (wrapping onto new lines) up to the max-h cap,
+    // then scroll; resets to one row once the input is cleared on send.
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${el.scrollHeight}px`;
+  }, [input]);
 
   useEffect(() => {
     apiFetch<{ messages: ChatMessage[] }>(`/api/jobs/${jobId}/chat/messages`)
@@ -61,7 +71,7 @@ export default function ChatPanel({
     setInput("");
     setMessages((prev) => [
       ...prev,
-      { id: `local-${Date.now()}`, role: "user", content: message, citation_seconds: null, created_at: new Date().toISOString() },
+      { id: `local-${Date.now()}`, role: "user", content: message, citation_seconds: null, citations: [], created_at: new Date().toISOString() },
     ]);
 
     try {
@@ -92,25 +102,42 @@ export default function ChatPanel({
             >
               {m.content}
             </p>
-            {m.citation_seconds != null && (
-              <button
-                onClick={() => onCitationClick(m.citation_seconds as number)}
-                className="mt-1 block text-xs text-accent hover:underline"
-              >
-                ▶ Jump to {formatTimestamp(m.citation_seconds)}
-              </button>
+            {m.citations.length > 0 && (
+              <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1">
+                {m.citations.map((c) => (
+                  <button
+                    key={`${c.start_seconds}-${c.end_seconds}`}
+                    onClick={() => onCitationClick(c.start_seconds, c.end_seconds)}
+                    className="text-xs text-accent hover:underline"
+                  >
+                    {c.end_seconds != null
+                      ? `▶ Play ${formatTimestamp(c.start_seconds)}–${formatTimestamp(c.end_seconds)}`
+                      : `▶ Jump to ${formatTimestamp(c.start_seconds)}`}
+                  </button>
+                ))}
+              </div>
             )}
           </div>
         ))}
       </div>
 
-      <form onSubmit={handleSubmit} className="mt-3 flex items-center gap-2">
-        <input
+      <form onSubmit={handleSubmit} className="mt-3 flex items-end gap-2">
+        <textarea
+          ref={inputRef}
           value={input}
           onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => {
+            // Enter sends, Shift+Enter inserts a newline. Skipped while an
+            // IME composition is open, where Enter confirms the candidate.
+            if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
+              e.preventDefault();
+              e.currentTarget.form?.requestSubmit();
+            }
+          }}
           placeholder="Ask a question..."
           disabled={busy}
-          className="flex-1 rounded-lg border border-line bg-paper px-3 py-2 text-sm text-ink outline-none focus:border-accent disabled:opacity-50"
+          rows={1}
+          className="max-h-32 flex-1 resize-none rounded-lg border border-line bg-paper px-3 py-2 text-sm text-ink outline-none focus:border-accent disabled:opacity-50"
         />
         <button type="submit" disabled={busy || !input.trim()} className={buttonClassName("primary")}>
           {busy ? "..." : "Send"}

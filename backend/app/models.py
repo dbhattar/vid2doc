@@ -234,6 +234,10 @@ class ChatMessage(Base):
     # answer is grounded in, if any -- null when the question wasn't
     # answerable from a specific moment in the media.
     citation_seconds: Mapped[float | None] = mapped_column(Float, nullable=True)
+    # Assistant-only: playable clip ranges, [{"start_seconds", "end_seconds"}].
+    # Null on rows from before clips existed -- those fall back to
+    # citation_seconds (see chat_jobs._message_to_dict).
+    citations: Mapped[list | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 

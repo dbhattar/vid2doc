@@ -13,6 +13,7 @@ short-lived presigned URL (generate_media_url), not a public document_url.
 """
 
 import json
+import math
 import os
 import uuid
 from datetime import datetime, timezone
@@ -33,7 +34,23 @@ class ChatUnavailableError(Exception):
 
 SYSTEM_PROMPT_INSTRUCTIONS = """You are answering a user's question about a document generated from their own video or audio recording. You are given the full generated document and the original transcript (with per-segment timestamps in seconds).
 
-Answer using ONLY information in the document below -- never invent facts it doesn't support. If your answer corresponds to a specific moment in the recording, set citation_seconds to the start_ts of the single transcript segment that best supports your answer, so the user can jump to and replay that exact moment. If no specific moment applies, or the document doesn't address the question, set citation_seconds to null and say so plainly in your answer -- never fabricate a citation."""
+Answer using ONLY information in the document below -- never invent facts it doesn't support. If your answer corresponds to specific moments in the recording, add up to 3 entries to citations, each a clip the user can play: start_seconds is the start_ts of the first transcript segment that supports your answer and end_seconds is the end_ts of the last contiguous supporting segment. Keep each clip under about 60 seconds and use only times that appear in the transcript. If no specific moment applies, or the document doesn't address the question, return an empty citations array and say so plainly in your answer -- never fabricate a citation."""
+
+MAX_CITATIONS = 3
+MAX_CLIP_SECONDS = 120
+
+CITATIONS_SCHEMA = {
+    "type": "array",
+    "items": {
+        "type": "object",
+        "properties": {
+            "start_seconds": {"type": "number"},
+            "end_seconds": {"type": "number"},
+        },
+        "required": ["start_seconds", "end_seconds"],
+        "additionalProperties": False,
+    },
+}
 
 ANSWER_TOOL = {
     "name": "submit_answer",
@@ -42,9 +59,9 @@ ANSWER_TOOL = {
         "type": "object",
         "properties": {
             "answer": {"type": "string"},
-            "citation_seconds": {"type": ["number", "null"]},
+            "citations": CITATIONS_SCHEMA,
         },
-        "required": ["answer", "citation_seconds"],
+        "required": ["answer", "citations"],
     },
 }
 
@@ -52,9 +69,9 @@ ANSWER_JSON_SCHEMA = {
     "type": "object",
     "properties": {
         "answer": {"type": "string"},
-        "citation_seconds": {"type": ["number", "null"]},
+        "citations": CITATIONS_SCHEMA,
     },
-    "required": ["answer", "citation_seconds"],
+    "required": ["answer", "citations"],
     "additionalProperties": False,
 }
 
@@ -90,8 +107,8 @@ def _answer_anthropic(client, system_prompt: str, messages: list[dict]) -> dict:
     )
     for block in response.content:
         if block.type == "tool_use":
-            return {"answer": block.input["answer"], "citation_seconds": block.input.get("citation_seconds")}
-    return {"answer": "", "citation_seconds": None}
+            return {"answer": block.input["answer"], "citations": block.input.get("citations") or []}
+    return {"answer": "", "citations": []}
 
 
 def _answer_openai(client, system_prompt: str, messages: list[dict]) -> dict:
@@ -104,6 +121,30 @@ def _answer_openai(client, system_prompt: str, messages: list[dict]) -> dict:
         },
     )
     return json.loads(response.choices[0].message.content)
+
+
+def validate_citations(raw: list, segments: list[dict]) -> list[dict]:
+    """The model's clip times are untrusted -- drop anything malformed or
+    outside the transcript, and clamp the rest so a hallucinated range can't
+    seek past the end of the media or play for minutes."""
+    if not segments:
+        return []
+    media_end = max(s.get("end_ts", s.get("start_ts", 0)) for s in segments)
+    valid = []
+    for c in raw or []:
+        try:
+            start, end = float(c["start_seconds"]), float(c["end_seconds"])
+        except (KeyError, TypeError, ValueError):
+            continue
+        if not (math.isfinite(start) and math.isfinite(end)):
+            continue
+        if start < 0 or start >= media_end or end <= start:
+            continue
+        end = min(end, media_end, start + MAX_CLIP_SECONDS)
+        valid.append({"start_seconds": start, "end_seconds": end})
+        if len(valid) == MAX_CITATIONS:
+            break
+    return valid
 
 
 def _get_client_and_fn(provider: str):
@@ -178,15 +219,22 @@ def answer_question(job: dict, history: list[dict], question: str) -> dict:
     messages = [{"role": h["role"], "content": h["content"]} for h in history]
     messages.append({"role": "user", "content": question})
 
-    return answer_fn(client, system_prompt, messages)
+    result = answer_fn(client, system_prompt, messages)
+    result["citations"] = validate_citations(result.get("citations"), transcript.get("segments", []))
+    return result
 
 
 def _message_to_dict(m: ChatMessage) -> dict:
+    citations = m.citations
+    if citations is None and m.citation_seconds is not None:
+        # Row from before clips existed -- a start with no known end.
+        citations = [{"start_seconds": m.citation_seconds, "end_seconds": None}]
     return {
         "id": m.id,
         "role": m.role,
         "content": m.content,
         "citation_seconds": m.citation_seconds,
+        "citations": citations or [],
         "created_at": m.created_at,
     }
 
@@ -205,7 +253,7 @@ def list_chat_messages(job_id: str) -> list[dict]:
         session.close()
 
 
-def add_chat_message(job_id: str, role: str, content: str, citation_seconds: float | None = None) -> dict:
+def add_chat_message(job_id: str, role: str, content: str, citations: list[dict] | None = None) -> dict:
     """Explicit created_at (not server_default) so the dict returned here --
     used to build the API response immediately -- matches exactly what's
     persisted, no re-fetch needed."""
@@ -216,7 +264,10 @@ def add_chat_message(job_id: str, role: str, content: str, citation_seconds: flo
             job_id=job_id,
             role=role,
             content=content,
-            citation_seconds=citation_seconds,
+            # citation_seconds stays populated (first clip's start) for
+            # anything still reading the pre-clips column.
+            citation_seconds=citations[0]["start_seconds"] if citations else None,
+            citations=citations or None,
             created_at=datetime.now(timezone.utc),
         )
         session.add(message)

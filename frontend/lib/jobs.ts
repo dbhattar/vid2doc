@@ -52,6 +52,13 @@ export type Job = {
 
 export type PublicConsentStatus = "pending" | "approved" | "rejected";
 
+/** A playable clip an assistant answer cites. end_seconds is null only for
+ * messages stored before clips existed (a start with no known end). */
+export type ChatCitation = {
+  start_seconds: number;
+  end_seconds: number | null;
+};
+
 /** One turn of a chat-with-document conversation -- see
  * GET/POST /api/jobs/{id}/chat/messages. citation_seconds is assistant-only
  * (null when the answer doesn't correspond to a specific moment). */
@@ -60,6 +67,7 @@ export type ChatMessage = {
   role: "user" | "assistant";
   content: string;
   citation_seconds: number | null;
+  citations: ChatCitation[];
   created_at: string;
 };
 
