@@ -9,7 +9,13 @@ const tiers = [
     label: 'Video',
     price: '$1.00',
     unit: '/hour',
-    body: 'Full pipeline — transcript, the right slides/diagrams pulled out, and a real composed document.',
+    body: 'Full pipeline — transcript, the right slides/diagrams pulled out, and a real composed document. Concise notes and study guides are the same price.',
+  },
+  {
+    label: 'Research',
+    price: '$2.00',
+    unit: '/hour',
+    body: 'Deeper research — the topics in your video researched on the web, with a report that cites its sources.',
   },
   {
     label: 'Audio',
@@ -120,9 +126,15 @@ const tiers = [
 
   .pricing-grid {
     display: grid;
-    grid-template-columns: repeat(2, 1fr);
+    grid-template-columns: repeat(3, 1fr);
     gap: 20px;
     max-width: 1040px;
+  }
+
+  @media (max-width: 900px) {
+    .pricing-grid {
+      grid-template-columns: repeat(2, 1fr);
+    }
   }
 
   @media (max-width: 640px) {
