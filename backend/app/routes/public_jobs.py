@@ -22,7 +22,7 @@ def submit_public_consent(job_id: str, current_user: dict = Depends(get_current_
     job = jobs.get_job(job_id)
     if not job or job["user_id"] != current_user["id"]:
         raise HTTPException(status_code=404, detail="Job not found")
-    if job["job_type"] != "video":
+    if job["job_type"] != "video" or job.get("transformation", "document") != "document":
         raise HTTPException(status_code=400, detail="Only completed video-to-document jobs can be made public")
     if job["status"] != "done" or job["deleted_at"] is not None:
         raise HTTPException(status_code=400, detail="Only a completed, un-expired job can be made public")

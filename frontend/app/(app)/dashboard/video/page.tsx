@@ -8,7 +8,7 @@ import Button from "@/components/Button";
 import JobRow from "@/components/JobRow";
 import { apiFetch, ApiError } from "@/lib/api";
 import { clearSession } from "@/lib/auth";
-import { VIDEO_EXTENSIONS, displayTitle, isActiveJob, type Job } from "@/lib/jobs";
+import { VIDEO_EXTENSIONS, displayTitle, isActiveJob, type Job, type Transformation } from "@/lib/jobs";
 
 const POLL_INTERVAL_MS = 4000;
 const ACCEPTED_EXTENSIONS = VIDEO_EXTENSIONS.join(",");
@@ -18,10 +18,20 @@ const ACCEPTED_EXTENSIONS = VIDEO_EXTENSIONS.join(",");
 // submitting; the backend is the source of truth for the actual charge.
 const SECONDS_PER_CENT_VIDEO = 36;
 const SECONDS_PER_CENT_AUDIO = 90;
+const SECONDS_PER_CENT_RESEARCH = 18;
 
-function estimatedCostCents(durationSeconds: number, withVisuals: boolean): number {
+function estimatedCostCents(durationSeconds: number, withVisuals: boolean, transformation: Transformation): number {
+  if (transformation === "research") return Math.ceil(durationSeconds / SECONDS_PER_CENT_RESEARCH);
+  if (transformation !== "document") return Math.ceil(durationSeconds / SECONDS_PER_CENT_VIDEO);
   return Math.ceil(durationSeconds / (withVisuals ? SECONDS_PER_CENT_VIDEO : SECONDS_PER_CENT_AUDIO));
 }
+
+const TRANSFORMATION_OPTIONS: { value: Transformation; label: string; description: string }[] = [
+  { value: "document", label: "Full document", description: "A complete, organized document, optionally with slides and diagrams." },
+  { value: "notes", label: "Concise notes", description: "Short bullet notes with links back to the video, plus further reading." },
+  { value: "study_guide", label: "Study guide", description: "Summary, key concepts, and review questions with answers." },
+  { value: "research", label: "Deeper research", description: "Topics from the video researched on the web, with cited sources." },
+];
 
 // Video gets its own nav item (rather than sharing a generic upload form with
 // audio) specifically so this page's flow -- upload, frame review, document --
@@ -48,6 +58,7 @@ export default function VideoPage() {
   // false until /api/auth/me answers, so non-admins never see it flash in.
   const [isAdmin, setIsAdmin] = useState(false);
   const [youtubeUrl, setYoutubeUrl] = useState("");
+  const [transformation, setTransformation] = useState<Transformation>("document");
   const [extractFrames, setExtractFrames] = useState(true);
   const [makePublic, setMakePublic] = useState(false);
   const [fileDurationSeconds, setFileDurationSeconds] = useState<number | null>(null);
@@ -119,7 +130,8 @@ export default function VideoPage() {
       const formData = new FormData();
       formData.append("video", file);
       formData.append("extract_frames", String(extractFrames));
-      formData.append("make_public", String(makePublic));
+      formData.append("make_public", String(makePublic && transformation === "document"));
+      formData.append("transformation", transformation);
       await apiFetch("/api/convert_to_doc", { method: "POST", body: formData });
       if (fileInputRef.current) fileInputRef.current.value = "";
       setSelectedFileName(null);
@@ -145,7 +157,7 @@ export default function VideoPage() {
     try {
       await apiFetch("/api/convert_from_youtube", {
         method: "POST",
-        body: JSON.stringify({ url, extract_frames: extractFrames, make_public: makePublic }),
+        body: JSON.stringify({ url, extract_frames: extractFrames, make_public: makePublic && transformation === "document", transformation }),
       });
       setYoutubeUrl("");
       loadJobs();
@@ -274,6 +286,45 @@ export default function VideoPage() {
             </div>
           )}
 
+          <fieldset className="mt-4">
+            <legend className="text-sm font-medium text-ink">What do you want to make?</legend>
+            <div className="mt-2 grid gap-2 sm:grid-cols-2">
+              {TRANSFORMATION_OPTIONS.map((option) => (
+                <label
+                  key={option.value}
+                  className={`cursor-pointer rounded-md border px-3 py-2 text-sm transition-colors ${
+                    transformation === option.value ? "border-accent bg-accent-soft" : "border-line hover:border-accent"
+                  }`}
+                >
+                  <input
+                    type="radio"
+                    name="transformation"
+                    value={option.value}
+                    checked={transformation === option.value}
+                    onChange={() => setTransformation(option.value)}
+                    className="sr-only"
+                  />
+                  <span className="block font-medium text-ink">{option.label}</span>
+                  <span className="mt-0.5 block text-xs text-ink-soft">{option.description}</span>
+                </label>
+              ))}
+            </div>
+          </fieldset>
+
+          {transformation !== "document" && (
+            <p className="mt-3 text-xs text-ink-soft">
+              {source === "file" && fileDurationSeconds != null
+                ? `$${(estimatedCostCents(fileDurationSeconds, false, transformation) / 100).toFixed(2)}`
+                : transformation === "research"
+                  ? "$2.00/hour"
+                  : "$1.00/hour"}
+              {transformation === "research"
+                ? " -- includes web search. Text only, no slides or tables."
+                : " -- text only, no slides or tables."}
+            </p>
+          )}
+          {transformation === "document" && (
+            <>
           <label className="mt-4 flex items-center gap-2 text-sm text-ink">
             <input
               type="checkbox"
@@ -288,8 +339,8 @@ export default function VideoPage() {
               ? "Free -- public conversions aren't charged"
               : source === "file" && fileDurationSeconds != null
               ? extractFrames
-                ? `$${(estimatedCostCents(fileDurationSeconds, true) / 100).toFixed(2)} with visuals`
-                : `$${(estimatedCostCents(fileDurationSeconds, false) / 100).toFixed(2)} transcript-only`
+                ? `$${(estimatedCostCents(fileDurationSeconds, true, transformation) / 100).toFixed(2)} with visuals`
+                : `$${(estimatedCostCents(fileDurationSeconds, false, transformation) / 100).toFixed(2)} transcript-only`
               : extractFrames
                 ? "$1.00/hour with visuals"
                 : "$0.40/hour transcript-only -- no slides, diagrams, or tables"}
@@ -315,6 +366,8 @@ export default function VideoPage() {
               "Public conversions cost nothing, but can never be taken down."
             )}
           </p>
+            </>
+          )}
 
           {uploadError && (
             <p className="mt-2 text-sm text-status-error">

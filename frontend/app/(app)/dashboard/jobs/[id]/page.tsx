@@ -21,7 +21,7 @@ import TranscriptViewer from "@/components/TranscriptViewer";
 import { apiFetch, ApiError, downloadAuthenticated } from "@/lib/api";
 import { clearSession } from "@/lib/auth";
 import { formatCents } from "@/lib/billing";
-import { displayTitle, formatDuration, formatElapsed, isActiveJob, type Job } from "@/lib/jobs";
+import { displayTitle, formatDuration, formatElapsed, isActiveJob, TRANSFORMATION_LABELS, type Job } from "@/lib/jobs";
 import { useDriveStatus } from "@/lib/useDriveStatus";
 
 const POLL_INTERVAL_MS = 3000;
@@ -163,7 +163,11 @@ export default function JobDetailPage() {
               job.job_type === "audio" ? "bg-paper-shade text-ink-soft" : "bg-accent-soft text-accent"
             }`}
             title={
-              job.job_type === "audio" ? "Audio transcript" : job.job_type === "video_gen" ? "Generated video" : "Video document"
+              job.job_type === "audio"
+                ? "Audio transcript"
+                : job.job_type === "video_gen"
+                  ? "Generated video"
+                  : TRANSFORMATION_LABELS[job.transformation ?? "document"]
             }
           >
             {job.job_type === "audio" ? (
@@ -335,7 +339,7 @@ export default function JobDetailPage() {
                 jobs only for now, not video_gen or audio. See
                 PublicConsentControl's own comment for why this needs an
                 inline confirm step ShareControl doesn't. */}
-            {job.status === "done" && !job.retention_expired && job.job_type === "video" && (
+            {job.status === "done" && !job.retention_expired && job.job_type === "video" && (job.transformation ?? "document") === "document" && (
               <PublicConsentControl job={job} onUpdated={setJob} />
             )}
 

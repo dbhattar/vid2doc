@@ -1,5 +1,14 @@
 export type JobStatus = "queued" | "processing" | "awaiting_review" | "done" | "failed" | "cancelled";
 export type JobType = "video" | "audio" | "video_gen";
+/** What a video job turns the video into -- see backend/app/stages/transform.py. */
+export type Transformation = "document" | "notes" | "study_guide" | "research";
+
+export const TRANSFORMATION_LABELS: Record<Transformation, string> = {
+  document: "Video document",
+  notes: "Concise notes",
+  study_guide: "Study guide",
+  research: "Research report",
+};
 
 export type Job = {
   job_id: string;
@@ -13,6 +22,7 @@ export type Job = {
   billed_cents: number;
   // job_type === "video" only -- see backend/app/routes/status.py.
   extract_frames?: boolean;
+  transformation?: Transformation;
   document_url?: string;
   document_bundle_url?: string;
   document_docx_url?: string;

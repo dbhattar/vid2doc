@@ -3,6 +3,7 @@ Markdown, DOCX, and PDF. Pure rendering, no LLM calls -- placement was already
 decided by compose.py; this just draws it.
 """
 
+import re
 import shutil
 from pathlib import Path
 from xml.sax.saxutils import escape
@@ -293,6 +294,77 @@ def _docx_image_dimensions(path: Path, max_width_in: float = 5.5, max_height_in:
     return Inches(width_in), Inches(height_in)
 
 
+# Paragraph text may carry a little inline markdown (the notes/study-guide/
+# research transformations, see transform.py): "- " bullets, [text](http...)
+# links and **bold**. document.md keeps it as-is; docx/pdf render it.
+_INLINE_RE = re.compile(r"\[([^\]]+)\]\((https?://[^)\s]+)\)|\*\*(.+?)\*\*")
+
+
+def _paragraph_lines(text: str) -> list[tuple[bool, str]]:
+    """[(is_bullet, text)] for each non-empty line of a paragraph block."""
+    lines = []
+    for line in text.split("\n"):
+        line = line.strip()
+        if not line:
+            continue
+        is_bullet = line.startswith("- ")
+        lines.append((is_bullet, line[2:].strip() if is_bullet else line))
+    return lines
+
+
+def _docx_add_hyperlink(paragraph, text: str, url: str) -> None:
+    from docx.opc.constants import RELATIONSHIP_TYPE
+    from docx.oxml import OxmlElement
+    from docx.oxml.ns import qn
+
+    link = OxmlElement("w:hyperlink")
+    link.set(qn("r:id"), paragraph.part.relate_to(url, RELATIONSHIP_TYPE.HYPERLINK, is_external=True))
+    run = OxmlElement("w:r")
+    props = OxmlElement("w:rPr")
+    color = OxmlElement("w:color")
+    color.set(qn("w:val"), "0563C1")
+    underline = OxmlElement("w:u")
+    underline.set(qn("w:val"), "single")
+    props.append(color)
+    props.append(underline)
+    run.append(props)
+    run_text = OxmlElement("w:t")
+    run_text.text = text
+    run.append(run_text)
+    link.append(run)
+    paragraph._p.append(link)
+
+
+def _docx_add_inline(paragraph, text: str) -> None:
+    pos = 0
+    for m in _INLINE_RE.finditer(text):
+        if m.start() > pos:
+            paragraph.add_run(text[pos : m.start()])
+        if m.group(1):
+            _docx_add_hyperlink(paragraph, m.group(1), m.group(2))
+        else:
+            paragraph.add_run(m.group(3)).bold = True
+        pos = m.end()
+    if pos < len(text):
+        paragraph.add_run(text[pos:])
+
+
+def _pdf_markup(text: str) -> str:
+    # Links only, no bold: the PDF's custom fonts aren't registered as a
+    # family with bold variants, so <b> would fail to resolve.
+    out, pos = [], 0
+    for m in _INLINE_RE.finditer(text):
+        out.append(escape(text[pos : m.start()]))
+        if m.group(1):
+            href = escape(m.group(2), {'"': "&quot;"})
+            out.append(f'<a href="{href}" color="#1a5fb4">{escape(m.group(1))}</a>')
+        else:
+            out.append(escape(m.group(3)))
+        pos = m.end()
+    out.append(escape(text[pos:]))
+    return "".join(out)
+
+
 def render_docx(title: str, sections: list[dict], images_by_id: dict, tables_by_id: dict, output_path: Path) -> Path:
     from docx import Document
     from docx.enum.text import WD_ALIGN_PARAGRAPH
@@ -311,8 +383,8 @@ def render_docx(title: str, sections: list[dict], images_by_id: dict, tables_by_
         doc.add_heading(section["heading"], level=1)
         for block in section["blocks"]:
             if block["type"] == "paragraph":
-                if block["text"]:
-                    doc.add_paragraph(block["text"])
+                for is_bullet, line in _paragraph_lines(block["text"]):
+                    _docx_add_inline(doc.add_paragraph(style="List Bullet" if is_bullet else None), line)
             elif block["type"] == "image":
                 image = images_by_id.get(block["ref"])
                 if not image:
@@ -462,12 +534,14 @@ def render_pdf(title: str, sections: list[dict], images_by_id: dict, tables_by_i
     from datetime import datetime
 
     from reportlab.lib import colors
+    from reportlab.lib.styles import ParagraphStyle
     from reportlab.platypus import Image as RLImage
     from reportlab.platypus import PageBreak, Paragraph, Spacer, Table, TableStyle
     from reportlab.platypus.tableofcontents import TableOfContents
 
     _register_pdf_fonts()
     styles = _pdf_styles()
+    bullet_style = ParagraphStyle("BodyBullet", parent=styles["body"], leftIndent=14, bulletIndent=2)
     doc = _build_pdf_doc_template(output_path, title)
 
     story = [
@@ -490,9 +564,12 @@ def render_pdf(title: str, sections: list[dict], images_by_id: dict, tables_by_i
         story.append(Paragraph(escape(section["heading"]), styles["heading1"]))
         for block in section["blocks"]:
             if block["type"] == "paragraph":
-                if block["text"]:
-                    story.append(Paragraph(escape(block["text"]), styles["body"]))
-                    story.append(Spacer(1, 6))
+                for is_bullet, line in _paragraph_lines(block["text"]):
+                    if is_bullet:
+                        story.append(Paragraph(_pdf_markup(line), bullet_style, bulletText="\u2022"))
+                    else:
+                        story.append(Paragraph(_pdf_markup(line), styles["body"]))
+                        story.append(Spacer(1, 6))
             elif block["type"] == "image":
                 image = images_by_id.get(block["ref"])
                 if not image:

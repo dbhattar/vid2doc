@@ -5,7 +5,7 @@ from pathlib import Path
 from . import billing, emails, jobs, public_jobs, users, youtube
 from .config import settings
 from .exceptions import PipelineError
-from .stages import assemble, assemble_video, audio, classify, compose, frames, highlights, render_scene, scenes, stock_media, transcribe
+from .stages import assemble, assemble_video, audio, classify, compose, frames, highlights, render_scene, scenes, stock_media, transcribe, transform
 
 
 class JobCancelled(Exception):
@@ -240,7 +240,18 @@ def _compose_and_finalize(job: dict, output_dir: Path, images_meta: list[dict], 
     segments = _transcribe_segments(job, output_dir)
     _check_not_cancelled(job_id)
 
-    if not images_meta and not tables_meta and not _llm_available():
+    transformation = job.get("transformation") or "document"
+    if transformation != "document":
+        if not _llm_available():
+            raise PipelineError("No LLM provider is configured, so this can't be turned into notes, a study guide or research.")
+        jobs.update_job(job_id, progress_stage="composing_document")
+        title, sections = transform.run(
+            transformation, job, segments, lambda stage: jobs.update_job(job_id, progress_stage=stage)
+        )
+        jobs.update_job(job_id, title=title)
+        if not sections:
+            sections = _fallback_sections(segments)
+    elif not images_meta and not tables_meta and not _llm_available():
         title = job.get("title") or "Video Transcript"
         sections = _fallback_sections(segments)
     else:

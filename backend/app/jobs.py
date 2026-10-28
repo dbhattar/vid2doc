@@ -32,6 +32,7 @@ def _job_to_dict(job: Job) -> dict:
         "stock_media_provider": job.stock_media_provider,
         "cancel_requested": job.cancel_requested,
         "extract_frames": job.extract_frames,
+        "transformation": job.transformation,
         "error_message": job.error_message,
         "deleted_at": job.deleted_at,
         "public_status": job.public_status,
@@ -67,6 +68,7 @@ def create_job(
     aspect_ratio: str = "16:9",
     extract_frames: bool = True,
     public_upfront: bool = False,
+    transformation: str = "document",
 ) -> None:
     session = get_session()
     try:
@@ -85,6 +87,7 @@ def create_job(
                 client_ip=client_ip,
                 aspect_ratio=aspect_ratio,
                 extract_frames=extract_frames,
+                transformation=transformation,
                 public_upfront=public_upfront,
             )
         )

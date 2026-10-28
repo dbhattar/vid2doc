@@ -65,7 +65,8 @@ def retry_job(job_id: str, request: Request, current_user: dict = Depends(get_cu
     # consequence (see routes/convert.py/routes/youtube.py) -- otherwise a
     # frames-skipped job's retry would silently re-bill at the full video rate.
     extract_frames = job.get("extract_frames", True)
-    billing_job_type = "audio" if (job["job_type"] == "video" and not extract_frames) else job["job_type"]
+    transformation = job.get("transformation", "document")
+    billing_job_type = billing.billing_type_for(job["job_type"], extract_frames, transformation)
 
     new_job_id = str(uuid.uuid4())
     try:
@@ -92,6 +93,7 @@ def retry_job(job_id: str, request: Request, current_user: dict = Depends(get_cu
         title=job["title"],
         job_type=job["job_type"],
         extract_frames=extract_frames,
+        transformation=transformation,
     )
     return build_job_response(jobs.get_job(new_job_id), request)
 

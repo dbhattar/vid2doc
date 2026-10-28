@@ -28,6 +28,7 @@ const VIDEO_STAGES: StageDef[] = [
   { key: "extracting_audio", label: "Extracting audio", flavor: "Pulling the audio track for transcription." },
   { key: "transcribing", label: "Transcribing", flavor: "Listening closely and writing down every word." },
   { key: "composing_document", label: "Composing document", flavor: "Organizing the transcript and frames into sections." },
+  { key: "researching", label: "Researching", flavor: "Searching the web for background and sources." },
   { key: "rendering_document", label: "Rendering document", flavor: "Laying out the final Markdown, Word, and PDF." },
 ];
 

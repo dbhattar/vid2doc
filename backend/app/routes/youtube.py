@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field
 from .. import billing, jobs
 from ..config import settings
 from ..deps import get_current_user
+from ..stages import transform
 from ..youtube import YoutubeDownloadError, fetch_metadata, is_youtube_url
 
 router = APIRouter()
@@ -15,6 +16,7 @@ class YoutubeConvertRequest(BaseModel):
     url: str = Field(min_length=1, max_length=2000)
     extract_frames: bool = True
     make_public: bool = False
+    transformation: str = "document"
 
 
 @router.post("/api/convert_from_youtube", status_code=202)
@@ -33,6 +35,11 @@ def convert_from_youtube(body: YoutubeConvertRequest, current_user: dict = Depen
     # fail unreliably without fresh exported cookies (see README step 7).
     if not current_user.get("is_admin"):
         raise HTTPException(status_code=403, detail="YouTube import isn't available yet.")
+
+    transformation_error = transform.validate_options(body.transformation, body.make_public)
+    if transformation_error:
+        raise HTTPException(status_code=400, detail=transformation_error)
+    extract_frames = body.extract_frames and body.transformation == "document"
 
     url = body.url.strip()
     if not is_youtube_url(url):
@@ -56,7 +63,7 @@ def convert_from_youtube(body: YoutubeConvertRequest, current_user: dict = Depen
     job_id = str(uuid.uuid4())
     # See routes/convert.py's identical treatment: skipping frame extraction
     # does the same work as an "audio" job, so it's billed at that rate.
-    billing_job_type = "video" if body.extract_frames else "audio"
+    billing_job_type = billing.billing_type_for("video", extract_frames, body.transformation)
     # Free if made public up front -- see routes/convert.py.
     try:
         billed_cents = (
@@ -82,7 +89,8 @@ def convert_from_youtube(body: YoutubeConvertRequest, current_user: dict = Depen
         billed_cents=billed_cents,
         title=title,
         job_type="video",
-        extract_frames=body.extract_frames,
+        extract_frames=extract_frames,
+        transformation=body.transformation,
         public_upfront=body.make_public,
     )
     return {"job_id": job_id, "status": "queued"}

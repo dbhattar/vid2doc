@@ -145,6 +145,11 @@ class Job(Base):
     # (see pipeline.py's run_job). Defaults True to preserve pre-existing
     # behavior for every job created before this column existed.
     extract_frames: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True)
+    # Only meaningful for job_type == "video" -- what the user asked the
+    # video to be turned into (see stages/transform.py's TRANSFORMATIONS).
+    # "document" is the original full-document behavior, so every job from
+    # before this column existed is correct as-is.
+    transformation: Mapped[str] = mapped_column(String, nullable=False, default="document", server_default="document")
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     # Public showcase: user opts a completed job_type=="video" job into a

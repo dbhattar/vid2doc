@@ -8,6 +8,7 @@ from .. import billing, jobs
 from ..config import settings
 from ..deps import get_current_user
 from ..media import save_upload, title_from_filename
+from ..stages import transform
 
 router = APIRouter()
 
@@ -17,6 +18,7 @@ async def convert_to_doc(
     video: UploadFile = File(...),
     extract_frames: bool = Form(True),
     make_public: bool = Form(False),
+    transformation: str = Form("document"),
     current_user: dict = Depends(get_current_user),
 ):
     ext = Path(video.filename or "").suffix.lower()
@@ -25,6 +27,12 @@ async def convert_to_doc(
             status_code=400,
             detail=f"Unsupported file type '{ext or 'unknown'}'. Allowed: {sorted(settings.ALLOWED_EXTENSIONS)}",
         )
+
+    transformation_error = transform.validate_options(transformation, make_public)
+    if transformation_error:
+        raise HTTPException(status_code=400, detail=transformation_error)
+    if transformation != "document":
+        extract_frames = False  # text-only outputs -- no frame capture or review
 
     job_id = str(uuid.uuid4())
     upload_dir = settings.UPLOADS_DIR / job_id
@@ -47,7 +55,7 @@ async def convert_to_doc(
     # Choosing "make public" up front makes the job free (see
     # app/public_jobs.py) -- nothing is charged, so there's nothing to check
     # the balance against either.
-    billing_job_type = "video" if extract_frames else "audio"
+    billing_job_type = billing.billing_type_for("video", extract_frames, transformation)
     try:
         billed_cents = (
             0
@@ -74,6 +82,7 @@ async def convert_to_doc(
         title=title_from_filename(video.filename or "", fallback="Untitled video"),
         job_type="video",
         extract_frames=extract_frames,
+        transformation=transformation,
         public_upfront=make_public,
     )
     return {"job_id": job_id, "status": "queued"}

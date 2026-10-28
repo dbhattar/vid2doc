@@ -24,6 +24,9 @@ SECONDS_PER_CENT_AUDIO = 90
 # the other two rates), plus the extra LLM calls for scene segmentation and
 # headline generation.
 SECONDS_PER_CENT_VIDEO_GEN = 20
+# $2.00/hour for the "research" transformation -- on top of the usual
+# transcribe + compose cost, each job runs several OpenAI web-search calls.
+SECONDS_PER_CENT_RESEARCH = 18
 
 
 class InsufficientBalanceError(Exception):
@@ -39,9 +42,27 @@ def cost_for_duration_cents(duration_seconds: float, job_type: str = "video") ->
         rate = SECONDS_PER_CENT_AUDIO
     elif job_type == "video_gen":
         rate = SECONDS_PER_CENT_VIDEO_GEN
+    elif job_type == "research":
+        rate = SECONDS_PER_CENT_RESEARCH
     else:
         rate = SECONDS_PER_CENT
     return math.ceil(duration_seconds / rate)
+
+
+def billing_type_for(job_type: str, extract_frames: bool = True, transformation: str = "document") -> str:
+    """The rate key (see cost_for_duration_cents) a job is charged at --
+    one place for what convert/youtube submit and retry all need to agree on.
+    A "document" video with frame extraction skipped does the same work as an
+    audio job, so it's billed at that rate; notes and study guides are
+    text-only too but deliberately keep the full video rate; research has its
+    own."""
+    if job_type != "video":
+        return job_type
+    if transformation == "research":
+        return "research"
+    if transformation == "document" and not extract_frames:
+        return "audio"
+    return "video"
 
 
 def get_wallet_balance_cents(user_id: str) -> int:
