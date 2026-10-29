@@ -1,0 +1,191 @@
+---
+import MarketingLayout from '../layouts/MarketingLayout.astro';
+
+const lastUpdated = 'October 28, 2026';
+---
+
+<MarketingLayout
+  title="Terms of Service — Framewrite"
+  description="The terms that apply when you use Framewrite."
+  path="/terms"
+>
+  <article class="legal">
+    <div class="container legal-inner">
+      <p class="legal-meta">Last updated {lastUpdated}</p>
+      <h1>Terms of Service</h1>
+
+      <div class="legal-body">
+        <p>
+          These terms govern your use of <strong>Framewrite</strong> (framewrite.cc and
+          app.framewrite.cc), including the web app and API. By creating an account or using the
+          service, you agree to them. If you don't agree, please don't use Framewrite. Questions:
+          <a href="mailto:contact@framewrite.cc">contact@framewrite.cc</a>.
+        </p>
+
+        <h2>The service</h2>
+        <p>
+          Framewrite turns video and audio into documents and transcripts, and offers related
+          tools such as live transcription, document chat, and agents. Some of this runs in your
+          browser; some of it sends your content to third-party providers, as described in our
+          <a href="/privacy">Privacy Policy</a>.
+        </p>
+
+        <h2>Your account</h2>
+        <p>
+          You sign in with Google. You're responsible for activity under your account and for
+          keeping your API keys secret. You must be at least 13 years old, and old enough to form
+          a binding contract where you live. Tell us if you think your account or a key has been
+          compromised.
+        </p>
+
+        <h2>Your content</h2>
+        <p>
+          You keep ownership of the videos, audio, and other material you upload ("Your Content")
+          and of the documents and transcripts generated from it. You give us a limited license
+          to store, process, and transmit Your Content, including to our service providers, only
+          as needed to operate the service for you.
+        </p>
+        <p>
+          You promise that you have the rights needed to upload Your Content and to have it
+          processed, including any consent required from people who appear or speak in it
+          (recordings of other people can be subject to consent laws where you live). Generated
+          output may be inaccurate or incomplete -- review it before relying on it.
+        </p>
+
+        <h2>Acceptable use</h2>
+        <p>Don't use Framewrite to:</p>
+        <ul>
+          <li>break the law or infringe anyone's intellectual property or privacy rights;</li>
+          <li>upload content you don't have the right to process, or that is unlawful or abusive;</li>
+          <li>probe, overload, or disrupt the service, or bypass usage limits or billing;</li>
+          <li>reverse engineer the service or resell access to it without our written permission;</li>
+          <li>share your account or API keys with others.</li>
+        </ul>
+        <p>
+          We may suspend or terminate access, and remove content, if we reasonably believe these
+          terms are being violated.
+        </p>
+
+        <h2>Pricing and payment</h2>
+        <p>
+          Framewrite is pay-as-you-go: you top up a wallet through Stripe and are charged per
+          unit of media processed, as shown on our pricing page at the time you submit a job.
+          There are no subscriptions. If a job fails on our side, the charge for it is refunded
+          to your wallet. Otherwise, wallet top-ups and completed jobs are non-refundable except
+          where the law requires. We may change prices going forward; changes don't affect jobs
+          already submitted.
+        </p>
+
+        <h2>Retention</h2>
+        <p>
+          Documents are kept for a limited time after processing (currently 7 days) and then
+          deleted. Download anything you need before then. See the
+          <a href="/privacy">Privacy Policy</a> for details.
+        </p>
+
+        <h2>Google Drive</h2>
+        <p>
+          If you connect Google Drive, you authorize us to save documents you choose to your
+          Drive. You can disconnect at any time from Settings, or revoke access at
+          myaccount.google.com/permissions. Our use of information received from Google APIs
+          follows the Google API Services User Data Policy, including its Limited Use
+          requirements.
+        </p>
+
+        <h2>Our property</h2>
+        <p>
+          Framewrite, its software, branding, and design belong to us. These terms don't give you
+          any rights to them beyond using the service as intended.
+        </p>
+
+        <h2>Availability and changes</h2>
+        <p>
+          We work to keep Framewrite running but don't promise uninterrupted or error-free
+          service. We may change, add, or remove features. We may update these terms; if the
+          change matters we'll update the date above, and continuing to use Framewrite afterward
+          means you accept the update.
+        </p>
+
+        <h2>Disclaimer</h2>
+        <p>
+          Framewrite is provided "as is" and "as available", without warranties of any kind,
+          express or implied, including merchantability, fitness for a particular purpose, and
+          accuracy of generated output, to the fullest extent permitted by law.
+        </p>
+
+        <h2>Limitation of liability</h2>
+        <p>
+          To the fullest extent permitted by law, Framewrite won't be liable for indirect,
+          incidental, special, consequential, or punitive damages, or for lost profits, data, or
+          goodwill. Our total liability for any claim relating to the service is limited to the
+          amount you paid us in the 12 months before the claim arose.
+        </p>
+
+        <h2>Termination</h2>
+        <p>
+          You can stop using Framewrite at any time, and can ask us to delete your account by
+          emailing <a href="mailto:contact@framewrite.cc">contact@framewrite.cc</a>. We may
+          suspend or end your access for violating these terms. Sections that by their nature
+          should survive termination (ownership, disclaimers, liability limits) do.
+        </p>
+
+        <h2>Contact</h2>
+        <p>
+          <a href="mailto:contact@framewrite.cc">contact@framewrite.cc</a>
+        </p>
+      </div>
+    </div>
+  </article>
+</MarketingLayout>
+
+<style>
+  .legal {
+    padding: 56px 0 72px;
+  }
+
+  .legal-inner {
+    max-width: 720px;
+  }
+
+  .legal-meta {
+    font-family: var(--font-body);
+    font-size: 0.85rem;
+    color: var(--ink-soft);
+    margin: 0 0 12px;
+  }
+
+  h1 {
+    font-size: var(--step-4);
+    margin: 0 0 32px;
+    padding-bottom: 32px;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .legal-body {
+    font-size: 1.02rem;
+    line-height: 1.75;
+    color: var(--ink);
+  }
+
+  .legal-body p,
+  .legal-body ul {
+    margin: 0 0 1.4em;
+  }
+
+  .legal-body ul {
+    padding-left: 1.3em;
+  }
+
+  .legal-body li {
+    margin-bottom: 0.6em;
+  }
+
+  .legal-body h2 {
+    font-size: var(--step-2);
+    margin: 1.6em 0 0.6em;
+  }
+
+  .legal-body a {
+    color: var(--accent);
+  }
+</style>
