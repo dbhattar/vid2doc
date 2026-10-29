@@ -225,7 +225,7 @@ export default function VideoPage() {
         as one clean document -- you just pick which frames make the cut.
       </p>
 
-      <div className="mt-8 max-w-xl">
+      <div className="mt-8">
         <form
           onSubmit={source === "file" || !isAdmin ? handleUpload : handleYoutubeSubmit}
           className="w-full rounded-lg border border-line bg-paper p-6 shadow-sm"
