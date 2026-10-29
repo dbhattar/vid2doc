@@ -16,15 +16,23 @@ const DRIVE_SCOPE = "https://www.googleapis.com/auth/drive.file";
 type DriveStatus = { connected: boolean; google_email: string | null };
 
 function ConnectButton({ onConnected, onError }: { onConnected: (email: string) => void; onError: () => void }) {
+  // Random per-mount value echoed back by Google; a mismatch means the
+  // response didn't come from the request we started (CSRF protection).
+  const [expectedState] = useState(() => crypto.randomUUID());
   const login = useGoogleLogin({
     flow: "auth-code",
+    state: expectedState,
     scope: DRIVE_SCOPE,
     // Google's popup CodeClient (unlike the implicit/token flow) has no
     // `prompt` option to force re-consent -- if a refresh_token isn't
     // returned (e.g. reconnecting after already granting access once), the
     // backend's /api/drive/connect returns a clear error telling the user
     // to revoke access at myaccount.google.com/permissions and retry.
-    onSuccess: async ({ code }) => {
+    onSuccess: async ({ code, state }) => {
+      if (state !== expectedState) {
+        onError();
+        return;
+      }
       try {
         const data = await apiFetch<{ connected: boolean; google_email: string }>("/api/drive/connect", {
           method: "POST",
