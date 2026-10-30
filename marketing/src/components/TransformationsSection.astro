@@ -26,6 +26,14 @@ const outputs = [
     title: 'Concise notes',
     body: 'Short bullet notes, each linked back to the moment in the video, with further reading from the web.',
     price: '$1.00/hour',
+    example: {
+      heading: 'Sizing a system',
+      lines: [
+        '• Typical home system is 5–8 kW, roughly 14–20 panels (3:12)',
+        '• South-facing roofs are best; east/west lose ~15% (6:40)',
+        '• Size to last year’s usage, not the roof (8:05)',
+      ],
+    },
   },
   {
     icon: 'graduationCap',
@@ -33,13 +41,29 @@ const outputs = [
     title: 'Study guide',
     body: 'A summary, key concepts with definitions, and review questions with answers.',
     price: '$1.00/hour',
+    example: {
+      heading: 'Key concepts',
+      lines: [
+        'Net metering: a billing arrangement that credits you for power your panels send back to the grid.',
+        'Q: Why size a system to annual usage rather than the roof?',
+        'A: Oversizing means exporting power that may be credited at a lower rate.',
+      ],
+    },
   },
   {
     icon: 'telescope',
     tone: 'secondary',
     title: 'Deeper research',
-    body: 'The topics from your video researched on the web, written up as a report with cited sources.',
+    body: 'The topics from your video researched on the web, written up as a report with cited sources. You choose the topics first.',
     price: '$2.00/hour',
+    example: {
+      heading: 'Net metering rules',
+      lines: [
+        'From the video: Excess power goes back to the grid for a bill credit.',
+        'Several states have moved to “net billing,” where exports are credited at a lower, time-varying rate -- check your utility’s current tariff.',
+        'Sources: energy.gov, dsireusa.org',
+      ],
+    },
   },
 ];
 ---
@@ -71,6 +95,14 @@ const outputs = [
             <h3 class="tx-title">{output.title}</h3>
             <p class="tx-desc">{output.body}</p>
             <p class="tx-price">{output.price}</p>
+            {output.example && (
+              <details class="tx-example">
+                <summary>See an example</summary>
+                <p class="tx-example-note">From a webinar on going solar</p>
+                <p class="tx-example-heading">{output.example.heading}</p>
+                {output.example.lines.map((line) => <p class="tx-example-line">{line}</p>)}
+              </details>
+            )}
           </div>
         ))
       }
@@ -179,6 +211,36 @@ const outputs = [
     line-height: 1.6;
     color: var(--ink-soft);
     margin: 0;
+  }
+
+  .tx-example {
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid var(--line);
+    font-size: 0.85rem;
+    color: var(--ink-soft);
+  }
+
+  .tx-example summary {
+    cursor: pointer;
+    font-weight: 600;
+    color: var(--accent);
+  }
+
+  .tx-example-note {
+    margin: 10px 0 6px;
+    font-size: 0.75rem;
+  }
+
+  .tx-example-heading {
+    margin: 0 0 4px;
+    font-weight: 700;
+    color: var(--ink);
+  }
+
+  .tx-example-line {
+    margin: 0 0 4px;
+    line-height: 1.5;
   }
 
   .tx-button {

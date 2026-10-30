@@ -19,6 +19,7 @@ async def convert_to_doc(
     extract_frames: bool = Form(True),
     make_public: bool = Form(False),
     transformation: str = Form("document"),
+    review_topics: bool = Form(False),
     current_user: dict = Depends(get_current_user),
 ):
     ext = Path(video.filename or "").suffix.lower()
@@ -83,6 +84,7 @@ async def convert_to_doc(
         job_type="video",
         extract_frames=extract_frames,
         transformation=transformation,
+        review_topics=review_topics and transformation == "research",
         public_upfront=make_public,
     )
     return {"job_id": job_id, "status": "queued"}

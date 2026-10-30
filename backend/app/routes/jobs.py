@@ -94,6 +94,7 @@ def retry_job(job_id: str, request: Request, current_user: dict = Depends(get_cu
         job_type=job["job_type"],
         extract_frames=extract_frames,
         transformation=transformation,
+        review_topics=job.get("review_topics", False),
     )
     return build_job_response(jobs.get_job(new_job_id), request)
 

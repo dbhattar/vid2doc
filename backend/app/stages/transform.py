@@ -26,6 +26,8 @@ TRANSFORMATIONS = ("document", "notes", "study_guide", "research")
 NOTES_MAX_TOPICS = 4
 NOTES_MAX_LINKS = 8
 RESEARCH_MAX_TOPICS = 6
+# Upper bound on what a user can confirm/add at topic review.
+RESEARCH_MAX_REVIEWED_TOPICS = 8
 RESEARCH_TOPICS_PER_WINDOW = 3
 # How much of what the video said about a topic is passed to web research.
 RESEARCH_CONTEXT_CHARS = 1500
@@ -239,10 +241,10 @@ TOPICS_SYSTEM_PROMPT = f"""You are picking topics worth researching on the web f
 TOPICS_SCHEMA = _object({"topics": _array(_object({"topic": STRING, "context": STRING}))})
 
 
-def compose_research(segments: list[dict], on_stage: Callable[[str], None]) -> tuple[list[dict], list[str]]:
-    if not web_research.available():
-        raise PipelineError("Research needs web search, but OPENAI_API_KEY is not set.")
-
+def extract_research_topics(segments: list[dict]) -> list[dict]:
+    """The topics worth researching, as [{topic, context}] -- the cheap LLM
+    half of research, split out so a job can pause here for the user to
+    confirm/edit/add topics before any paid web search runs."""
     topics: list[dict] = []
     for window in compose._make_windows(segments):
         data = _call_json(TOPICS_SYSTEM_PROMPT, f"TRANSCRIPT:\n{_transcript_text(window)}", "submit_topics", TOPICS_SCHEMA)
@@ -256,16 +258,30 @@ def compose_research(segments: list[dict], on_stage: Callable[[str], None]) -> t
     unique = unique[:RESEARCH_MAX_TOPICS]
     if not unique:
         raise PipelineError("Nothing in this video was specific enough to research.")
+    return unique
+
+
+def compose_research(
+    segments: list[dict], on_stage: Callable[[str], None], topics: list[dict] | None = None
+) -> tuple[list[dict], list[str]]:
+    """`topics` is the user-confirmed list when the job paused for topic
+    review; otherwise topics are picked automatically."""
+    if not web_research.available():
+        raise PipelineError("Research needs web search, but OPENAI_API_KEY is not set.")
+
+    unique = topics if topics is not None else extract_research_topics(segments)
 
     on_stage("researching")
     sections = [_section("Overview", [compose.generate_summary(segments)])]
     for t in unique:
+        context = t.get("context", "").strip()
         try:
-            result = web_research.research_topic(t["topic"], t["context"][:RESEARCH_CONTEXT_CHARS])
+            result = web_research.research_topic(t["topic"], context[:RESEARCH_CONTEXT_CHARS])
         except Exception:
             logger.exception("Research failed for %r", t["topic"])
             continue
-        paragraphs = [f"From the video: {t['context'].strip()}", result["summary"]]
+        # A topic the user added themselves has no transcript context.
+        paragraphs = ([f"From the video: {context}"] if context else []) + [result["summary"]]
         if result["links"]:
             paragraphs.append("Sources:\n" + "\n".join(f"- {_link(l['title'], l['url'])}" for l in result["links"]))
         sections.append(_section(t["topic"], paragraphs))
@@ -277,14 +293,20 @@ def compose_research(segments: list[dict], on_stage: Callable[[str], None]) -> t
 # --- entry point ------------------------------------------------------------
 
 
-def run(transformation: str, job: dict, segments: list[dict], on_stage: Callable[[str], None]) -> tuple[str, list[dict]]:
+def run(
+    transformation: str,
+    job: dict,
+    segments: list[dict],
+    on_stage: Callable[[str], None],
+    research_topics: list[dict] | None = None,
+) -> tuple[str, list[dict]]:
     """(title, sections) for a non-"document" transformation."""
     if transformation == "notes":
         sections, title_headings = compose_notes(segments, job.get("source_url"), on_stage)
     elif transformation == "study_guide":
         sections, title_headings = compose_study_guide(segments)
     elif transformation == "research":
-        sections, title_headings = compose_research(segments, on_stage)
+        sections, title_headings = compose_research(segments, on_stage, research_topics)
     else:
         raise PipelineError(f"Unknown transformation {transformation!r}")
     # The section headings of a study guide ("Summary", "Key concepts") say

@@ -150,6 +150,10 @@ class Job(Base):
     # "document" is the original full-document behavior, so every job from
     # before this column existed is correct as-is.
     transformation: Mapped[str] = mapped_column(String, nullable=False, default="document", server_default="document")
+    # Only meaningful for transformation == "research": pause after topic
+    # extraction so the user can confirm/edit/add topics before the paid web
+    # research runs (see pipeline.py's awaiting_topic_review pause).
+    review_topics: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     # Public showcase: user opts a completed job_type=="video" job into a

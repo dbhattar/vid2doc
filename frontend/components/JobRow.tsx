@@ -48,7 +48,11 @@ export default function JobRow({
         {job.status === "processing" ? <ProgressBar job={job} className="w-32" /> : <StatusBadge job={job} />}
         {job.status === "awaiting_review" && (
           <Link href={`/dashboard/jobs/${job.job_id}`} className="text-sm text-accent hover:underline">
-            {job.job_type === "video_gen" ? "Review scenes →" : "Review frames →"}
+            {job.job_type === "video_gen"
+              ? "Review scenes →"
+              : job.progress_stage === "awaiting_topic_review"
+                ? "Review topics →"
+                : "Review frames →"}
           </Link>
         )}
         {(job.status === "failed" || job.status === "awaiting_review") && (

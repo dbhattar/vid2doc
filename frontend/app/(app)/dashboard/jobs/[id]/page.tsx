@@ -16,6 +16,7 @@ import MediaPreviewPlayer, { type MediaPreviewHandle } from "@/components/MediaP
 import ProgressStepper from "@/components/ProgressStepper";
 import PublicConsentControl from "@/components/PublicConsentControl";
 import SceneReviewPanel from "@/components/SceneReviewPanel";
+import TopicReviewPanel from "@/components/TopicReviewPanel";
 import ShareControl from "@/components/ShareControl";
 import TranscriptViewer from "@/components/TranscriptViewer";
 import { apiFetch, ApiError, downloadAuthenticated } from "@/lib/api";
@@ -401,6 +402,8 @@ export default function JobDetailPage() {
             {job.status === "awaiting_review" &&
               (job.job_type === "video_gen" ? (
                 <SceneReviewPanel job={job} onSubmitted={setJob} />
+              ) : job.progress_stage === "awaiting_topic_review" ? (
+                <TopicReviewPanel job={job} onSubmitted={setJob} />
               ) : (
                 <FrameReviewPanel job={job} onSubmitted={setJob} />
               ))}

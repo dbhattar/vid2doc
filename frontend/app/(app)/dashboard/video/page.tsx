@@ -6,6 +6,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 
 import Button from "@/components/Button";
 import JobRow from "@/components/JobRow";
+import OutputExamplePreview from "@/components/OutputExamplePreview";
 import { apiFetch, ApiError } from "@/lib/api";
 import { clearSession } from "@/lib/auth";
 import { VIDEO_EXTENSIONS, displayTitle, isActiveJob, type Job, type Transformation } from "@/lib/jobs";
@@ -61,6 +62,9 @@ export default function VideoPage() {
   const [transformation, setTransformation] = useState<Transformation>("document");
   const [extractFrames, setExtractFrames] = useState(true);
   const [makePublic, setMakePublic] = useState(false);
+  // Research only: pause after topic extraction so the user confirms the
+  // topics before the (paid) web search runs. On by default.
+  const [reviewTopics, setReviewTopics] = useState(true);
   const [fileDurationSeconds, setFileDurationSeconds] = useState<number | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -132,6 +136,7 @@ export default function VideoPage() {
       formData.append("extract_frames", String(extractFrames));
       formData.append("make_public", String(makePublic && transformation === "document"));
       formData.append("transformation", transformation);
+      formData.append("review_topics", String(reviewTopics && transformation === "research"));
       await apiFetch("/api/convert_to_doc", { method: "POST", body: formData });
       if (fileInputRef.current) fileInputRef.current.value = "";
       setSelectedFileName(null);
@@ -157,7 +162,7 @@ export default function VideoPage() {
     try {
       await apiFetch("/api/convert_from_youtube", {
         method: "POST",
-        body: JSON.stringify({ url, extract_frames: extractFrames, make_public: makePublic && transformation === "document", transformation }),
+        body: JSON.stringify({ url, extract_frames: extractFrames, make_public: makePublic && transformation === "document", transformation, review_topics: reviewTopics && transformation === "research" }),
       });
       setYoutubeUrl("");
       loadJobs();
@@ -310,6 +315,25 @@ export default function VideoPage() {
               ))}
             </div>
           </fieldset>
+
+          <OutputExamplePreview transformation={transformation} />
+
+          {transformation === "research" && (
+            <>
+              <label className="mt-4 flex items-center gap-2 text-sm text-ink">
+                <input
+                  type="checkbox"
+                  checked={reviewTopics}
+                  onChange={(e) => setReviewTopics(e.target.checked)}
+                  className="h-4 w-4 rounded border-line accent-accent"
+                />
+                Let me choose the topics before research starts
+              </label>
+              <p className="mt-1 text-xs text-ink-soft">
+                We&apos;ll email you when the topics are ready. You can edit, remove, or add your own.
+              </p>
+            </>
+          )}
 
           {transformation !== "document" && (
             <p className="mt-3 text-xs text-ink-soft">

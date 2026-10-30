@@ -244,9 +244,19 @@ def _compose_and_finalize(job: dict, output_dir: Path, images_meta: list[dict], 
     if transformation != "document":
         if not _llm_available():
             raise PipelineError("No LLM provider is configured, so this can't be turned into notes, a study guide or research.")
+        research_topics = None
+        if transformation == "research" and job.get("review_topics"):
+            research_topics = _confirmed_research_topics(job, output_dir)
+            if research_topics is None:
+                _pause_for_topic_review(job, output_dir, segments)
+                return
         jobs.update_job(job_id, progress_stage="composing_document")
         title, sections = transform.run(
-            transformation, job, segments, lambda stage: jobs.update_job(job_id, progress_stage=stage)
+            transformation,
+            job,
+            segments,
+            lambda stage: jobs.update_job(job_id, progress_stage=stage),
+            research_topics=research_topics,
         )
         jobs.update_job(job_id, title=title)
         if not sections:
@@ -275,6 +285,40 @@ def _compose_and_finalize(job: dict, output_dir: Path, images_meta: list[dict], 
     # the job is already done -- too late to recover this otherwise).
     transcript_json = json.dumps({"segments": segments}, indent=2)
     _finalize_document(job, title, sections, images_meta, tables_meta, extra_files={"transcript.json": transcript_json})
+
+
+def _confirmed_research_topics(job: dict, output_dir: Path) -> list[dict] | None:
+    """The topics the user confirmed at topic review, or None if the job
+    hasn't been through that pause yet."""
+    topics_path = output_dir / "topics.json"
+    if not topics_path.exists():
+        return None
+    data = json.loads(topics_path.read_text())
+    return data["topics"] if data.get("confirmed") else None
+
+
+def _pause_for_topic_review(job: dict, output_dir: Path, segments: list[dict]) -> None:
+    """Research jobs that opted into topic review: extract candidate topics
+    (cheap, one LLM call per transcript window), persist them plus the
+    transcript, then pause. The paid web search only runs after the user
+    confirms (routes/topic_review.py -> run_job's resuming_after_topic_review
+    -> _compose_and_finalize again). The transcript is saved as
+    precomputed_segments.json so resuming doesn't pay for transcription twice."""
+    job_id = job["id"]
+    _check_not_cancelled(job_id)
+    jobs.update_job(job_id, progress_stage="composing_document")
+    topics = transform.extract_research_topics(segments)
+
+    # Same reasoning as run_job's frame-review pause: a cancel landing during
+    # topic extraction must be caught before the job sits in awaiting_review.
+    _check_not_cancelled(job_id)
+    output_dir.mkdir(parents=True, exist_ok=True)
+    precomputed_path = output_dir / "precomputed_segments.json"
+    if not precomputed_path.exists():
+        precomputed_path.write_text(json.dumps(segments))
+    (output_dir / "topics.json").write_text(json.dumps({"topics": topics, "confirmed": False}, indent=2))
+    jobs.update_job(job_id, status="awaiting_review", progress_stage="awaiting_topic_review")
+    emails.notify_review_needed(job_id)
 
 
 def _prepend_summary_section(job: dict, segments: list[dict], sections: list[dict]) -> list[dict]:
@@ -416,6 +460,7 @@ def _transcribe_and_segment_scenes(job: dict, output_dir: Path) -> None:
     output_dir.mkdir(parents=True, exist_ok=True)
     (output_dir / "scenes.json").write_text(json.dumps({"scenes": scene_list, "segments": segments}, indent=2))
     jobs.update_job(job_id, status="awaiting_review", progress_stage="awaiting_scene_review")
+    emails.notify_review_needed(job_id)
 
 
 def resume_after_scene_review(job: dict) -> None:
@@ -480,6 +525,13 @@ def run_job(job: dict) -> None:
         # pause (routes/scene_review.py's submit endpoint).
         if job.get("progress_stage") == "resuming_after_scene_review":
             resume_after_scene_review(job)
+            return
+
+        # And for a research job coming back from the topic-review pause
+        # (routes/topic_review.py). The transcript and confirmed topics are
+        # already on disk, so this is just the compose tail again.
+        if job.get("progress_stage") == "resuming_after_topic_review":
+            _compose_and_finalize(job, output_dir, [], [])
             return
 
         _check_not_cancelled(job_id)
@@ -564,6 +616,7 @@ def run_job(job: dict) -> None:
             output_dir.mkdir(parents=True, exist_ok=True)
             (output_dir / "review.json").write_text(json.dumps({"items": items}, indent=2))
             jobs.update_job(job_id, status="awaiting_review", progress_stage="awaiting_review")
+            emails.notify_review_needed(job_id)
             return
 
         # Nothing to review (no LLM configured, or no candidate frames at

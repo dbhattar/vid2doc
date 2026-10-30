@@ -141,6 +141,16 @@ curl -X POST http://localhost:8000/api/convert_to_doc \
   Billing below) — no free tier exists
 - `413` — file exceeds `MAX_UPLOAD_BYTES`
 
+Optional form fields: `transformation` (`document` | `notes` | `study_guide` |
+`research`) and, for `research` only, `review_topics` (default `false`). With
+`review_topics=true` the job pauses at `status: "awaiting_review"`,
+`progress_stage: "awaiting_topic_review"` after proposing topics;
+`GET /api/jobs/{job_id}/topics` lists them and
+`POST /api/jobs/{job_id}/topics` (`{"topics": [{"topic", "context"}]}`)
+confirms an edited/extended list and resumes the job, so the paid web research
+only runs on topics the user approved. Whenever a job pauses for review (frame,
+scene, or topic review) the user is emailed (`emails.notify_review_needed`).
+
 ### `GET /api/get_status?job_id=...`
 
 ```bash

@@ -25,6 +25,7 @@ def build_job_response(job: dict, request: Request) -> dict:
     if job["job_type"] == "video":
         response["extract_frames"] = job["extract_frames"]
         response["transformation"] = job["transformation"]
+        response["review_topics"] = job["review_topics"]
         # public_consent_refund_cents is the *live preview* amount before opt-in
         # (so the confirmation UI can show a real dollar figure, not a vague
         # percentage) -- once public_refund_cents is set (opt-in has happened),

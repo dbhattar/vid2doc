@@ -237,6 +237,59 @@ def send_job_failed_email(user: dict, job: dict) -> None:
     send_email(user["email"], subject, text, html=html_body)
 
 
+def send_review_needed_email(user: dict, job: dict) -> None:
+    raw_name = user.get("display_name") or user["email"].split("@")[0]
+    name = html.escape(raw_name)
+    raw_title = job.get("title") or "Your job"
+    title = html.escape(raw_title)
+    job_url = f"{settings.FRONTEND_URL}/dashboard/jobs/{job['id']}"
+
+    if job.get("progress_stage") == "awaiting_topic_review":
+        what, cta, action = "topics", "Review topics", "confirm which topics to research"
+        detail = "Research only starts once you've confirmed the topics -- you can edit or remove them, or add your own."
+    elif job.get("job_type") == "video_gen":
+        what, cta, action = "scenes", "Review scenes", "review the scenes"
+        detail = "Rendering only starts once you've checked the scenes and swapped in any better footage."
+    else:
+        what, cta, action = "frames", "Review frames", "choose which frames go in the document"
+        detail = "Your document is written once you've picked which slides, diagrams and tables to keep."
+
+    subject = f'"{raw_title}" needs your review'
+    body_html = f"""\
+                <p style="margin:0 0 12px;font-size:15px;line-height:1.6;color:{_TEXT_MUTED};">
+                  Hi {name}, &ldquo;{title}&rdquo; is paused and waiting for you to {action}.
+                </p>
+                <p style="margin:0 0 20px;font-size:14px;line-height:1.6;color:{_TEXT_MUTED};">{detail}</p>"""
+    html_body = _job_status_email_shell(
+        "Needs your review", f"Your {what} are ready to review", body_html, cta, job_url,
+        "Jobs waiting for review are removed after the retention period, so don't leave it too long.",
+    )
+    text = (
+        f"Hi {raw_name},\n\n\"{raw_title}\" is paused and waiting for you to {action}.\n"
+        f"{detail}\n\nReview it: {job_url}\n\n-- The Framewrite team"
+    )
+    send_email(user["email"], subject, text, html=html_body)
+
+
+def notify_review_needed(job_id: str) -> None:
+    """Best-effort "this job is waiting on you" email -- same contract as
+    notify_job_status_change (skips anonymous jobs, swallows every
+    exception so a broken mail provider can't fail the job). Call right
+    after the jobs.update_job(...) that sets status="awaiting_review"."""
+    from . import jobs, users
+
+    try:
+        job = jobs.get_job(job_id)
+        if not job or not job.get("user_id") or job["status"] != "awaiting_review":
+            return
+        user = users.get_user_by_id(job["user_id"])
+        if not user or not user.get("email"):
+            return
+        send_review_needed_email(user, job)
+    except Exception:
+        logger.exception("Failed to send review-needed email for job %s", job_id)
+
+
 def notify_job_status_change(job_id: str) -> None:
     """Best-effort job-completion/failure email -- skips anonymous jobs
     (user_id IS NULL; nothing creates these anymore since the trial-upload

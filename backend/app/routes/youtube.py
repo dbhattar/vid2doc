@@ -17,6 +17,7 @@ class YoutubeConvertRequest(BaseModel):
     extract_frames: bool = True
     make_public: bool = False
     transformation: str = "document"
+    review_topics: bool = False
 
 
 @router.post("/api/convert_from_youtube", status_code=202)
@@ -91,6 +92,7 @@ def convert_from_youtube(body: YoutubeConvertRequest, current_user: dict = Depen
         job_type="video",
         extract_frames=extract_frames,
         transformation=body.transformation,
+        review_topics=body.review_topics and body.transformation == "research",
         public_upfront=body.make_public,
     )
     return {"job_id": job_id, "status": "queued"}

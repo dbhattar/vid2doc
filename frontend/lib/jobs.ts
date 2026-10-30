@@ -23,6 +23,9 @@ export type Job = {
   // job_type === "video" only -- see backend/app/routes/status.py.
   extract_frames?: boolean;
   transformation?: Transformation;
+  // transformation === "research" only: whether the job pauses for the user
+  // to confirm topics before researching (see backend/app/routes/topic_review.py).
+  review_topics?: boolean;
   document_url?: string;
   document_bundle_url?: string;
   document_docx_url?: string;
@@ -136,6 +139,11 @@ export type ReviewItem = {
   rows?: string[][];
   included: boolean;
 };
+
+/** One topic proposed (or added by the user) during a research job's topic
+ * review pause -- see backend/app/routes/topic_review.py. `context` is what
+ * the video said about it; empty for a topic the user added themselves. */
+export type ResearchTopic = { topic: string; context: string };
 
 /** One scene surfaced during a video_gen job's "awaiting_review" pause --
  * see backend/app/routes/scene_review.py. `candidate_count` stock media

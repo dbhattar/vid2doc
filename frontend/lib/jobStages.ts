@@ -27,6 +27,7 @@ const VIDEO_STAGES: StageDef[] = [
   { key: "awaiting_review", label: "Awaiting your review", flavor: "Your call — pick which frames belong in the document.", awaitingInput: true },
   { key: "extracting_audio", label: "Extracting audio", flavor: "Pulling the audio track for transcription." },
   { key: "transcribing", label: "Transcribing", flavor: "Listening closely and writing down every word." },
+  { key: "awaiting_topic_review", label: "Awaiting your review", flavor: "Your call — confirm which topics get researched.", awaitingInput: true },
   { key: "composing_document", label: "Composing document", flavor: "Organizing the transcript and frames into sections." },
   { key: "researching", label: "Researching", flavor: "Searching the web for background and sources." },
   { key: "rendering_document", label: "Rendering document", flavor: "Laying out the final Markdown, Word, and PDF." },
@@ -50,6 +51,14 @@ const VIDEO_GEN_STAGES: StageDef[] = [
   { key: "assembling_video", label: "Assembling video", flavor: "Stitching every scene into the final video." },
 ];
 
+/** Like getStagesForJobType, but drops the topic-review pause for jobs that
+ * can never reach it (anything but a research job that opted into review). */
+export function getStagesForJob(job: Job): StageDef[] {
+  const stages = getStagesForJobType(job.job_type);
+  if (job.transformation === "research" && job.review_topics) return stages;
+  return stages.filter((s) => s.key !== "awaiting_topic_review");
+}
+
 export function getStagesForJobType(jobType: JobType): StageDef[] {
   if (jobType === "audio") return AUDIO_STAGES;
   if (jobType === "video_gen") return VIDEO_GEN_STAGES;
@@ -68,7 +77,7 @@ function getCurrentStageIndex(stages: StageDef[], job: Job): number {
 /** The one place all per-row status branching happens -- ProgressBar and
  * ProgressStepper only render this, they never re-derive it. */
 export function getStageStatuses(job: Job): { stage: StageDef; status: StageStatus }[] {
-  const stages = getStagesForJobType(job.job_type);
+  const stages = getStagesForJob(job);
   const currentIndex = getCurrentStageIndex(stages, job);
 
   return stages.map((stage, i) => {
