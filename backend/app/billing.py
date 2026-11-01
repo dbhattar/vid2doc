@@ -9,28 +9,8 @@ from .db import get_session
 from .models import ProcessedWebhookEvent, User, WalletLedgerEntry
 from .stripe_client import stripe
 
-# $1.00/video-hour, charged proportionally to the exact video length --
-# 36 seconds of video costs exactly 1 cent. No plans/tiers.
-SECONDS_PER_CENT = 36
-# $0.40/hour for audio-only transcript jobs (job_type == "audio") -- these
-# skip the frame capture, vision-classification, and full document
-# composition that make up most of a video job's cost (one summary LLM
-# call still happens, see pipeline.py/compose.generate_summary), so they're
-# priced lower to match.
-SECONDS_PER_CENT_AUDIO = 90
-# 3 cents/minute ($1.80/video-hour) for generated video (job_type ==
-# "video_gen") -- higher than the plain video rate because ffmpeg rendering
-# is real CPU-seconds on the shared worker (not just 3rd-party API cost like
-# the other two rates), plus the extra LLM calls for scene segmentation and
-# headline generation.
-SECONDS_PER_CENT_VIDEO_GEN = 20
-# $2.00/hour for the "research" transformation -- on top of the usual
-# transcribe + compose cost, each job runs several OpenAI web-search calls.
-SECONDS_PER_CENT_RESEARCH = 18
-# $1.00/hour for a meeting captured by the Zoom/Meet/Teams bot (see
-# routes/meetings.py) -- the job itself is job_type "audio", but the vendor's
-# per-hour bot fee makes the plain audio rate a loss.
-SECONDS_PER_CENT_MEETING = 36
+# Per-job-type rates (seconds of media per cent) live in config.py so an admin
+# can change them live -- see tunables.py.
 
 
 class InsufficientBalanceError(Exception):
@@ -43,15 +23,15 @@ class InsufficientBalanceError(Exception):
 def cost_for_duration_cents(duration_seconds: float, job_type: str = "video") -> int:
     """Rounds up to the next cent -- never rounds in the platform's favor."""
     if job_type == "audio":
-        rate = SECONDS_PER_CENT_AUDIO
+        rate = settings.SECONDS_PER_CENT_AUDIO
     elif job_type == "video_gen":
-        rate = SECONDS_PER_CENT_VIDEO_GEN
+        rate = settings.SECONDS_PER_CENT_VIDEO_GEN
     elif job_type == "research":
-        rate = SECONDS_PER_CENT_RESEARCH
+        rate = settings.SECONDS_PER_CENT_RESEARCH
     elif job_type == "meeting":
-        rate = SECONDS_PER_CENT_MEETING
+        rate = settings.SECONDS_PER_CENT_MEETING
     else:
-        rate = SECONDS_PER_CENT
+        rate = settings.SECONDS_PER_CENT_VIDEO
     return math.ceil(duration_seconds / rate)
 
 
@@ -248,7 +228,7 @@ def grant_signup_bonus(user_id: str) -> int:
     trial upload (routes/trial.py, removed) as the "try it before paying"
     path. Computed via cost_for_duration_cents rather than a hardcoded cent
     value, so it stays "N minutes of video, at whatever today's rate is"
-    even if SECONDS_PER_CENT changes later. Not job-type-locked: the wallet
+    even if SECONDS_PER_CENT_VIDEO changes later. Not job-type-locked: the wallet
     is one fungible balance, so this can just as well be spent on audio or
     video_gen, proportional to that job type's rate. Returns the amount
     granted, in cents. A separate entry_type from "topup" (real money) --

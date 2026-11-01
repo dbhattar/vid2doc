@@ -457,13 +457,17 @@ class AnnouncementDelivery(Base):
 
 
 class AppSetting(Base):
-    """Tiny key/value store for admin-toggled global settings (see
-    feature_flags.py)."""
+    """Tiny key/value store for admin-toggled global settings: feature flags
+    (feature_flags.py) and, under "setting:<NAME>" keys, the runtime-tunable
+    settings (tunables.py / runtime_config.py)."""
 
     __tablename__ = "app_settings"
 
     key: Mapped[str] = mapped_column(String, primary_key=True)
     value: Mapped[str] = mapped_column(String, nullable=False)
+    # Only set for the tunable settings an admin edits (runtime_config.py).
+    updated_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    updated_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=True)
 
 
 class FeatureRequest(Base):

@@ -3,7 +3,7 @@ import uuid
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
-from .. import activity, announcements, billing, emails, feature_flags, feature_requests, feedback, jobs, public_jobs, users
+from .. import activity, announcements, billing, emails, feature_flags, feature_requests, feedback, jobs, public_jobs, runtime_config, tunables, users
 from ..config import settings
 from ..deps import get_current_admin_user
 from .public_jobs import _build_showcase_response
@@ -176,6 +176,36 @@ def get_admin_features(current_user: dict = Depends(get_current_admin_user)):
 def set_meetings_public(body: SetMeetingsRequest, current_user: dict = Depends(get_current_admin_user)):
     feature_flags.set_flag(feature_flags.MEETINGS_PUBLIC_KEY, body.enabled)
     return {"meetings_public": body.enabled}
+
+
+@router.get("/api/admin/settings")
+def list_admin_settings(current_user: dict = Depends(get_current_admin_user)):
+    return {"groups": list(tunables.GROUPS), "settings": runtime_config.describe()}
+
+
+class SetSettingRequest(BaseModel):
+    # Typed by the setting itself (number, bool, text) -- validated against its
+    # registry entry, not here.
+    value: float | int | bool | str
+
+
+@router.put("/api/admin/settings/{name}")
+def set_admin_setting(name: str, body: SetSettingRequest, current_user: dict = Depends(get_current_admin_user)):
+    if name not in tunables.BY_NAME:
+        raise HTTPException(status_code=404, detail="Unknown setting")
+    try:
+        runtime_config.set_value(name, body.value, str(current_user["id"]))
+    except tunables.InvalidValue as e:
+        raise HTTPException(status_code=400, detail=str(e))
+    return next(s for s in runtime_config.describe() if s["name"] == name)
+
+
+@router.delete("/api/admin/settings/{name}")
+def reset_admin_setting(name: str, current_user: dict = Depends(get_current_admin_user)):
+    if name not in tunables.BY_NAME:
+        raise HTTPException(status_code=404, detail="Unknown setting")
+    runtime_config.reset(name, str(current_user["id"]))
+    return next(s for s in runtime_config.describe() if s["name"] == name)
 
 
 @router.get("/api/admin/public-jobs")

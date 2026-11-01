@@ -1,8 +1,21 @@
 import os
 from pathlib import Path
 
+from .tunables import NAMES as _TUNABLE_NAMES
+
 
 class Settings:
+    def __getattribute__(self, name):
+        """Names registered in tunables.py resolve through an admin-set
+        override (runtime_config.py) when there is one; the env var / default
+        below is the fallback. Everything else is a plain attribute read."""
+        value = object.__getattribute__(self, name)
+        if name in _TUNABLE_NAMES:
+            from . import runtime_config
+
+            return runtime_config.get(name, value)
+        return value
+
     # Verifies the ID token the frontend gets from Google Identity Services.
     GOOGLE_CLIENT_ID = os.environ.get("GOOGLE_CLIENT_ID", "")
     # OAuth2 web client secret -- needed for the server-side auth-code
@@ -39,7 +52,7 @@ class Settings:
     # One-time wallet credit granted on first signup (see billing.grant_signup_bonus,
     # routes/auth.py) -- replaces the old anonymous trial upload. Expressed as
     # minutes of video (not a cent amount) so it stays "N minutes of video, at
-    # today's rate" even if billing.SECONDS_PER_CENT changes later.
+    # today's rate" even if SECONDS_PER_CENT_VIDEO changes later.
     SIGNUP_BONUS_VIDEO_MINUTES = int(os.environ.get("SIGNUP_BONUS_VIDEO_MINUTES", 10))
 
     # Meeting bot (Zoom/Meet/Teams) via Recall.ai -- see routes/meetings.py and
@@ -61,6 +74,31 @@ class Settings:
     # long (review_reminders.py); the sweep runs every CHECK_SECONDS.
     REVIEW_REMINDER_AFTER_HOURS = float(os.environ.get("REVIEW_REMINDER_AFTER_HOURS", 24))
     REVIEW_REMINDER_CHECK_SECONDS = int(os.environ.get("REVIEW_REMINDER_CHECK_SECONDS", 15 * 60))
+
+    # Audio jobs try to name speakers from what they say (stages/speaker_ids.py;
+    # one extra LLM call per job with 2+ speakers). Set to "false" to skip it.
+    SPEAKER_AUTO_ID_ENABLED = os.environ.get("SPEAKER_AUTO_ID_ENABLED", "true").strip().lower() != "false"
+
+    # Prices, as seconds of media per cent charged (so 36 = $1.00/hour and a
+    # bigger number is cheaper) -- see billing.cost_for_duration_cents. Video
+    # is charged proportionally to its exact length, no plans or tiers.
+    SECONDS_PER_CENT_VIDEO = int(os.environ.get("SECONDS_PER_CENT_VIDEO", 36))
+    # Audio-only transcript jobs skip frame capture, vision classification and
+    # full composition, so they're priced lower (90 = $0.40/hour).
+    SECONDS_PER_CENT_AUDIO = int(os.environ.get("SECONDS_PER_CENT_AUDIO", 90))
+    # Generated video: ffmpeg rendering is real CPU on the shared worker, plus
+    # extra LLM calls for scene segmentation and headlines (20 = $1.80/hour).
+    SECONDS_PER_CENT_VIDEO_GEN = int(os.environ.get("SECONDS_PER_CENT_VIDEO_GEN", 20))
+    # The "research" transformation adds several OpenAI web-search calls per job
+    # (18 = $2.00/hour).
+    SECONDS_PER_CENT_RESEARCH = int(os.environ.get("SECONDS_PER_CENT_RESEARCH", 18))
+    # A captured meeting is job_type "audio", but the vendor's per-hour bot fee
+    # makes the plain audio rate a loss (36 = $1.00/hour).
+    SECONDS_PER_CENT_MEETING = int(os.environ.get("SECONDS_PER_CENT_MEETING", 36))
+
+    # Lowest confidence at which a speaker name found in the transcript text is
+    # filled in automatically (stages/speaker_ids.py): "high" or "medium".
+    SPEAKER_AUTO_ID_APPLY_CONFIDENCE = os.environ.get("SPEAKER_AUTO_ID_APPLY_CONFIDENCE", "high").strip().lower()
 
     # Stripe: wallet top-up checkout + webhooks (see app/stripe_client.py, app/billing.py).
     # No fixed Price ids -- top-up amount is user-chosen, passed as Checkout

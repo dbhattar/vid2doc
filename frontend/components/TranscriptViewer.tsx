@@ -98,22 +98,45 @@ export default function TranscriptViewer({ jobId }: { jobId: string }) {
       )}
 
       <div className="mt-4 flex flex-wrap items-center gap-3">
-        {data.speakers.map((speaker, i) => (
-          <div key={speaker} className="flex items-center gap-2">
-            <span
-              className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${colorFor(i).avatar}`}
-            >
-              {initials(displayName(speaker))}
-            </span>
-            <input
-              type="text"
-              value={names[speaker] ?? ""}
-              placeholder={speaker}
-              onChange={(e) => setNames((prev) => ({ ...prev, [speaker]: e.target.value }))}
-              className="w-32 rounded-md border border-line bg-paper px-2 py-1 text-sm outline-none transition-shadow focus:border-accent focus:ring-2 focus:ring-accent-soft"
-            />
-          </div>
-        ))}
+        {data.speakers.map((speaker, i) => {
+          const hint = data.speaker_hints?.[speaker];
+          const current = (names[speaker] ?? "").trim();
+          return (
+            <div key={speaker} className="flex items-center gap-2">
+              <span
+                className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${colorFor(i).avatar}`}
+              >
+                {initials(displayName(speaker))}
+              </span>
+              <div>
+                <input
+                  type="text"
+                  value={names[speaker] ?? ""}
+                  placeholder={speaker}
+                  onChange={(e) => setNames((prev) => ({ ...prev, [speaker]: e.target.value }))}
+                  className="w-32 rounded-md border border-line bg-paper px-2 py-1 text-sm outline-none transition-shadow focus:border-accent focus:ring-2 focus:ring-accent-soft"
+                />
+                {hint?.applied && current === hint.name && (
+                  <p className="mt-0.5 text-[11px] text-ink-soft" title={hint.evidence ? `From the transcript: ${hint.evidence}` : undefined}>
+                    Identified from the transcript
+                  </p>
+                )}
+                {hint && !hint.applied && !current && (
+                  <p className="mt-0.5 text-[11px] text-ink-soft" title={hint.evidence ? `From the transcript: ${hint.evidence}` : undefined}>
+                    Looks like {hint.name}?{" "}
+                    <button
+                      type="button"
+                      onClick={() => setNames((prev) => ({ ...prev, [speaker]: hint.name }))}
+                      className="font-medium text-accent hover:underline"
+                    >
+                      Use
+                    </button>
+                  </p>
+                )}
+              </div>
+            </div>
+          );
+        })}
         <Button onClick={handleSaveNames} disabled={saving}>
           {saving ? "Saving..." : "Save names"}
         </Button>

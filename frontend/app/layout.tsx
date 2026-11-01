@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Bricolage_Grotesque, IBM_Plex_Mono, Inter } from "next/font/google";
+import localFont from "next/font/local";
 import Script from "next/script";
 
 import GoogleAnalytics from "@/components/GoogleAnalytics";
@@ -13,22 +13,34 @@ import "./globals.css";
 // project's base.css: Cabinet Grotesk, the plan's original pick, isn't
 // cleanly self-hostable). Inter is new (body/UI text, replacing the plain
 // system-sans stack); IBM Plex Mono stays for genuinely monospace content.
-const displayFont = Bricolage_Grotesque({
+//
+// Self-hosted (app/fonts/, latin subset) rather than next/font/google: the
+// Google loader fetches from fonts.googleapis.com at build time, and Docker
+// builds (production and local) repeatedly failed on it with Turbopack's
+// "next/font/google queries have exactly one entry" -- a build shouldn't
+// depend on that network call.
+const displayFont = localFont({
   variable: "--font-display-sans",
-  weight: ["700", "800"],
-  subsets: ["latin"],
+  src: "./fonts/bricolage-grotesque-latin-wght-normal.woff2",
+  weight: "200 800",
+  display: "swap",
 });
 
-const inter = Inter({
+const inter = localFont({
   variable: "--font-inter",
-  weight: ["400", "500", "600"],
-  subsets: ["latin"],
+  src: "./fonts/inter-latin-wght-normal.woff2",
+  weight: "100 900",
+  display: "swap",
 });
 
-const plexMono = IBM_Plex_Mono({
+const plexMono = localFont({
   variable: "--font-plex-mono",
-  weight: ["400", "500", "600"],
-  subsets: ["latin"],
+  src: [
+    { path: "./fonts/ibm-plex-mono-latin-400-normal.woff2", weight: "400", style: "normal" },
+    { path: "./fonts/ibm-plex-mono-latin-500-normal.woff2", weight: "500", style: "normal" },
+    { path: "./fonts/ibm-plex-mono-latin-600-normal.woff2", weight: "600", style: "normal" },
+  ],
+  display: "swap",
 });
 
 export const metadata: Metadata = {

@@ -153,6 +153,32 @@ scene, or topic review) the user is emailed (`emails.notify_review_needed`), and
 reminded once if it is still waiting a day later (`review_reminders.py`, a worker
 thread; `REVIEW_REMINDER_AFTER_HOURS`).
 
+### Runtime settings (admin Settings page)
+
+Operational settings -- per-type prices, upload/duration limits, feature
+switches, meeting and reminder timings, LLM provider/model, worker intervals --
+can be changed live from **Admin → Settings** (`/admin/settings`) instead of
+env vars and a redeploy. The allowed settings and their bounds are the registry
+in `app/tunables.py` (no secrets, nothing infrastructural). Overrides are stored
+in `app_settings` under `setting:<NAME>` (with who/when), and `config.Settings`
+resolves those names through `runtime_config.get`, so existing `settings.X`
+reads see them with no call-site changes; each process re-reads the DB at most
+every 10 seconds. A setting nobody has changed uses its env var / code default,
+and Reset on the page returns to it. To make another setting tunable, add a
+`Param` to `tunables.py` (and give it an env/default attribute on `Settings`).
+
+### Speaker identification from the transcript
+
+Audio jobs (uploads, live recordings, meetings) with 2+ speakers get one extra
+LLM call (`stages/speaker_ids.py`, stage `identifying_speakers`) that reads the
+diarized transcript for self-introductions, roll calls and "thank you, Chair
+Smith"-style hand-offs. High-confidence names are filled into `speaker_names`
+automatically; medium-confidence ones are kept in `transcript.json`'s
+`speaker_hints` and offered as one-click suggestions in the viewer; the quote
+each relied on is stored alongside. Meeting notes are written against the
+identified names. Failures are soft (you just get "Speaker N"), and
+`SPEAKER_AUTO_ID_ENABLED=false` turns it off. Users can still rename any speaker.
+
 ### Meeting notetaker (`/api/meetings`)
 
 `POST /api/meetings` (`{"url", "title"?, "start_time"?}`; with a timezone-aware `start_time` more than ~2 minutes ahead (max 30 days) the bot is booked at Recall with `join_at` and the meeting sits at `scheduled` until then) sends a [Recall.ai](https://recall.ai)
@@ -317,6 +343,9 @@ docker compose up --build
 | `STRIPE_WEBHOOK_SECRET` | Verifies `POST /api/billing/webhook` signatures — from `stripe listen` locally, or the dashboard's webhook config in prod |
 | `RECALL_API_KEY` / `RECALL_API_BASE` | Recall.ai API key and regional host (default `https://us-east-1.recall.ai`; must match your account's region) for the meeting notetaker (`/api/meetings`, see above) |
 | `RECALL_WEBHOOK_SECRET` | `whsec_...` signing secret of the Recall webhook pointed at `POST /api/meetings/webhook` |
+| `SPEAKER_AUTO_ID_APPLY_CONFIDENCE` | `high` (default) or `medium`: lowest confidence at which a name found in the transcript is applied automatically |
+| `SECONDS_PER_CENT_VIDEO` / `_AUDIO` / `_VIDEO_GEN` / `_RESEARCH` / `_MEETING` | Prices as seconds of media per cent (36 = $1.00/hour; defaults 36 / 90 / 20 / 18 / 36) |
+| `SPEAKER_AUTO_ID_ENABLED` | `false` skips naming speakers from the transcript text (one extra LLM call per audio job with 2+ speakers; default on) |
 | `REVIEW_REMINDER_AFTER_HOURS` / `REVIEW_REMINDER_CHECK_SECONDS` | How long a job may wait for the user's review before the one reminder email (default 24h), and how often the worker checks (default 15 min) |
 | `MEETING_BOT_NAME` / `MEETING_MAX_SECONDS` | Name the notetaker joins under, and how long it records before leaving (default 2h). Admins enable the feature per user or for everyone from the admin dashboard |
 | `FRONTEND_URL` | Where Stripe Checkout redirects back to after a session |

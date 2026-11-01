@@ -5,7 +5,7 @@ from pathlib import Path
 from . import billing, emails, jobs, meetings, public_jobs, users, youtube
 from .config import settings
 from .exceptions import PipelineError
-from .stages import assemble, assemble_video, audio, classify, compose, frames, highlights, meeting_notes, render_scene, scenes, stock_media, transcribe, transform
+from .stages import assemble, assemble_video, audio, classify, compose, frames, highlights, meeting_notes, render_scene, scenes, speaker_ids, stock_media, transcribe, transform
 
 
 class JobCancelled(Exception):
@@ -162,6 +162,25 @@ def _build_audio_sections(
     sections.extend(notes_sections or [])
     sections.extend(_verbatim_transcript_sections(segments, speaker_names))
     return sections
+
+
+def _identify_speakers(job_id: str, segments: list[dict], speakers: list[str]) -> tuple[dict[str, str], dict[str, dict]]:
+    """(names to apply, hints to persist) from what the speakers say -- see
+    stages/speaker_ids.py. Soft-fails to ("no names", "no hints"): the
+    transcript is the product, and "Speaker N" plus the rename UI is exactly
+    what the user had before this existed."""
+    if len(speakers) < 2 or not settings.SPEAKER_AUTO_ID_ENABLED or not _llm_available():
+        return {}, {}
+    # Outside the try on purpose -- must never swallow a JobCancelled.
+    _check_not_cancelled(job_id)
+    jobs.update_job(job_id, progress_stage="identifying_speakers")
+    try:
+        return speaker_ids.split_for_use(
+            speaker_ids.identify(segments, speakers), settings.SPEAKER_AUTO_ID_APPLY_CONFIDENCE
+        )
+    except Exception as e:
+        print(f"Speaker identification failed for job {job_id}: {e}", flush=True)
+        return {}, {}
 
 
 def _build_meeting_notes(job_id: str, segments: list[dict]) -> list[dict]:
@@ -585,14 +604,21 @@ def run_job(job: dict) -> None:
             meeting = meetings.get_meeting_by_job_id(job_id)
             normalized_speakers = _normalize_speaker_labels(segments)
             segments = _merge_consecutive_same_speaker(segments)
-            speaker_names: dict[str, str] = {}
-            notes_sections = _build_meeting_notes(job_id, segments) if meeting else []
+            speaker_names, speaker_hints = _identify_speakers(job_id, segments, normalized_speakers)
+            # The notes are written against real names where we have them, so
+            # action-item owners read "Jane Doe", not "Speaker 2".
+            named_segments = [{**s, "speaker": speaker_names.get(s["speaker"], s["speaker"])} for s in segments]
+            notes_sections = _build_meeting_notes(job_id, named_segments) if meeting else []
             summary = ""
             sections = _build_audio_sections(segments, summary, speaker_names, notes_sections)
             title = job.get("title") or "Audio Transcript"
             transcript_json = json.dumps({
                 "speakers": normalized_speakers,
                 "speaker_names": speaker_names,
+                # What the transcript said about each speaker's identity (name,
+                # confidence, supporting quote, whether it was applied) --
+                # lets the viewer show the evidence or offer a suggestion.
+                "speaker_hints": speaker_hints,
                 "summary": summary,
                 "notes_sections": notes_sections,
                 "segments": segments,

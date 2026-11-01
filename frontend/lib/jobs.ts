@@ -161,9 +161,15 @@ export type SceneReviewItem = {
 
 export type TranscriptSegment = { speaker: string; text: string; start_ts: number; end_ts: number };
 
+/** What the transcript text said about who a speaker is (backend/app/stages/speaker_ids.py).
+ * `applied` hints were filled into speaker_names automatically (high confidence);
+ * the rest are offered as suggestions. Absent on transcripts from before this existed. */
+export type SpeakerHint = { name: string; confidence: "high" | "medium"; evidence: string; applied: boolean };
+
 export type TranscriptData = {
   speakers: string[];
   speaker_names: Record<string, string>;
+  speaker_hints?: Record<string, SpeakerHint>;
   summary: string;
   segments: TranscriptSegment[];
 };
