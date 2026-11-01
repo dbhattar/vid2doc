@@ -17,6 +17,7 @@ def _user_to_dict(user: User) -> dict:
         "stripe_customer_id": user.stripe_customer_id,
         "is_admin": user.is_admin,
         "announcements_opt_out": user.announcements_opt_out,
+        "meetings_enabled": user.meetings_enabled,
         "created_at": user.created_at,
     }
 
@@ -63,6 +64,24 @@ def set_admin_status(user_id: str | uuid.UUID, is_admin: bool) -> dict | None:
         if not user:
             return None
         user.is_admin = is_admin
+        session.commit()
+        return _user_to_dict(user)
+    finally:
+        session.close()
+
+
+def set_meetings_enabled(user_id: str | uuid.UUID, enabled: bool) -> dict | None:
+    if isinstance(user_id, str):
+        try:
+            user_id = uuid.UUID(user_id)
+        except ValueError:
+            return None
+    session = get_session()
+    try:
+        user = session.get(User, user_id)
+        if not user:
+            return None
+        user.meetings_enabled = enabled
         session.commit()
         return _user_to_dict(user)
     finally:

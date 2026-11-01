@@ -3,7 +3,7 @@ from google.auth.transport import requests as google_requests
 from google.oauth2 import id_token as google_id_token
 from pydantic import BaseModel
 
-from .. import billing, emails, tokens, users
+from .. import billing, emails, feature_flags, tokens, users
 from ..config import settings
 from ..deps import get_current_user
 
@@ -44,4 +44,4 @@ def login_with_google(body: GoogleLoginRequest, background_tasks: BackgroundTask
 
 @router.get("/api/auth/me")
 def get_me(current_user: dict = Depends(get_current_user)):
-    return current_user
+    return {**current_user, "features": {"meetings": feature_flags.meetings_available_for(current_user)}}

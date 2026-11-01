@@ -290,6 +290,53 @@ def notify_review_needed(job_id: str) -> None:
         logger.exception("Failed to send review-needed email for job %s", job_id)
 
 
+def notify_meeting_issue(meeting_id: str, kind: str, detail: str | None = None) -> None:
+    """Best-effort email for a meeting that can't become a document on its
+    own: kind "payment" (wallet too low when the meeting ended -- detail is
+    the cost) or "failed" (detail is a user-safe reason). Same contract as
+    the other notify_* functions: never raises."""
+    from . import meetings, users
+
+    try:
+        meeting = meetings.get_meeting(meeting_id)
+        if not meeting:
+            return
+        user = users.get_user_by_id(meeting["user_id"])
+        if not user or not user.get("email"):
+            return
+        raw_name = user.get("display_name") or user["email"].split("@")[0]
+        name = html.escape(raw_name)
+        raw_title = meeting.get("title") or "Your meeting"
+        title = html.escape(raw_title)
+        if kind == "payment":
+            subject = f'Add funds to get the notes for "{raw_title}"'
+            eyebrow, heading, cta = "Action needed", "Your meeting notes are waiting", "Add funds"
+            cta_url = f"{settings.FRONTEND_URL}/settings/billing"
+            message = (
+                f"The notetaker captured &ldquo;{title}&rdquo;, but your wallet was too low to process it "
+                f"({html.escape(detail or '')} needed). Add funds, then open Meetings and choose Process."
+            )
+            text_message = (
+                f"The notetaker captured \"{raw_title}\", but your wallet was too low to process it "
+                f"({detail} needed). Add funds, then open Meetings and choose Process."
+            )
+        else:
+            subject = f'The notetaker couldn\'t record "{raw_title}"'
+            eyebrow, heading, cta = "Failed", "We couldn't record that meeting", "View meetings"
+            cta_url = f"{settings.FRONTEND_URL}/meetings"
+            message = f"{html.escape(detail or 'Something went wrong.')} You haven't been charged."
+            text_message = f"{detail or 'Something went wrong.'} You haven't been charged."
+        body_html = f"""\
+                <p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:{_TEXT_MUTED};">
+                  Hi {name}, {message}
+                </p>"""
+        html_body = _job_status_email_shell(eyebrow, heading, body_html, cta, cta_url, "Pay-as-you-go, no subscription.")
+        text = f"Hi {raw_name},\n\n{text_message}\n\n{cta_url}\n\n-- The Framewrite team"
+        send_email(user["email"], subject, text, html=html_body)
+    except Exception:
+        logger.exception("Failed to send meeting-issue email for meeting %s", meeting_id)
+
+
 def notify_job_status_change(job_id: str) -> None:
     """Best-effort job-completion/failure email -- skips anonymous jobs
     (user_id IS NULL; nothing creates these anymore since the trial-upload

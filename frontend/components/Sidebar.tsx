@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect } from "react";
 
-import { BillingIcon, BotIcon, ChevronIcon, CloseIcon, DashboardIcon, DocumentIcon, DriveIcon, KeyIcon, LiveIcon, MicrophoneIcon, ShieldIcon, VideoCameraIcon, WalletIcon } from "@/components/icons";
+import { BillingIcon, BotIcon, ChevronIcon, CloseIcon, DashboardIcon, DocumentIcon, DriveIcon, KeyIcon, LiveIcon, MicrophoneIcon, ShieldIcon, UsersIcon, VideoCameraIcon, WalletIcon } from "@/components/icons";
 import ThemeToggle from "@/components/ThemeToggle";
 import UserMenu from "@/components/UserMenu";
 import type { CurrentUser } from "@/lib/auth";
@@ -21,6 +21,9 @@ const PRIMARY_NAV_LINKS = [
   { href: "/documents", label: "Documents", Icon: DocumentIcon },
   { href: "/agents", label: "Agents", Icon: BotIcon },
 ];
+
+// Gated behind an admin-controlled feature flag (see backend feature_flags.py).
+const MEETINGS_NAV_LINK = { href: "/meetings", label: "Meetings", Icon: UsersIcon };
 
 const SETTINGS_NAV_LINKS = [
   { href: "/settings/api-keys", label: "API keys", Icon: KeyIcon },
@@ -78,6 +81,9 @@ export default function Sidebar({
   balanceCents: number | null;
 }) {
   const pathname = usePathname();
+  const primaryLinks = user?.features?.meetings
+    ? [...PRIMARY_NAV_LINKS.slice(0, 4), MEETINGS_NAV_LINK, ...PRIMARY_NAV_LINKS.slice(4)]
+    : PRIMARY_NAV_LINKS;
   // "/dashboard" itself is exact-match only -- otherwise it'd also light up
   // for "/dashboard/video" etc., which have their own nav entries now.
   const isActive = (href: string) =>
@@ -129,7 +135,7 @@ export default function Sidebar({
             actually shrink/scroll on its own overflow without it. */}
         <nav className="min-h-0 flex-1 overflow-y-auto px-3 py-2">
           <div className="flex flex-col gap-1">
-            {PRIMARY_NAV_LINKS.map((link) => (
+            {primaryLinks.map((link) => (
               <NavLink key={link.href} {...link} collapsed={collapsed} active={isActive(link.href)} onNavigate={onMobileClose} />
             ))}
           </div>

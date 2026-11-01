@@ -44,6 +44,9 @@ class User(Base):
     # app/announcements.py). Only gates announcements -- never job/billing
     # emails, which are transactional.
     announcements_opt_out: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # Per-user early access to the meeting notetaker (see feature_flags.py);
+    # irrelevant once the global "meetings_public" setting is on.
+    meetings_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     api_keys: Mapped[list["ApiKey"]] = relationship(back_populates="user")
@@ -271,6 +274,34 @@ class GoogleDriveConnection(Base):
     )
 
 
+class Meeting(Base):
+    """A Zoom/Meet/Teams meeting a notetaker bot was sent to (routes/meetings.py).
+    Once the vendor reports the recording done, we create a normal audio job
+    (job_id) from the vendor's transcript -- the job then carries everything
+    else (billing, document, email)."""
+
+    __tablename__ = "meetings"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True
+    )
+    platform: Mapped[str] = mapped_column(String, nullable=False)  # zoom|meet|teams
+    meeting_url: Mapped[str] = mapped_column(String, nullable=False)
+    vendor_bot_id: Mapped[str | None] = mapped_column(String, unique=True, nullable=True, index=True)
+    # joining|recording|processing|done|failed|cancelled|awaiting_payment --
+    # "done" means the transcript was captured and handed to job_id, not that
+    # the job itself has finished.
+    status: Mapped[str] = mapped_column(String, nullable=False, default="joining")
+    title: Mapped[str | None] = mapped_column(String, nullable=True)
+    job_id: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
 class Feedback(Base):
     """Freeform feedback/feature requests -- from the app's feedback button
     (source="app", user_id set) or the marketing site's public widget
@@ -415,3 +446,13 @@ class AnnouncementDelivery(Base):
     claimed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class AppSetting(Base):
+    """Tiny key/value store for admin-toggled global settings (see
+    feature_flags.py)."""
+
+    __tablename__ = "app_settings"
+
+    key: Mapped[str] = mapped_column(String, primary_key=True)
+    value: Mapped[str] = mapped_column(String, nullable=False)

@@ -6,6 +6,9 @@ export type CurrentUser = {
   stripe_customer_id: string | null;
   is_admin: boolean;
   created_at: string;
+  // Only present on /api/auth/me (not the login response); the sidebar
+  // treats a missing value as "off" until the layout refetches.
+  features?: { meetings: boolean };
 };
 
 const TOKEN_KEY = "framewrite_token";

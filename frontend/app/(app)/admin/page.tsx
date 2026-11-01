@@ -26,6 +26,7 @@ type AdminUser = {
   email: string;
   display_name: string | null;
   is_admin: boolean;
+  meetings_enabled: boolean;
   created_at: string;
   spent_cents: number;
   job_count: number;
@@ -81,6 +82,8 @@ export default function AdminPage() {
   const router = useRouter();
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [users, setUsers] = useState<AdminUser[] | null>(null);
+  const [features, setFeatures] = useState<{ meetings_public: boolean; meetings_configured: boolean } | null>(null);
+  const [featureBusy, setFeatureBusy] = useState(false);
   const [feedback, setFeedback] = useState<AdminFeedback[] | null>(null);
   const [activity, setActivity] = useState<AdminActivityEvent[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -106,6 +109,11 @@ export default function AdminPage() {
       .catch(() => {
         // Non-critical for the stats cards above to render.
       });
+    apiFetch<{ meetings_public: boolean; meetings_configured: boolean }>("/api/admin/features")
+      .then(setFeatures)
+      .catch(() => {
+        // Non-critical, same as the user list.
+      });
     apiFetch<{ feedback: AdminFeedback[] }>("/api/admin/feedback")
       .then((data) => setFeedback(data.feedback))
       .catch(() => {
@@ -122,6 +130,37 @@ export default function AdminPage() {
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  async function handleToggleMeetingsPublic() {
+    if (!features) return;
+    const next = !features.meetings_public;
+    if (!confirm(next ? "Make Meetings available to all users?" : "Limit Meetings to admins and enabled users?")) return;
+    setFeatureBusy(true);
+    try {
+      await apiFetch("/api/admin/features/meetings", { method: "POST", body: JSON.stringify({ enabled: next }) });
+      setFeatures({ ...features, meetings_public: next });
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Failed to update Meetings availability.");
+    } finally {
+      setFeatureBusy(false);
+    }
+  }
+
+  async function handleToggleMeetings(user: AdminUser) {
+    const next = !user.meetings_enabled;
+    setTogglingId(user.id);
+    try {
+      await apiFetch(`/api/admin/users/${user.id}/meetings`, {
+        method: "POST",
+        body: JSON.stringify({ enabled: next }),
+      });
+      setUsers((prev) => prev?.map((u) => (u.id === user.id ? { ...u, meetings_enabled: next } : u)) ?? null);
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Failed to update Meetings access.");
+    } finally {
+      setTogglingId(null);
+    }
+  }
 
   async function handleToggleAdmin(user: AdminUser) {
     const next = !user.is_admin;
@@ -230,6 +269,30 @@ export default function AdminPage() {
         </>
       )}
 
+      <h2 className="mt-8 font-sans text-sm font-semibold text-ink-soft">Features</h2>
+      <Card className="mt-2 flex items-center justify-between gap-4 p-4">
+        <div>
+          <p className="text-sm font-medium text-ink">Meetings (notetaker bot)</p>
+          <p className="mt-0.5 text-xs text-ink-soft">
+            {features?.meetings_public
+              ? "Available to all users."
+              : "Visible only to admins and users enabled below."}
+            {features && !features.meetings_configured && " RECALL_API_KEY isn't set, so it won't work for anyone yet."}
+          </p>
+        </div>
+        <button
+          onClick={handleToggleMeetingsPublic}
+          disabled={!features || featureBusy}
+          className={`shrink-0 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors disabled:cursor-default disabled:opacity-50 ${
+            features?.meetings_public
+              ? "border-accent bg-accent-soft text-accent hover:bg-accent/20"
+              : "border-line text-ink-soft hover:bg-paper-shade hover:text-ink"
+          }`}
+        >
+          {features?.meetings_public ? "Generally available" : "Make generally available"}
+        </button>
+      </Card>
+
       <h2 className="mt-8 font-sans text-sm font-semibold text-ink-soft">All users</h2>
       {users === null ? (
         <p className="mt-2 text-sm text-ink-soft">Loading...</p>
@@ -242,6 +305,7 @@ export default function AdminPage() {
                 <th className="px-4 py-3 font-semibold">Joined</th>
                 <th className="px-4 py-3 font-semibold">Jobs</th>
                 <th className="px-4 py-3 font-semibold">Spent</th>
+                <th className="px-4 py-3 font-semibold">Meetings</th>
                 <th className="px-4 py-3 font-semibold">Admin</th>
               </tr>
             </thead>
@@ -257,6 +321,19 @@ export default function AdminPage() {
                   <td className="px-4 py-3 text-ink-soft">{new Date(u.created_at).toLocaleDateString()}</td>
                   <td className="px-4 py-3 text-ink-soft">{u.job_count}</td>
                   <td className="px-4 py-3 text-ink-soft">{formatCents(u.spent_cents)}</td>
+                  <td className="px-4 py-3">
+                    <button
+                      onClick={() => handleToggleMeetings(u)}
+                      disabled={togglingId === u.id}
+                      className={`rounded-md border px-2.5 py-1 text-xs font-medium transition-colors disabled:cursor-default disabled:opacity-50 ${
+                        u.meetings_enabled
+                          ? "border-accent bg-accent-soft text-accent hover:bg-accent/20"
+                          : "border-line text-ink-soft hover:bg-paper-shade hover:text-ink"
+                      }`}
+                    >
+                      {u.meetings_enabled ? "Enabled" : "Enable"}
+                    </button>
+                  </td>
                   <td className="px-4 py-3">
                     <button
                       onClick={() => handleToggleAdmin(u)}

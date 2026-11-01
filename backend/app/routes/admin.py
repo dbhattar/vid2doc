@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
-from .. import activity, announcements, billing, feedback, jobs, public_jobs, users
+from .. import activity, announcements, billing, feature_flags, feedback, jobs, public_jobs, users
 from ..config import settings
 from ..deps import get_current_admin_user
 from .public_jobs import _build_showcase_response
@@ -103,6 +103,34 @@ def set_user_admin_status(
     if not updated:
         raise HTTPException(status_code=404, detail="User not found")
     return updated
+
+
+class SetMeetingsRequest(BaseModel):
+    enabled: bool
+
+
+@router.post("/api/admin/users/{user_id}/meetings")
+def set_user_meetings_access(
+    user_id: str, body: SetMeetingsRequest, current_user: dict = Depends(get_current_admin_user)
+):
+    updated = users.set_meetings_enabled(user_id, body.enabled)
+    if not updated:
+        raise HTTPException(status_code=404, detail="User not found")
+    return updated
+
+
+@router.get("/api/admin/features")
+def get_admin_features(current_user: dict = Depends(get_current_admin_user)):
+    return {
+        "meetings_public": feature_flags.get_flag(feature_flags.MEETINGS_PUBLIC_KEY),
+        "meetings_configured": bool(settings.RECALL_API_KEY),
+    }
+
+
+@router.post("/api/admin/features/meetings")
+def set_meetings_public(body: SetMeetingsRequest, current_user: dict = Depends(get_current_admin_user)):
+    feature_flags.set_flag(feature_flags.MEETINGS_PUBLIC_KEY, body.enabled)
+    return {"meetings_public": body.enabled}
 
 
 @router.get("/api/admin/public-jobs")

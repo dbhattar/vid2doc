@@ -27,6 +27,10 @@ SECONDS_PER_CENT_VIDEO_GEN = 20
 # $2.00/hour for the "research" transformation -- on top of the usual
 # transcribe + compose cost, each job runs several OpenAI web-search calls.
 SECONDS_PER_CENT_RESEARCH = 18
+# $1.00/hour for a meeting captured by the Zoom/Meet/Teams bot (see
+# routes/meetings.py) -- the job itself is job_type "audio", but the vendor's
+# per-hour bot + transcription fee makes the plain audio rate a loss.
+SECONDS_PER_CENT_MEETING = 36
 
 
 class InsufficientBalanceError(Exception):
@@ -44,6 +48,8 @@ def cost_for_duration_cents(duration_seconds: float, job_type: str = "video") ->
         rate = SECONDS_PER_CENT_VIDEO_GEN
     elif job_type == "research":
         rate = SECONDS_PER_CENT_RESEARCH
+    elif job_type == "meeting":
+        rate = SECONDS_PER_CENT_MEETING
     else:
         rate = SECONDS_PER_CENT
     return math.ceil(duration_seconds / rate)

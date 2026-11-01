@@ -1,0 +1,30 @@
+"""feature flags for the meeting notetaker -- per-user switch and app_settings.
+
+Revision ID: 0029
+Revises: 0028
+Create Date: 2026-10-31
+
+"""
+from typing import Sequence, Union
+
+import sqlalchemy as sa
+from alembic import op
+
+revision: str = "0029"
+down_revision: Union[str, None] = "0028"
+branch_labels: Union[str, Sequence[str], None] = None
+depends_on: Union[str, Sequence[str], None] = None
+
+
+def upgrade() -> None:
+    op.add_column("users", sa.Column("meetings_enabled", sa.Boolean(), nullable=False, server_default="false"))
+    op.create_table(
+        "app_settings",
+        sa.Column("key", sa.String(), primary_key=True),
+        sa.Column("value", sa.String(), nullable=False),
+    )
+
+
+def downgrade() -> None:
+    op.drop_table("app_settings")
+    op.drop_column("users", "meetings_enabled")

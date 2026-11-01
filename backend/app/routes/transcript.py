@@ -34,7 +34,7 @@ def _rerender_audio_document(job_id: str, job: dict, doc_dir, data: dict) -> Non
     pipeline.py -- a DOCX/PDF failure here shouldn't lose the Markdown/JSON
     update that already succeeded."""
     title = job.get("title") or "Audio Transcript"
-    sections = _build_audio_sections(data["segments"], data["summary"], data["speaker_names"])
+    sections = _build_audio_sections(data["segments"], data["summary"], data["speaker_names"], data.get("notes_sections"))
     assemble.render_markdown(title, sections, {}, {}, doc_dir)
     try:
         assemble.render_docx(title, sections, {}, {}, doc_dir / "document.docx")

@@ -2,10 +2,10 @@ import json
 import os
 from pathlib import Path
 
-from . import billing, emails, jobs, public_jobs, users, youtube
+from . import billing, emails, jobs, meetings, public_jobs, users, youtube
 from .config import settings
 from .exceptions import PipelineError
-from .stages import assemble, assemble_video, audio, classify, compose, frames, highlights, render_scene, scenes, stock_media, transcribe, transform
+from .stages import assemble, assemble_video, audio, classify, compose, frames, highlights, meeting_notes, render_scene, scenes, stock_media, transcribe, transform
 
 
 class JobCancelled(Exception):
@@ -138,7 +138,12 @@ def _verbatim_transcript_sections(segments: list[dict], speaker_names: dict[str,
     }]
 
 
-def _build_audio_sections(segments: list[dict], summary: str, speaker_names: dict[str, str] | None = None) -> list[dict]:
+def _build_audio_sections(
+    segments: list[dict],
+    summary: str,
+    speaker_names: dict[str, str] | None = None,
+    notes_sections: list[dict] | None = None,
+) -> list[dict]:
     """Shared by run_job (initial render) and routes/transcript.py's speaker
     rename endpoint (re-render), so the "how the audio document is built"
     logic exists in exactly one place. Substituting names into `summary`
@@ -151,8 +156,28 @@ def _build_audio_sections(segments: list[dict], summary: str, speaker_names: dic
         for label, name in speaker_names.items():
             resolved_summary = resolved_summary.replace(label, name)
         sections.append({"heading": "Summary", "blocks": [{"type": "paragraph", "text": resolved_summary, "ref": 0, "caption": ""}]})
+    # A captured meeting's summary/decisions/action items (see
+    # stages/meeting_notes.py), persisted in transcript.json so a speaker
+    # rename's re-render keeps them.
+    sections.extend(notes_sections or [])
     sections.extend(_verbatim_transcript_sections(segments, speaker_names))
     return sections
+
+
+def _build_meeting_notes(job_id: str, segments: list[dict]) -> list[dict]:
+    """Summary/decisions/action items for a captured meeting. Soft-fails like
+    _prepend_summary_section: the transcript is the product, so a notes
+    failure just means the document comes out without them."""
+    if not _llm_available():
+        return []
+    # Outside the try on purpose -- must never swallow a JobCancelled.
+    _check_not_cancelled(job_id)
+    jobs.update_job(job_id, progress_stage="summarizing")
+    try:
+        return meeting_notes.build_sections(segments)
+    except Exception as e:
+        print(f"Meeting notes generation failed for job {job_id}: {e}", flush=True)
+        return []
 
 
 def _finalize_document(
@@ -555,15 +580,21 @@ def run_job(job: dict) -> None:
             # title was already set from the uploaded filename (see
             # routes/audio.py).
             segments = _transcribe_segments(job, output_dir)
+            # A captured meeting (routes/meetings.py) gets notes on top of the
+            # verbatim transcript.
+            meeting = meetings.get_meeting_by_job_id(job_id)
             normalized_speakers = _normalize_speaker_labels(segments)
             segments = _merge_consecutive_same_speaker(segments)
+            speaker_names: dict[str, str] = {}
+            notes_sections = _build_meeting_notes(job_id, segments) if meeting else []
             summary = ""
-            sections = _build_audio_sections(segments, summary)
+            sections = _build_audio_sections(segments, summary, speaker_names, notes_sections)
             title = job.get("title") or "Audio Transcript"
             transcript_json = json.dumps({
                 "speakers": normalized_speakers,
-                "speaker_names": {},
+                "speaker_names": speaker_names,
                 "summary": summary,
+                "notes_sections": notes_sections,
                 "segments": segments,
             }, indent=2)
             _finalize_document(job, title, sections, [], [], extra_files={"transcript.json": transcript_json})
