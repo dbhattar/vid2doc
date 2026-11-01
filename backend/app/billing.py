@@ -29,7 +29,7 @@ SECONDS_PER_CENT_VIDEO_GEN = 20
 SECONDS_PER_CENT_RESEARCH = 18
 # $1.00/hour for a meeting captured by the Zoom/Meet/Teams bot (see
 # routes/meetings.py) -- the job itself is job_type "audio", but the vendor's
-# per-hour bot + transcription fee makes the plain audio rate a loss.
+# per-hour bot fee makes the plain audio rate a loss.
 SECONDS_PER_CENT_MEETING = 36
 
 

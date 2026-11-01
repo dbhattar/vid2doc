@@ -1,7 +1,7 @@
 """Meeting notetaker: a bot joins a pasted Zoom/Meet/Teams link, and when the
 meeting ends its recording becomes a normal audio job, transcribed by our own
-pipeline (summary, decisions and action items included -- see pipeline.py's audio branch). The vendor-
-specific half lives in meeting_bots.py.
+pipeline (summary, decisions and action items included -- see pipeline.py's
+audio branch). The vendor-specific half lives in meeting_bots.py.
 
 Flow: POST /api/meetings sends the bot -> the vendor calls
 POST /api/meetings/webhook as the bot's status changes -> on bot.done we
@@ -12,7 +12,6 @@ import json
 import logging
 import shutil
 import uuid
-from urllib.parse import urlparse
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from pydantic import BaseModel, Field

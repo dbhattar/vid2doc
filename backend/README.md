@@ -153,15 +153,22 @@ scene, or topic review) the user is emailed (`emails.notify_review_needed`).
 
 ### Meeting notetaker (`/api/meetings`)
 
-`POST /api/meetings` (`{"url", "title"?}`) sends a bot to a pasted Zoom, Google
-Meet or Teams link; `GET /api/meetings` lists them; `DELETE /api/meetings/{id}`
-makes the bot leave. The bot only records audio -- when Recall reports
-`bot.done` (via `POST /api/meetings/webhook`, Svix-signature-verified), the
-audio is downloaded, the wallet charged at $1.00/hour, and a normal audio job
-queued, so our own pipeline transcribes/diarizes it and adds summary, decisions
-and action items. A wallet too low at that point leaves the meeting at
-`awaiting_payment` (emailed); `POST /api/meetings/{id}/process` retries after a
-top-up.
+`POST /api/meetings` (`{"url", "title"?}`) sends a [Recall.ai](https://recall.ai)
+bot to a pasted Zoom, Google Meet or Teams link; `GET /api/meetings` lists them;
+`DELETE /api/meetings/{id}` makes the bot leave. The bot only records audio --
+when Recall reports `bot.done` (via `POST /api/meetings/webhook`,
+Svix-signature-verified), the audio is downloaded, the wallet charged at
+$1.00/hour, and a normal audio job queued, so our own pipeline
+transcribes/diarizes it and adds summary, decisions and action items. A wallet
+too low at that point leaves the meeting at `awaiting_payment` (emailed);
+`POST /api/meetings/{id}/process` retries after a top-up.
+
+Setup: set `RECALL_API_KEY` / `RECALL_API_BASE` (region must match your Recall
+account) and add a webhook in the Recall dashboard pointing at
+`<public api url>/api/meetings/webhook`, with its `whsec_...` secret in
+`RECALL_WEBHOOK_SECRET`. Recall must be able to reach the API, so local dev
+needs a tunnel (e.g. ngrok). Who can use the feature is an admin toggle
+(per user, or generally available).
 
 ### `GET /api/get_status?job_id=...`
 
@@ -306,9 +313,9 @@ docker compose up --build
 | `DATABASE_URL` | SQLAlchemy connection string for `api`/`worker`, e.g. `postgresql+psycopg2://vid2doc:$POSTGRES_PASSWORD@postgres:5432/vid2doc` — host must match the `postgres` service name when running under compose |
 | `STRIPE_SECRET_KEY` | Stripe API secret key (test-mode for dev) — no Price ids needed, top-up amount is chosen at checkout time |
 | `STRIPE_WEBHOOK_SECRET` | Verifies `POST /api/billing/webhook` signatures — from `stripe listen` locally, or the dashboard's webhook config in prod |
-| `RECALL_API_KEY` / `RECALL_API_BASE` | Recall.ai API key and regional host (default `https://us-east-1.recall.ai`). The Zoom/Meet/Teams notetaker (`/api/meetings`, see below) works only once the key is set; admins then enable it per user or for everyone from the admin dashboard |
+| `RECALL_API_KEY` / `RECALL_API_BASE` | Recall.ai API key and regional host (default `https://us-east-1.recall.ai`; must match your account's region) for the meeting notetaker (`/api/meetings`, see above) |
 | `RECALL_WEBHOOK_SECRET` | `whsec_...` signing secret of the Recall webhook pointed at `POST /api/meetings/webhook` |
-| `MEETING_BOT_NAME` / `MEETING_MAX_SECONDS` | Name the bot joins under, and how long it records before leaving (default 2h) |
+| `MEETING_BOT_NAME` / `MEETING_MAX_SECONDS` | Name the notetaker joins under, and how long it records before leaving (default 2h). Admins enable the feature per user or for everyone from the admin dashboard |
 | `FRONTEND_URL` | Where Stripe Checkout redirects back to after a session |
 | `PUBLIC_ARCHIVE_S3_BUCKET`, `PUBLIC_ARCHIVE_S3_REGION`, `PUBLIC_ARCHIVE_BASE_URL`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | Permanent S3 archive for the public showcase — see [`s3-showcase-setup.md`](s3-showcase-setup.md) for one-time bucket setup |
 | `NEXT_PUBLIC_API_BASE_URL` | Frontend build arg (not read by the backend itself) — public URL the browser uses to reach this API |

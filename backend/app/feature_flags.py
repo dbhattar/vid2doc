@@ -2,8 +2,8 @@
 feature: it's visible to a user when they're an admin, have been switched on
 individually (User.meetings_enabled), or the admin has made it generally
 available (the "meetings_public" app setting). Visibility deliberately doesn't
-depend on RECALL_API_KEY, so it can be set up and tried before the key exists;
-sending a bot without the key fails with an error (meeting_bots.py)."""
+depend on RECALL_API_KEY, so it can be set up before the key exists; sending a
+bot without the key fails with an error (meeting_bots.py)."""
 
 from .db import get_session
 from .models import AppSetting

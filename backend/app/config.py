@@ -43,13 +43,14 @@ class Settings:
     SIGNUP_BONUS_VIDEO_MINUTES = int(os.environ.get("SIGNUP_BONUS_VIDEO_MINUTES", 10))
 
     # Meeting bot (Zoom/Meet/Teams) via Recall.ai -- see routes/meetings.py and
-    # meeting_bots.py. Only usable once RECALL_API_KEY is set (who sees it is an admin
-    # toggle, see feature_flags.py), and it needs a webhook configured in the vendor dashboard pointing at
-    # POST /api/meetings/webhook.
+    # meeting_bots.py. Needs RECALL_API_KEY, plus a webhook configured in the
+    # Recall dashboard pointing at POST /api/meetings/webhook (who can use the
+    # feature is an admin toggle, see feature_flags.py).
     RECALL_API_KEY = os.environ.get("RECALL_API_KEY", "")
-    # Regional API host, e.g. https://us-east-1.recall.ai -- no trailing slash.
+    # Regional API host (must match the region your Recall account was created
+    # in), e.g. https://us-east-1.recall.ai -- no trailing slash.
     RECALL_API_BASE = os.environ.get("RECALL_API_BASE", "https://us-east-1.recall.ai").rstrip("/")
-    # Signing secret ("whsec_...") of the vendor webhook endpoint (Svix).
+    # Signing secret ("whsec_...") of the Recall webhook endpoint (Svix).
     RECALL_WEBHOOK_SECRET = os.environ.get("RECALL_WEBHOOK_SECRET", "")
     MEETING_BOT_NAME = os.environ.get("MEETING_BOT_NAME", "Framewrite Notetaker")
     # The bot leaves after recording this long, which caps the vendor cost of

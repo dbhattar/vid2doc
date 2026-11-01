@@ -275,10 +275,10 @@ class GoogleDriveConnection(Base):
 
 
 class Meeting(Base):
-    """A Zoom/Meet/Teams meeting a notetaker bot was sent to (routes/meetings.py).
-    Once the vendor reports the recording done, we create a normal audio job
-    (job_id) from the vendor's transcript -- the job then carries everything
-    else (billing, document, email)."""
+    """A meeting a Recall.ai notetaker bot was sent to (routes/meetings.py).
+    Once the vendor reports the recording done, we download its audio and
+    create a normal audio job (job_id) -- the job carries everything else
+    (billing, document, email)."""
 
     __tablename__ = "meetings"
 
