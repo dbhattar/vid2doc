@@ -6,6 +6,7 @@ import { useCallback, useEffect, useState } from "react";
 
 import Button from "@/components/Button";
 import Card from "@/components/Card";
+import MeetingsRequestAccess, { type MeetingsRequestStatus } from "@/components/MeetingsRequestAccess";
 import { apiFetch, ApiError } from "@/lib/api";
 import { clearSession } from "@/lib/auth";
 import { isActiveMeeting, MEETING_STATUS_LABELS, PLATFORM_LABELS, type Meeting } from "@/lib/meetings";
@@ -23,6 +24,59 @@ const STATUS_COLORS: Record<Meeting["status"], string> = {
 };
 
 export default function MeetingsPage() {
+  const router = useRouter();
+  const [access, setAccess] = useState<{ hasAccess: boolean; requestStatus: MeetingsRequestStatus } | null>(null);
+  const [accessError, setAccessError] = useState<string | null>(null);
+
+  const handleAuthError = useCallback(
+    (err: unknown) => {
+      if (err instanceof ApiError && err.status === 401) {
+        clearSession();
+        router.replace("/login");
+        return true;
+      }
+      return false;
+    },
+    [router],
+  );
+
+  useEffect(() => {
+    apiFetch<{ has_access: boolean; request_status: MeetingsRequestStatus }>("/api/features/meetings/request")
+      .then((data) => setAccess({ hasAccess: data.has_access, requestStatus: data.request_status }))
+      .catch((err) => {
+        if (handleAuthError(err)) return;
+        setAccessError(err instanceof ApiError ? err.message : "Failed to load Meetings.");
+      });
+  }, [handleAuthError]);
+
+  return (
+    <div className="w-full px-6 py-10">
+      <p className="font-sans text-xs font-semibold text-accent">
+        Meetings → Notes{" "}
+        <span className="ml-1 rounded-full border border-line px-2 py-0.5 text-[10px] font-semibold uppercase text-ink-soft">
+          Preview
+        </span>
+      </p>
+      <h1 className="mt-2 font-display text-2xl font-bold tracking-tight text-ink">
+        Send a notetaker to your next meeting.
+      </h1>
+      <p className="mt-1 max-w-2xl text-sm text-ink-soft">
+        Paste a Zoom, Google Meet, or Microsoft Teams link. A bot joins, records the audio, and when the meeting ends
+        you get a speaker-labelled transcript with a summary, decisions, and action items -- we&apos;ll email you when
+        it&apos;s ready.
+      </p>
+
+      {accessError && <p className="mt-6 text-sm text-status-error">{accessError}</p>}
+      {!access && !accessError && <p className="mt-6 text-sm text-ink-soft">Loading...</p>}
+      {access && !access.hasAccess && (
+        <MeetingsRequestAccess initialStatus={access.requestStatus} onAuthError={handleAuthError} />
+      )}
+      {access?.hasAccess && <MeetingsApp />}
+    </div>
+  );
+}
+
+function MeetingsApp() {
   const router = useRouter();
   const [meetings, setMeetings] = useState<Meeting[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
@@ -104,17 +158,7 @@ export default function MeetingsPage() {
   }
 
   return (
-    <div className="w-full px-6 py-10">
-      <p className="font-sans text-xs font-semibold text-accent">Meetings → Notes</p>
-      <h1 className="mt-2 font-display text-2xl font-bold tracking-tight text-ink">
-        Send a notetaker to your next meeting.
-      </h1>
-      <p className="mt-1 max-w-2xl text-sm text-ink-soft">
-        Paste a Zoom, Google Meet, or Microsoft Teams link. A bot joins, records the audio, and when the meeting ends
-        you get a speaker-labelled transcript with a summary, decisions, and action items -- we&apos;ll email you when
-        it&apos;s ready.
-      </p>
-
+    <>
       <form onSubmit={handleSubmit} className="mt-8 w-full rounded-lg border border-line bg-paper p-6 shadow-sm">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-stretch">
           <input
@@ -223,6 +267,6 @@ export default function MeetingsPage() {
           </ul>
         )}
       </div>
-    </div>
+    </>
   );
 }

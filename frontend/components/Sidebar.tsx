@@ -16,14 +16,14 @@ const PRIMARY_NAV_LINKS = [
   { href: "/dashboard/video", label: "Video", Icon: VideoCameraIcon },
   { href: "/dashboard/audio", label: "Audio", Icon: MicrophoneIcon },
   { href: "/dashboard/live", label: "Live", Icon: LiveIcon },
+  // A preview: everyone sees it, but only users an admin enabled can use it --
+  // the page itself offers a "request access" flow for the rest.
+  { href: "/meetings", label: "Meetings", Icon: UsersIcon, badge: "Preview" },
   // Video Gen nav item hidden for now (page/route/backend untouched, still
   // reachable directly at /dashboard/video-gen) -- re-add when ready.
   { href: "/documents", label: "Documents", Icon: DocumentIcon },
   { href: "/agents", label: "Agents", Icon: BotIcon },
 ];
-
-// Gated behind an admin-controlled feature flag (see backend feature_flags.py).
-const MEETINGS_NAV_LINK = { href: "/meetings", label: "Meetings", Icon: UsersIcon };
 
 const SETTINGS_NAV_LINKS = [
   { href: "/settings/api-keys", label: "API keys", Icon: KeyIcon },
@@ -33,7 +33,12 @@ const SETTINGS_NAV_LINKS = [
 
 const ADMIN_NAV_LINK = { href: "/admin", label: "Admin", Icon: ShieldIcon };
 
-type NavLinkDef = { href: string; label: string; Icon: (props: { className?: string }) => React.ReactElement };
+type NavLinkDef = {
+  href: string;
+  label: string;
+  Icon: (props: { className?: string }) => React.ReactElement;
+  badge?: string;
+};
 
 // `collapsed` (desktop icon-rail mode) only ever hides the label at md+ --
 // below md the drawer is either fully open or fully closed, never narrow,
@@ -46,6 +51,7 @@ function NavLink({
   href,
   label,
   Icon,
+  badge,
   collapsed,
   active,
   onNavigate,
@@ -61,6 +67,13 @@ function NavLink({
     >
       <Icon className="h-5 w-5 shrink-0" />
       <span className={`truncate ${labelClass(collapsed)}`}>{label}</span>
+      {badge && (
+        <span
+          className={`ml-auto rounded-full border border-line px-1.5 py-0.5 text-[10px] font-semibold uppercase leading-none text-ink-soft ${labelClass(collapsed)}`}
+        >
+          {badge}
+        </span>
+      )}
     </Link>
   );
 }
@@ -81,9 +94,6 @@ export default function Sidebar({
   balanceCents: number | null;
 }) {
   const pathname = usePathname();
-  const primaryLinks = user?.features?.meetings
-    ? [...PRIMARY_NAV_LINKS.slice(0, 4), MEETINGS_NAV_LINK, ...PRIMARY_NAV_LINKS.slice(4)]
-    : PRIMARY_NAV_LINKS;
   // "/dashboard" itself is exact-match only -- otherwise it'd also light up
   // for "/dashboard/video" etc., which have their own nav entries now.
   const isActive = (href: string) =>
@@ -135,7 +145,7 @@ export default function Sidebar({
             actually shrink/scroll on its own overflow without it. */}
         <nav className="min-h-0 flex-1 overflow-y-auto px-3 py-2">
           <div className="flex flex-col gap-1">
-            {primaryLinks.map((link) => (
+            {PRIMARY_NAV_LINKS.map((link) => (
               <NavLink key={link.href} {...link} collapsed={collapsed} active={isActive(link.href)} onNavigate={onMobileClose} />
             ))}
           </div>

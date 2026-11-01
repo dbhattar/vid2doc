@@ -337,6 +337,63 @@ def notify_meeting_issue(meeting_id: str, kind: str, detail: str | None = None) 
         logger.exception("Failed to send meeting-issue email for meeting %s", meeting_id)
 
 
+def notify_feature_request(request_id: str) -> None:
+    """Best-effort email to every admin (ADMIN_EMAILS) that someone asked for
+    a gated feature. Never raises."""
+    from . import feature_requests, users
+
+    try:
+        request = feature_requests.get_request(request_id)
+        user = users.get_user_by_id(request["user_id"]) if request else None
+        if not request or not user or not settings.ADMIN_EMAILS:
+            return
+        who = user.get("display_name") or user["email"]
+        note = request.get("message") or ""
+        admin_url = f"{settings.FRONTEND_URL}/admin"
+        body_html = f"""\
+                <p style="margin:0 0 12px;font-size:15px;line-height:1.6;color:{_TEXT_MUTED};">
+                  {html.escape(who)} ({html.escape(user["email"])}) asked for access to the Meetings preview.
+                </p>
+                {f'<p style="margin:0 0 20px;font-size:14px;line-height:1.6;color:{_TEXT_MUTED};">&ldquo;{html.escape(note)}&rdquo;</p>' if note else ""}"""
+        html_body = _job_status_email_shell(
+            "Access request", "Someone requested Meetings access", body_html, "Review requests", admin_url,
+            "Approve or decline it from the admin dashboard.",
+        )
+        text = f"{who} ({user['email']}) asked for access to the Meetings preview.\n{note}\n\n{admin_url}"
+        for admin_email in sorted(settings.ADMIN_EMAILS):
+            send_email(admin_email, f"Meetings access request from {who}", text, html=html_body)
+    except Exception:
+        logger.exception("Failed to send feature-request email for %s", request_id)
+
+
+def notify_feature_approved(user_id: str) -> None:
+    """Best-effort email telling a user their Meetings access is on."""
+    from . import users
+
+    try:
+        user = users.get_user_by_id(user_id)
+        if not user or not user.get("email"):
+            return
+        raw_name = user.get("display_name") or user["email"].split("@")[0]
+        cta_url = f"{settings.FRONTEND_URL}/meetings"
+        body_html = f"""\
+                <p style="margin:0 0 20px;font-size:15px;line-height:1.6;color:{_TEXT_MUTED};">
+                  Hi {html.escape(raw_name)}, your Meetings preview access is on. Paste a Zoom, Google Meet or
+                  Teams link and the notetaker will join, record, and email you the notes when it ends.
+                </p>"""
+        html_body = _job_status_email_shell(
+            "Preview access", "Meetings is ready for you", body_html, "Open Meetings", cta_url,
+            "Meetings is a preview and may have rough edges -- tell us what you think.",
+        )
+        text = (
+            f"Hi {raw_name},\n\nYour Meetings preview access is on. Paste a Zoom, Google Meet or Teams link "
+            f"and the notetaker will join, record, and email you the notes.\n\n{cta_url}\n\n-- The Framewrite team"
+        )
+        send_email(user["email"], "Your Meetings preview access is on", text, html=html_body)
+    except Exception:
+        logger.exception("Failed to send feature-approved email for user %s", user_id)
+
+
 def notify_job_status_change(job_id: str) -> None:
     """Best-effort job-completion/failure email -- skips anonymous jobs
     (user_id IS NULL; nothing creates these anymore since the trial-upload

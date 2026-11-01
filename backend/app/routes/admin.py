@@ -1,7 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, Query
+import uuid
+
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
-from .. import activity, announcements, billing, feature_flags, feedback, jobs, public_jobs, users
+from .. import activity, announcements, billing, emails, feature_flags, feature_requests, feedback, jobs, public_jobs, users
 from ..config import settings
 from ..deps import get_current_admin_user
 from .public_jobs import _build_showcase_response
@@ -111,12 +113,55 @@ class SetMeetingsRequest(BaseModel):
 
 @router.post("/api/admin/users/{user_id}/meetings")
 def set_user_meetings_access(
-    user_id: str, body: SetMeetingsRequest, current_user: dict = Depends(get_current_admin_user)
+    user_id: str,
+    body: SetMeetingsRequest,
+    background_tasks: BackgroundTasks,
+    current_user: dict = Depends(get_current_admin_user),
 ):
     updated = users.set_meetings_enabled(user_id, body.enabled)
     if not updated:
         raise HTTPException(status_code=404, detail="User not found")
+    if body.enabled:
+        # Enabling directly also settles an open request -- and then the user,
+        # who was waiting on it, gets the same email as an approval.
+        if feature_requests.resolve_pending_for_user(user_id, "meetings", "approved"):
+            background_tasks.add_task(emails.notify_feature_approved, user_id)
     return updated
+
+
+@router.get("/api/admin/feature-requests")
+def list_feature_requests(
+    status: str = Query(default="pending", pattern="^(pending|approved|declined)$"),
+    current_user: dict = Depends(get_current_admin_user),
+):
+    return {"requests": feature_requests.list_requests(status)}
+
+
+def _resolve_feature_request(request_id: str, status: str) -> dict:
+    try:
+        uuid.UUID(request_id)
+    except ValueError:
+        raise HTTPException(status_code=404, detail="Request not found")
+    resolved = feature_requests.resolve_request(request_id, status)
+    if not resolved:
+        raise HTTPException(status_code=404, detail="Request not found or already handled")
+    return resolved
+
+
+@router.post("/api/admin/feature-requests/{request_id}/approve")
+def approve_feature_request(
+    request_id: str, background_tasks: BackgroundTasks, current_user: dict = Depends(get_current_admin_user)
+):
+    resolved = _resolve_feature_request(request_id, "approved")
+    if resolved["feature"] == "meetings":
+        users.set_meetings_enabled(resolved["user_id"], True)
+    background_tasks.add_task(emails.notify_feature_approved, resolved["user_id"])
+    return resolved
+
+
+@router.post("/api/admin/feature-requests/{request_id}/decline")
+def decline_feature_request(request_id: str, current_user: dict = Depends(get_current_admin_user)):
+    return _resolve_feature_request(request_id, "declined")
 
 
 @router.get("/api/admin/features")

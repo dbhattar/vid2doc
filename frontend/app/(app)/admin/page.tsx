@@ -32,6 +32,15 @@ type AdminUser = {
   job_count: number;
 };
 
+type FeatureRequest = {
+  id: string;
+  user_id: string;
+  email: string;
+  display_name: string | null;
+  message: string | null;
+  created_at: string;
+};
+
 type AdminFeedback = {
   id: string;
   user_id: string | null;
@@ -84,6 +93,8 @@ export default function AdminPage() {
   const [users, setUsers] = useState<AdminUser[] | null>(null);
   const [features, setFeatures] = useState<{ meetings_public: boolean; meetings_configured: boolean } | null>(null);
   const [featureBusy, setFeatureBusy] = useState(false);
+  const [requests, setRequests] = useState<FeatureRequest[] | null>(null);
+  const [resolvingId, setResolvingId] = useState<string | null>(null);
   const [feedback, setFeedback] = useState<AdminFeedback[] | null>(null);
   const [activity, setActivity] = useState<AdminActivityEvent[] | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -111,6 +122,11 @@ export default function AdminPage() {
       });
     apiFetch<{ meetings_public: boolean; meetings_configured: boolean }>("/api/admin/features")
       .then(setFeatures)
+      .catch(() => {
+        // Non-critical, same as the user list.
+      });
+    apiFetch<{ requests: FeatureRequest[] }>("/api/admin/feature-requests?status=pending")
+      .then((data) => setRequests(data.requests))
       .catch(() => {
         // Non-critical, same as the user list.
       });
@@ -143,6 +159,21 @@ export default function AdminPage() {
       setError(err instanceof ApiError ? err.message : "Failed to update Meetings availability.");
     } finally {
       setFeatureBusy(false);
+    }
+  }
+
+  async function handleResolveRequest(request: FeatureRequest, action: "approve" | "decline") {
+    setResolvingId(request.id);
+    try {
+      await apiFetch(`/api/admin/feature-requests/${request.id}/${action}`, { method: "POST" });
+      setRequests((prev) => prev?.filter((r) => r.id !== request.id) ?? null);
+      if (action === "approve") {
+        setUsers((prev) => prev?.map((u) => (u.id === request.user_id ? { ...u, meetings_enabled: true } : u)) ?? null);
+      }
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Failed to update the request.");
+    } finally {
+      setResolvingId(null);
     }
   }
 
@@ -267,6 +298,45 @@ export default function AdminPage() {
             </ul>
           )}
         </>
+      )}
+
+      <h2 className="mt-8 font-sans text-sm font-semibold text-ink-soft">
+        Meetings access requests{requests && requests.length > 0 ? ` (${requests.length})` : ""}
+      </h2>
+      {requests === null ? (
+        <p className="mt-2 text-sm text-ink-soft">Loading...</p>
+      ) : requests.length === 0 ? (
+        <p className="mt-2 text-sm text-ink-soft">No pending requests.</p>
+      ) : (
+        <ul className="mt-2 divide-y divide-line overflow-hidden rounded-lg border border-line bg-paper shadow-sm">
+          {requests.map((r) => (
+            <li key={r.id} className="flex items-start justify-between gap-4 px-4 py-3">
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-ink">{r.display_name || r.email}</p>
+                <p className="text-xs text-ink-soft">
+                  {r.email} &middot; {new Date(r.created_at).toLocaleString()}
+                </p>
+                {r.message && <p className="mt-1 whitespace-pre-wrap text-sm text-ink-soft">&ldquo;{r.message}&rdquo;</p>}
+              </div>
+              <div className="flex shrink-0 gap-2">
+                <button
+                  onClick={() => handleResolveRequest(r, "approve")}
+                  disabled={resolvingId === r.id}
+                  className="rounded-md border border-accent bg-accent-soft px-2.5 py-1 text-xs font-medium text-accent transition-colors hover:bg-accent/20 disabled:cursor-default disabled:opacity-50"
+                >
+                  Approve
+                </button>
+                <button
+                  onClick={() => handleResolveRequest(r, "decline")}
+                  disabled={resolvingId === r.id}
+                  className="rounded-md border border-line px-2.5 py-1 text-xs font-medium text-ink-soft transition-colors hover:bg-paper-shade hover:text-ink disabled:cursor-default disabled:opacity-50"
+                >
+                  Decline
+                </button>
+              </div>
+            </li>
+          ))}
+        </ul>
       )}
 
       <h2 className="mt-8 font-sans text-sm font-semibold text-ink-soft">Features</h2>

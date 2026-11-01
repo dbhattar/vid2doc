@@ -456,3 +456,21 @@ class AppSetting(Base):
 
     key: Mapped[str] = mapped_column(String, primary_key=True)
     value: Mapped[str] = mapped_column(String, nullable=False)
+
+
+class FeatureRequest(Base):
+    """A user asking for access to a gated feature (see feature_flags.py) --
+    currently only "meetings". An admin approves (which flips the user's flag)
+    or declines it from the admin dashboard."""
+
+    __tablename__ = "feature_requests"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id"), nullable=False, index=True
+    )
+    feature: Mapped[str] = mapped_column(String, nullable=False)
+    message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    status: Mapped[str] = mapped_column(String, nullable=False, default="pending")  # pending|approved|declined
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    resolved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)

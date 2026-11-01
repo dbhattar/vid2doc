@@ -2,7 +2,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from .config import settings
-from .routes import admin, agents, announcements, audio, auth, billing, chat, convert, documents, drive, feedback, health, jobs, keys, live, meetings, newsletter, public_jobs, review, scene_review, share, status, testimonials, topic_review, transcript, video_gen, video_output, youtube
+from .routes import admin, agents, announcements, audio, auth, billing, chat, convert, documents, drive, feature_requests, feedback, health, jobs, keys, live, meetings, newsletter, public_jobs, review, scene_review, share, status, testimonials, topic_review, transcript, video_gen, video_output, youtube
 
 app = FastAPI(title="Framewrite API")
 
@@ -33,6 +33,7 @@ app.include_router(video_gen.router)
 app.include_router(scene_review.router)
 app.include_router(video_output.router)
 app.include_router(meetings.router)
+app.include_router(feature_requests.router)
 app.include_router(topic_review.router)
 app.include_router(youtube.router)
 app.include_router(share.router)
