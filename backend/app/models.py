@@ -225,6 +225,10 @@ class Job(Base):
     # (preserves the original upload's extension -- same convention as
     # public_video_key).
     chat_video_key: Mapped[str | None] = mapped_column(String, nullable=True)
+    # When the "still waiting for your review" reminder email went out (see
+    # review_reminders.py). A job that resumes and pauses again gets a newer
+    # updated_at than this, which makes it eligible for a fresh reminder.
+    review_reminder_sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
@@ -289,11 +293,15 @@ class Meeting(Base):
     platform: Mapped[str] = mapped_column(String, nullable=False)  # zoom|meet|teams
     meeting_url: Mapped[str] = mapped_column(String, nullable=False)
     vendor_bot_id: Mapped[str | None] = mapped_column(String, unique=True, nullable=True, index=True)
-    # joining|recording|processing|done|failed|cancelled|awaiting_payment --
-    # "done" means the transcript was captured and handed to job_id, not that
-    # the job itself has finished.
+    # scheduled|joining|recording|processing|done|failed|cancelled|awaiting_payment
+    # -- "scheduled" is a bot booked for scheduled_for that hasn't started
+    # joining yet; "done" means the recording was captured and handed to
+    # job_id, not that the job itself has finished.
     status: Mapped[str] = mapped_column(String, nullable=False, default="joining")
     title: Mapped[str | None] = mapped_column(String, nullable=True)
+    scheduled_for: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Name the bot joins under; null means the MEETING_BOT_NAME default.
+    bot_name: Mapped[str | None] = mapped_column(String, nullable=True)
     job_id: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

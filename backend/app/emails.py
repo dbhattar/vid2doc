@@ -237,7 +237,7 @@ def send_job_failed_email(user: dict, job: dict) -> None:
     send_email(user["email"], subject, text, html=html_body)
 
 
-def send_review_needed_email(user: dict, job: dict) -> None:
+def send_review_needed_email(user: dict, job: dict, reminder: bool = False) -> None:
     raw_name = user.get("display_name") or user["email"].split("@")[0]
     name = html.escape(raw_name)
     raw_title = job.get("title") or "Your job"
@@ -254,18 +254,27 @@ def send_review_needed_email(user: dict, job: dict) -> None:
         what, cta, action = "frames", "Review frames", "choose which frames go in the document"
         detail = "Your document is written once you've picked which slides, diagrams and tables to keep."
 
-    subject = f'"{raw_title}" needs your review'
+    if reminder:
+        subject = f'Reminder: "{raw_title}" is still waiting for your review'
+        eyebrow, heading = "Reminder", f"Your {what} are still waiting"
+        intro = f"&ldquo;{title}&rdquo; has been paused for a day, waiting for you to {action}."
+        text_intro = f"\"{raw_title}\" has been paused for a day, waiting for you to {action}."
+    else:
+        subject = f'"{raw_title}" needs your review'
+        eyebrow, heading = "Needs your review", f"Your {what} are ready to review"
+        intro = f"&ldquo;{title}&rdquo; is paused and waiting for you to {action}."
+        text_intro = f"\"{raw_title}\" is paused and waiting for you to {action}."
     body_html = f"""\
                 <p style="margin:0 0 12px;font-size:15px;line-height:1.6;color:{_TEXT_MUTED};">
-                  Hi {name}, &ldquo;{title}&rdquo; is paused and waiting for you to {action}.
+                  Hi {name}, {intro}
                 </p>
                 <p style="margin:0 0 20px;font-size:14px;line-height:1.6;color:{_TEXT_MUTED};">{detail}</p>"""
     html_body = _job_status_email_shell(
-        "Needs your review", f"Your {what} are ready to review", body_html, cta, job_url,
+        eyebrow, heading, body_html, cta, job_url,
         "Jobs waiting for review are removed after the retention period, so don't leave it too long.",
     )
     text = (
-        f"Hi {raw_name},\n\n\"{raw_title}\" is paused and waiting for you to {action}.\n"
+        f"Hi {raw_name},\n\n{text_intro}\n"
         f"{detail}\n\nReview it: {job_url}\n\n-- The Framewrite team"
     )
     send_email(user["email"], subject, text, html=html_body)
@@ -288,6 +297,24 @@ def notify_review_needed(job_id: str) -> None:
         send_review_needed_email(user, job)
     except Exception:
         logger.exception("Failed to send review-needed email for job %s", job_id)
+
+
+def notify_review_reminder(job_id: str) -> None:
+    """Best-effort reminder for a job that has sat in awaiting_review for a
+    day (see review_reminders.py). Same contract as notify_review_needed:
+    never raises, and skips a job that's no longer waiting."""
+    from . import jobs, users
+
+    try:
+        job = jobs.get_job(job_id)
+        if not job or not job.get("user_id") or job["status"] != "awaiting_review":
+            return
+        user = users.get_user_by_id(job["user_id"])
+        if not user or not user.get("email"):
+            return
+        send_review_needed_email(user, job, reminder=True)
+    except Exception:
+        logger.exception("Failed to send review reminder email for job %s", job_id)
 
 
 def notify_meeting_issue(meeting_id: str, kind: str, detail: str | None = None) -> None:

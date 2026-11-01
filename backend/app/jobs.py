@@ -258,6 +258,37 @@ def delete_job(job_id: str) -> None:
         session.close()
 
 
+def claim_review_reminders(waiting_since: datetime) -> list[str]:
+    """Atomically marks every review-paused job that has been waiting since
+    before `waiting_since` as reminded, and returns their ids -- so two
+    callers can never email the same pause twice. A paused job's updated_at
+    only moves when something touches it, so it's when the pause began; one
+    that resumed and paused again has a newer updated_at than its last
+    reminder and qualifies again. updated_at is deliberately re-set to itself:
+    recording the reminder must not look like fresh activity (which would push
+    the next reminder back and reset the "waiting" clock)."""
+    session = get_session()
+    try:
+        result = session.execute(
+            update(Job)
+            .where(
+                Job.status == "awaiting_review",
+                Job.deleted_at.is_(None),
+                Job.user_id.is_not(None),
+                Job.cancel_requested.is_(False),
+                Job.updated_at < waiting_since,
+                (Job.review_reminder_sent_at.is_(None)) | (Job.review_reminder_sent_at < Job.updated_at),
+            )
+            .values(review_reminder_sent_at=func.now(), updated_at=Job.updated_at)
+            .returning(Job.id)
+        )
+        ids = [row[0] for row in result]
+        session.commit()
+        return ids
+    finally:
+        session.close()
+
+
 def list_jobs_eligible_for_retention(cutoff: datetime) -> list[dict]:
     """`done` jobs created before `cutoff` that haven't already been cleaned
     up. Retention applies to everyone -- there's no plan tier anymore that

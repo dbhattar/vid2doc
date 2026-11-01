@@ -12,6 +12,7 @@ import json
 import logging
 import shutil
 import uuid
+from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
@@ -34,6 +35,29 @@ _PLATFORM_NAMES = {"zoom": "Zoom", "meet": "Google Meet", "teams": "Microsoft Te
 class CreateMeetingRequest(BaseModel):
     url: str = Field(min_length=1, max_length=2000)
     title: str | None = Field(default=None, max_length=200)
+    # What attendees see the bot called; blank means the default name.
+    bot_name: str | None = Field(default=None, max_length=50)
+    # When the bot should join; omit to send it now. Must carry a timezone
+    # offset (the browser sends UTC).
+    start_time: datetime | None = None
+
+
+# How far ahead a meeting may be scheduled, and the slack that still counts as
+# "now" (a start time a minute ago is just someone clicking Send slowly).
+MAX_SCHEDULE_AHEAD = timedelta(days=30)
+START_NOW_SLACK = timedelta(minutes=2)
+
+
+def _clean_bot_name(raw: str | None) -> str | None:
+    """Whitespace-collapsed, printable-only name, or None for the default. The
+    name is shown to every attendee, so control/format characters (which can
+    hide or reorder text) are refused rather than stripped."""
+    name = " ".join((raw or "").split())
+    if not name:
+        return None
+    if not name.isprintable():
+        raise HTTPException(status_code=400, detail="That bot name has characters that can't be used.")
+    return name
 
 
 def _public(meeting: dict) -> dict:
@@ -41,6 +65,7 @@ def _public(meeting: dict) -> dict:
         "id": meeting["id"],
         "platform": meeting["platform"],
         "title": meeting["title"],
+        "scheduled_for": meeting["scheduled_for"],
         "status": meeting["status"],
         "job_id": meeting["job_id"],
         "error": meeting["error_message"],
@@ -72,6 +97,20 @@ def create_meeting(body: CreateMeetingRequest, current_user: dict = Depends(get_
     if not platform:
         raise HTTPException(status_code=400, detail="That doesn't look like a Zoom, Google Meet or Teams link.")
 
+    bot_name = _clean_bot_name(body.bot_name)
+    join_at = None
+    if body.start_time is not None:
+        if body.start_time.tzinfo is None:
+            raise HTTPException(status_code=400, detail="The start time needs a timezone.")
+        now = datetime.now(timezone.utc)
+        if body.start_time > now + MAX_SCHEDULE_AHEAD:
+            raise HTTPException(status_code=400, detail="You can schedule a meeting up to 30 days ahead.")
+        if body.start_time >= now - START_NOW_SLACK:
+            # Within the slack of "now" the bot is simply sent immediately.
+            join_at = body.start_time if body.start_time > now + START_NOW_SLACK else None
+        else:
+            raise HTTPException(status_code=400, detail="That start time is in the past.")
+
     needed = billing.cost_for_duration_cents(MIN_BALANCE_SECONDS, "meeting")
     balance = billing.get_wallet_balance_cents(current_user["id"])
     if balance < needed:
@@ -84,9 +123,11 @@ def create_meeting(body: CreateMeetingRequest, current_user: dict = Depends(get_
         )
 
     title = (body.title or "").strip() or f"{_PLATFORM_NAMES[platform]} meeting"
-    meeting = meetings.create_meeting(current_user["id"], platform, url, title)
+    meeting = meetings.create_meeting(
+        current_user["id"], platform, url, title, scheduled_for=join_at, bot_name=bot_name
+    )
     try:
-        bot_id = meeting_bots.create_bot(url)
+        bot_id = meeting_bots.create_bot(url, join_at=join_at, bot_name=bot_name)
     except meeting_bots.MeetingBotError as e:
         meetings.update_meeting(meeting["id"], status="failed", error_message=str(e))
         raise HTTPException(status_code=502, detail=str(e))
@@ -101,15 +142,18 @@ def list_meetings(current_user: dict = Depends(get_meetings_user)):
 
 @router.delete("/api/meetings/{meeting_id}")
 def leave_meeting(meeting_id: str, current_user: dict = Depends(get_meetings_user)):
-    """Stops a meeting that's still joining or being recorded. A bot that was
-    already recording leaves and the meeting is still processed (the vendor
-    reports bot.done afterwards); one that never joined is just cancelled."""
+    """Stops a meeting that's scheduled, still joining, or being recorded. A
+    bot that was already recording leaves and the meeting is still processed
+    (the vendor reports bot.done afterwards); one that never joined -- including
+    a scheduled one, which is deleted at the vendor -- is just cancelled."""
     meeting = _owned(meeting_id, current_user)
-    if meeting["status"] not in ("joining", "recording"):
+    if meeting["status"] not in ("scheduled", "joining", "recording"):
         raise HTTPException(status_code=400, detail="This meeting has already ended.")
-    if meeting["vendor_bot_id"]:
-        meeting_bots.leave_meeting(meeting["vendor_bot_id"])
-    if meeting["status"] == "joining":
+    if meeting["vendor_bot_id"] and not meeting_bots.leave_meeting(meeting["vendor_bot_id"]):
+        # Marking it cancelled while the bot is still booked would let it join
+        # (and bill) anyway, so surface the failure instead.
+        raise HTTPException(status_code=502, detail="Couldn't reach the notetaker service -- please try again.")
+    if meeting["status"] in ("scheduled", "joining"):
         meetings.update_meeting(meeting["id"], status="cancelled")
     return _public(meetings.get_meeting(meeting["id"]))
 

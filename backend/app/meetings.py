@@ -1,3 +1,5 @@
+from datetime import datetime
+
 from .db import get_session
 from .models import Meeting
 
@@ -14,6 +16,8 @@ def _to_dict(m: Meeting) -> dict:
         "vendor_bot_id": m.vendor_bot_id,
         "status": m.status,
         "title": m.title,
+        "scheduled_for": m.scheduled_for,
+        "bot_name": m.bot_name,
         "job_id": m.job_id,
         "error_message": m.error_message,
         "created_at": m.created_at,
@@ -21,10 +25,25 @@ def _to_dict(m: Meeting) -> dict:
     }
 
 
-def create_meeting(user_id: str, platform: str, meeting_url: str, title: str | None) -> dict:
+def create_meeting(
+    user_id: str,
+    platform: str,
+    meeting_url: str,
+    title: str | None,
+    scheduled_for: datetime | None = None,
+    bot_name: str | None = None,
+) -> dict:
     session = get_session()
     try:
-        meeting = Meeting(user_id=user_id, platform=platform, meeting_url=meeting_url, title=title, status="joining")
+        meeting = Meeting(
+            user_id=user_id,
+            platform=platform,
+            meeting_url=meeting_url,
+            title=title,
+            scheduled_for=scheduled_for,
+            bot_name=bot_name,
+            status="scheduled" if scheduled_for else "joining",
+        )
         session.add(meeting)
         session.commit()
         session.refresh(meeting)

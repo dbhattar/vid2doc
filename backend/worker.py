@@ -20,7 +20,7 @@ import sys
 import threading
 import time
 
-from app import announcements, billing, emails, jobs
+from app import announcements, billing, emails, jobs, review_reminders
 from app.config import settings
 
 CANCEL_POLL_SECONDS = 1.0
@@ -131,6 +131,7 @@ def main() -> None:
     print("Worker started, polling for jobs...", flush=True)
     _recover_orphaned_processing_jobs()
     threading.Thread(target=announcements.run_delivery_loop, daemon=True).start()
+    threading.Thread(target=review_reminders.run_loop, daemon=True).start()
     while True:
         job = jobs.claim_next_queued_job()
         if job is None:

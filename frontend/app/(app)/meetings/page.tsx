@@ -12,8 +12,11 @@ import { clearSession } from "@/lib/auth";
 import { isActiveMeeting, MEETING_STATUS_LABELS, PLATFORM_LABELS, type Meeting } from "@/lib/meetings";
 
 const POLL_INTERVAL_MS = 5000;
+const BOT_NAME_KEY = "framewrite_meeting_bot_name";
+const DEFAULT_BOT_NAME = "Framewrite Notetaker";
 
 const STATUS_COLORS: Record<Meeting["status"], string> = {
+  scheduled: "text-accent",
   joining: "text-status-info",
   recording: "text-status-error",
   processing: "text-status-info",
@@ -82,6 +85,16 @@ function MeetingsApp() {
   const [loadError, setLoadError] = useState<string | null>(null);
   const [url, setUrl] = useState("");
   const [title, setTitle] = useState("");
+  const [botName, setBotName] = useState(() => {
+    // Remembered from the last meeting so it doesn't have to be retyped.
+    try {
+      return window.localStorage.getItem(BOT_NAME_KEY) ?? "";
+    } catch {
+      return "";
+    }
+  });
+  const [when, setWhen] = useState<"now" | "later">("now");
+  const [startAt, setStartAt] = useState(""); // <input type="datetime-local"> value, browser-local time
   const [submitting, setSubmitting] = useState(false);
   const [submitError, setSubmitError] = useState<string | null>(null);
   const [needsFunds, setNeedsFunds] = useState(false);
@@ -123,16 +136,35 @@ function MeetingsApp() {
     e.preventDefault();
     const trimmed = url.trim();
     if (!trimmed) return;
+    // datetime-local has no timezone; the Date constructor reads it as local
+    // time, and toISOString() turns that into the UTC instant the API wants.
+    const startTime = when === "later" && startAt ? new Date(startAt) : null;
+    if (when === "later" && (!startTime || Number.isNaN(startTime.getTime()))) {
+      setSubmitError("Pick a date and time for the meeting.");
+      return;
+    }
     setSubmitting(true);
     setSubmitError(null);
     setNeedsFunds(false);
     try {
       await apiFetch("/api/meetings", {
         method: "POST",
-        body: JSON.stringify({ url: trimmed, title: title.trim() || undefined }),
+        body: JSON.stringify({
+          url: trimmed,
+          title: title.trim() || undefined,
+          bot_name: botName.trim() || undefined,
+          start_time: startTime ? startTime.toISOString() : undefined,
+        }),
       });
+      try {
+        window.localStorage.setItem(BOT_NAME_KEY, botName.trim());
+      } catch {
+        // Storage can be blocked; the name just won't be remembered.
+      }
       setUrl("");
       setTitle("");
+      setWhen("now");
+      setStartAt("");
       loadMeetings();
     } catch (err) {
       if (handleAuthError(err)) return;
@@ -177,13 +209,43 @@ function MeetingsApp() {
             placeholder="Title (optional)"
             className="rounded-md border border-line bg-paper px-3 py-2 text-sm text-ink outline-none transition-shadow focus:border-accent focus:ring-2 focus:ring-accent-soft sm:w-56"
           />
+          <input
+            type="text"
+            value={botName}
+            maxLength={50}
+            onChange={(e) => setBotName(e.target.value)}
+            placeholder={`Bot name (${DEFAULT_BOT_NAME})`}
+            aria-label="Name of the notetaker bot"
+            className="rounded-md border border-line bg-paper px-3 py-2 text-sm text-ink outline-none transition-shadow focus:border-accent focus:ring-2 focus:ring-accent-soft sm:w-56"
+          />
           <Button type="submit" disabled={submitting || !url.trim()} className="shrink-0 justify-center">
-            {submitting ? "Sending..." : "Send notetaker"}
+            {submitting ? "Sending..." : when === "later" ? "Schedule notetaker" : "Send notetaker"}
           </Button>
         </div>
+        <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-ink">
+          <label className="flex items-center gap-2">
+            <input type="radio" name="when" checked={when === "now"} onChange={() => setWhen("now")} />
+            Join now
+          </label>
+          <label className="flex items-center gap-2">
+            <input type="radio" name="when" checked={when === "later"} onChange={() => setWhen("later")} />
+            Schedule for later
+          </label>
+          {when === "later" && (
+            <input
+              type="datetime-local"
+              value={startAt}
+              onChange={(e) => setStartAt(e.target.value)}
+              required
+              aria-label="Meeting start time"
+              className="rounded-md border border-line bg-paper px-3 py-1.5 text-sm text-ink outline-none transition-shadow focus:border-accent focus:ring-2 focus:ring-accent-soft"
+            />
+          )}
+        </div>
         <p className="mt-3 text-xs text-ink-soft">
-          $1.00 per hour of meeting, charged when it ends. The bot appears as a participant named &ldquo;Framewrite
-          Notetaker&rdquo; and you may need to admit it from the waiting room. You&apos;re responsible for telling
+          $1.00 per hour of meeting, charged when it ends.
+          {when === "later" && " The notetaker joins at the start time you pick (in your local time)."} The bot appears as a participant named &ldquo;{botName.trim() || DEFAULT_BOT_NAME}&rdquo;
+          &mdash; pick a name attendees will recognise as a notetaker &mdash; and you may need to admit it from the waiting room. You&apos;re responsible for telling
           attendees the meeting is being recorded.
         </p>
         {submitError && (
@@ -217,7 +279,10 @@ function MeetingsApp() {
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium text-ink">{m.title ?? "Meeting"}</p>
                   <p className="text-xs text-ink-soft">
-                    {PLATFORM_LABELS[m.platform]} &middot; {new Date(m.created_at).toLocaleString()}
+                    {PLATFORM_LABELS[m.platform]} &middot;{" "}
+                    {m.status === "scheduled" && m.scheduled_for
+                      ? `Joins ${new Date(m.scheduled_for).toLocaleString()}`
+                      : new Date(m.created_at).toLocaleString()}
                   </p>
                   {m.error && (m.status === "failed" || m.status === "awaiting_payment") && (
                     <p className="mt-0.5 max-w-md text-xs text-status-error">{m.error}</p>
@@ -232,7 +297,7 @@ function MeetingsApp() {
                       View notes →
                     </Link>
                   )}
-                  {(m.status === "joining" || m.status === "recording") && (
+                  {(m.status === "scheduled" || m.status === "joining" || m.status === "recording") && (
                     <button
                       onClick={() =>
                         runAction(m, () => apiFetch(`/api/meetings/${m.id}`, { method: "DELETE" }), "Couldn't stop the notetaker.")
@@ -240,7 +305,7 @@ function MeetingsApp() {
                       disabled={busyId === m.id}
                       className="text-sm text-ink-soft hover:text-status-error hover:underline disabled:cursor-default disabled:opacity-50"
                     >
-                      {busyId === m.id ? "Stopping..." : m.status === "joining" ? "Cancel" : "Stop"}
+                      {busyId === m.id ? "Stopping..." : m.status === "recording" ? "Stop" : "Cancel"}
                     </button>
                   )}
                   {!m.job_id && (m.status === "awaiting_payment" || m.status === "failed") && (

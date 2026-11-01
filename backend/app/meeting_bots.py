@@ -18,6 +18,7 @@ import hashlib
 import hmac
 import logging
 import time
+from datetime import datetime, timezone
 from pathlib import Path
 from urllib.parse import urlparse
 
@@ -70,16 +71,22 @@ def _require_configured() -> None:
         raise MeetingBotError("Meeting notetaker isn't available right now.")
 
 
-def create_bot(meeting_url: str) -> str:
-    """Sends the bot into the meeting now; returns the vendor's bot id."""
+def create_bot(meeting_url: str, join_at: datetime | None = None, bot_name: str | None = None) -> str:
+    """Sends the bot into the meeting -- now, or at `join_at` (timezone-aware)
+    for a scheduled meeting. Recall reserves a machine in advance for bots
+    scheduled more than ~10 minutes out, which is why a scheduled bot is
+    created up front rather than when its time arrives. Returns the vendor's
+    bot id. `bot_name` is what attendees see; it defaults to MEETING_BOT_NAME."""
     _require_configured()
     body = {
         "meeting_url": meeting_url,
-        "bot_name": settings.MEETING_BOT_NAME,
+        "bot_name": bot_name or settings.MEETING_BOT_NAME,
         # No "transcript" provider on purpose -- see the module docstring.
         "recording_config": {"audio_mixed_mp3": {}},
         "automatic_leave": {"in_call_recording_timeout": settings.MEETING_MAX_SECONDS},
     }
+    if join_at is not None:
+        body["join_at"] = join_at.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
     try:
         response = requests.post(_api("/bot/"), json=body, headers=_headers(), timeout=_TIMEOUT_SECONDS)
     except requests.RequestException:
@@ -93,15 +100,18 @@ def create_bot(meeting_url: str) -> str:
     return response.json()["id"]
 
 
-def leave_meeting(bot_id: str) -> None:
-    """Best-effort: asks the bot to leave an active call, falling back to
-    removing it if it hasn't joined yet. Never raises."""
+def leave_meeting(bot_id: str) -> bool:
+    """Asks the bot to leave an active call, falling back to deleting it if it
+    hasn't joined yet (which is also how a scheduled bot is cancelled).
+    Returns whether either call succeeded; never raises."""
     try:
         response = requests.post(_api(f"/bot/{bot_id}/leave_call/"), headers=_headers(), timeout=_TIMEOUT_SECONDS)
-        if not response.ok:
-            requests.delete(_api(f"/bot/{bot_id}/"), headers=_headers(), timeout=_TIMEOUT_SECONDS)
+        if response.ok:
+            return True
+        return requests.delete(_api(f"/bot/{bot_id}/"), headers=_headers(), timeout=_TIMEOUT_SECONDS).ok
     except requests.RequestException:
         logger.exception("Recall leave_meeting failed for bot %s", bot_id)
+        return False
 
 
 def fetch_audio(bot_id: str, dest_path: Path, max_bytes: int) -> None:

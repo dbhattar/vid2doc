@@ -1,4 +1,4 @@
-export type MeetingStatus = "joining" | "recording" | "processing" | "done" | "failed" | "cancelled" | "awaiting_payment";
+export type MeetingStatus = "scheduled" | "joining" | "recording" | "processing" | "done" | "failed" | "cancelled" | "awaiting_payment";
 export type MeetingPlatform = "zoom" | "meet" | "teams";
 
 /** One row of GET /api/meetings -- see backend/app/routes/meetings.py. `done`
@@ -8,6 +8,8 @@ export type Meeting = {
   id: string;
   platform: MeetingPlatform;
   title: string | null;
+  /** ISO time the bot is due to join, for a meeting scheduled ahead. */
+  scheduled_for: string | null;
   status: MeetingStatus;
   job_id: string | null;
   error: string | null;
@@ -21,6 +23,7 @@ export const PLATFORM_LABELS: Record<MeetingPlatform, string> = {
 };
 
 export const MEETING_STATUS_LABELS: Record<MeetingStatus, string> = {
+  scheduled: "Scheduled",
   joining: "Joining...",
   recording: "Recording",
   processing: "Processing",
@@ -32,5 +35,5 @@ export const MEETING_STATUS_LABELS: Record<MeetingStatus, string> = {
 
 /** Statuses where the meeting is still in flight and worth polling. */
 export function isActiveMeeting(m: Meeting): boolean {
-  return m.status === "joining" || m.status === "recording" || m.status === "processing";
+  return m.status === "scheduled" || m.status === "joining" || m.status === "recording" || m.status === "processing";
 }

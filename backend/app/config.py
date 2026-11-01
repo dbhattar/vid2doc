@@ -57,6 +57,11 @@ class Settings:
     # any one meeting.
     MEETING_MAX_SECONDS = int(os.environ.get("MEETING_MAX_SECONDS", 2 * 60 * 60))
 
+    # A job paused for the user's review gets one reminder email after this
+    # long (review_reminders.py); the sweep runs every CHECK_SECONDS.
+    REVIEW_REMINDER_AFTER_HOURS = float(os.environ.get("REVIEW_REMINDER_AFTER_HOURS", 24))
+    REVIEW_REMINDER_CHECK_SECONDS = int(os.environ.get("REVIEW_REMINDER_CHECK_SECONDS", 15 * 60))
+
     # Stripe: wallet top-up checkout + webhooks (see app/stripe_client.py, app/billing.py).
     # No fixed Price ids -- top-up amount is user-chosen, passed as Checkout
     # line_item price_data at request time (see routes/billing.py).

@@ -149,11 +149,13 @@ Optional form fields: `transformation` (`document` | `notes` | `study_guide` |
 `POST /api/jobs/{job_id}/topics` (`{"topics": [{"topic", "context"}]}`)
 confirms an edited/extended list and resumes the job, so the paid web research
 only runs on topics the user approved. Whenever a job pauses for review (frame,
-scene, or topic review) the user is emailed (`emails.notify_review_needed`).
+scene, or topic review) the user is emailed (`emails.notify_review_needed`), and
+reminded once if it is still waiting a day later (`review_reminders.py`, a worker
+thread; `REVIEW_REMINDER_AFTER_HOURS`).
 
 ### Meeting notetaker (`/api/meetings`)
 
-`POST /api/meetings` (`{"url", "title"?}`) sends a [Recall.ai](https://recall.ai)
+`POST /api/meetings` (`{"url", "title"?, "start_time"?}`; with a timezone-aware `start_time` more than ~2 minutes ahead (max 30 days) the bot is booked at Recall with `join_at` and the meeting sits at `scheduled` until then) sends a [Recall.ai](https://recall.ai)
 bot to a pasted Zoom, Google Meet or Teams link; `GET /api/meetings` lists them;
 `DELETE /api/meetings/{id}` makes the bot leave. The bot only records audio --
 when Recall reports `bot.done` (via `POST /api/meetings/webhook`,
@@ -315,6 +317,7 @@ docker compose up --build
 | `STRIPE_WEBHOOK_SECRET` | Verifies `POST /api/billing/webhook` signatures — from `stripe listen` locally, or the dashboard's webhook config in prod |
 | `RECALL_API_KEY` / `RECALL_API_BASE` | Recall.ai API key and regional host (default `https://us-east-1.recall.ai`; must match your account's region) for the meeting notetaker (`/api/meetings`, see above) |
 | `RECALL_WEBHOOK_SECRET` | `whsec_...` signing secret of the Recall webhook pointed at `POST /api/meetings/webhook` |
+| `REVIEW_REMINDER_AFTER_HOURS` / `REVIEW_REMINDER_CHECK_SECONDS` | How long a job may wait for the user's review before the one reminder email (default 24h), and how often the worker checks (default 15 min) |
 | `MEETING_BOT_NAME` / `MEETING_MAX_SECONDS` | Name the notetaker joins under, and how long it records before leaving (default 2h). Admins enable the feature per user or for everyone from the admin dashboard |
 | `FRONTEND_URL` | Where Stripe Checkout redirects back to after a session |
 | `PUBLIC_ARCHIVE_S3_BUCKET`, `PUBLIC_ARCHIVE_S3_REGION`, `PUBLIC_ARCHIVE_BASE_URL`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | Permanent S3 archive for the public showcase — see [`s3-showcase-setup.md`](s3-showcase-setup.md) for one-time bucket setup |
