@@ -289,6 +289,19 @@ def claim_review_reminders(waiting_since: datetime) -> list[str]:
         session.close()
 
 
+def release_review_reminder(job_id: str) -> None:
+    """Undoes claim_review_reminders for a job whose email didn't go out, so
+    the next sweep tries again. Like the claim, leaves updated_at alone."""
+    session = get_session()
+    try:
+        session.execute(
+            update(Job).where(Job.id == job_id).values(review_reminder_sent_at=None, updated_at=Job.updated_at)
+        )
+        session.commit()
+    finally:
+        session.close()
+
+
 def list_jobs_eligible_for_retention(cutoff: datetime) -> list[dict]:
     """`done` jobs created before `cutoff` that haven't already been cleaned
     up. Retention applies to everyone -- there's no plan tier anymore that

@@ -237,7 +237,7 @@ def send_job_failed_email(user: dict, job: dict) -> None:
     send_email(user["email"], subject, text, html=html_body)
 
 
-def send_review_needed_email(user: dict, job: dict, reminder: bool = False) -> None:
+def send_review_needed_email(user: dict, job: dict, reminder: bool = False) -> bool:
     raw_name = user.get("display_name") or user["email"].split("@")[0]
     name = html.escape(raw_name)
     raw_title = job.get("title") or "Your job"
@@ -277,7 +277,7 @@ def send_review_needed_email(user: dict, job: dict, reminder: bool = False) -> N
         f"Hi {raw_name},\n\n{text_intro}\n"
         f"{detail}\n\nReview it: {job_url}\n\n-- The Framewrite team"
     )
-    send_email(user["email"], subject, text, html=html_body)
+    return send_email(user["email"], subject, text, html=html_body)
 
 
 def notify_review_needed(job_id: str) -> None:
@@ -299,22 +299,25 @@ def notify_review_needed(job_id: str) -> None:
         logger.exception("Failed to send review-needed email for job %s", job_id)
 
 
-def notify_review_reminder(job_id: str) -> None:
+def notify_review_reminder(job_id: str) -> bool:
     """Best-effort reminder for a job that has sat in awaiting_review for a
-    day (see review_reminders.py). Same contract as notify_review_needed:
-    never raises, and skips a job that's no longer waiting."""
+    day (see review_reminders.py). Same contract as notify_review_needed --
+    never raises, skips a job that's no longer waiting -- but returns whether
+    an email actually went out, so the caller only records a reminder that
+    was really sent."""
     from . import jobs, users
 
     try:
         job = jobs.get_job(job_id)
         if not job or not job.get("user_id") or job["status"] != "awaiting_review":
-            return
+            return False
         user = users.get_user_by_id(job["user_id"])
         if not user or not user.get("email"):
-            return
-        send_review_needed_email(user, job, reminder=True)
+            return False
+        return send_review_needed_email(user, job, reminder=True)
     except Exception:
         logger.exception("Failed to send review reminder email for job %s", job_id)
+        return False
 
 
 def notify_meeting_issue(meeting_id: str, kind: str, detail: str | None = None) -> None:

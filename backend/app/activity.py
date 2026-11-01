@@ -1,7 +1,8 @@
 """Synthesizes a "what did each user do" activity feed from existing tables
 -- there's no dedicated event/audit log, so this merges Job, WalletLedgerEntry,
 and Feedback rows (the only three tables that record user-initiated actions
-with a timestamp) into one chronological feed. Powers the admin dashboard's
+with a timestamp) into one chronological feed, plus review-reminder emails
+(from Job.review_reminder_sent_at). Powers the admin dashboard's
 global activity feed and per-user drill-down page (see routes/admin.py)."""
 
 import uuid
@@ -21,6 +22,23 @@ def _job_event(job: Job, user: User) -> dict:
         "job_id": job.id,
         "job_type": job.job_type,
         "status": job.status,
+        "title": job.title,
+    }
+
+
+def _reminder_event(job: Job, user: User) -> dict:
+    """A "still waiting for your review" reminder email (review_reminders.py).
+    Derived from the job's review_reminder_sent_at, so only the latest
+    reminder per job is shown."""
+    return {
+        "id": f"reminder:{job.id}",
+        "type": "reminder",
+        "user_id": str(user.id),
+        "email": user.email,
+        "display_name": user.display_name,
+        "created_at": job.review_reminder_sent_at,
+        "job_id": job.id,
+        "job_type": job.job_type,
         "title": job.title,
     }
 
@@ -99,7 +117,16 @@ def list_recent_activity(limit: int = 50, offset: int = 0) -> tuple[list[dict], 
             .limit(fetch_n)
             .all()
         )
+        reminder_rows = (
+            session.query(Job, User)
+            .join(User, Job.user_id == User.id)
+            .filter(Job.review_reminder_sent_at.isnot(None))
+            .order_by(Job.review_reminder_sent_at.desc())
+            .limit(fetch_n)
+            .all()
+        )
         events = _merge_sorted(
+            [_reminder_event(j, u) for j, u in reminder_rows],
             [_job_event(j, u) for j, u in job_rows],
             [_wallet_event(w, u, wj) for w, u, wj in wallet_rows],
             [_feedback_event(f, u) for f, u in feedback_rows],
@@ -108,6 +135,9 @@ def list_recent_activity(limit: int = 50, offset: int = 0) -> tuple[list[dict], 
             session.query(Job).filter(Job.user_id.isnot(None)).count()
             + session.query(WalletLedgerEntry).count()
             + session.query(Feedback).filter(Feedback.user_id.isnot(None)).count()
+            + session.query(Job)
+            .filter(Job.user_id.isnot(None), Job.review_reminder_sent_at.isnot(None))
+            .count()
         )
         return events[offset : offset + limit], total
     finally:
@@ -145,7 +175,15 @@ def list_activity_for_user(user_id: str | uuid.UUID, limit: int = 20, offset: in
             .limit(fetch_n)
             .all()
         )
+        reminder_rows = (
+            session.query(Job)
+            .filter(Job.user_id == user_id, Job.review_reminder_sent_at.isnot(None))
+            .order_by(Job.review_reminder_sent_at.desc())
+            .limit(fetch_n)
+            .all()
+        )
         events = _merge_sorted(
+            [_reminder_event(j, user) for j in reminder_rows],
             [_job_event(j, user) for j in job_rows],
             [_wallet_event(w, user, j) for w, j in wallet_rows],
             [_feedback_event(f, user) for f in feedback_rows],
@@ -154,6 +192,7 @@ def list_activity_for_user(user_id: str | uuid.UUID, limit: int = 20, offset: in
             session.query(Job).filter_by(user_id=user_id).count()
             + session.query(WalletLedgerEntry).filter_by(user_id=user_id).count()
             + session.query(Feedback).filter_by(user_id=user_id).count()
+            + session.query(Job).filter(Job.user_id == user_id, Job.review_reminder_sent_at.isnot(None)).count()
         )
         return events[offset : offset + limit], total
     finally:

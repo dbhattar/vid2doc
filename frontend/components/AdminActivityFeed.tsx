@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-import { ClapperboardIcon, FeedbackIcon, MicrophoneIcon, VideoCameraIcon, WalletIcon } from "@/components/icons";
+import { ClapperboardIcon, FeedbackIcon, MailIcon, MicrophoneIcon, VideoCameraIcon, WalletIcon } from "@/components/icons";
 import { STATUS_LABELS, STATUS_STYLES } from "@/components/StatusBadge";
 import { formatCents } from "@/lib/billing";
 import type { JobStatus, JobType } from "@/lib/jobs";
@@ -33,7 +33,9 @@ export type AdminActivityEvent =
       job_type: JobType | null;
       job_title: string | null;
     })
-  | (BaseEvent & { type: "feedback"; message: string });
+  | (BaseEvent & { type: "feedback"; message: string })
+  // A "still waiting for your review" reminder email (backend/app/review_reminders.py).
+  | (BaseEvent & { type: "reminder"; job_id: string; job_type: JobType; title: string | null });
 
 const JOB_TYPE_ICONS: Record<JobType, (props: { className?: string }) => React.ReactElement> = {
   video: VideoCameraIcon,
@@ -50,6 +52,7 @@ const JOB_TYPE_LABELS: Record<JobType, string> = {
 function eventIcon(event: AdminActivityEvent) {
   if (event.type === "job") return JOB_TYPE_ICONS[event.job_type];
   if (event.type === "wallet") return WalletIcon;
+  if (event.type === "reminder") return MailIcon;
   return FeedbackIcon;
 }
 
@@ -83,6 +86,13 @@ function eventText(event: AdminActivityEvent): React.ReactNode {
     }
     return <>Charged {amount} for {jobDescription}</>;
   }
+  if (event.type === "reminder") {
+    return (
+      <>
+        Sent a review reminder email{event.title && <> for &ldquo;{event.title}&rdquo;</>}
+      </>
+    );
+  }
   return (
     <>
       Left feedback: <span className="text-ink-soft">&ldquo;{event.message.slice(0, 120)}{event.message.length > 120 ? "…" : ""}&rdquo;</span>
@@ -91,7 +101,7 @@ function eventText(event: AdminActivityEvent): React.ReactNode {
 }
 
 /** One row per synthesized activity event (job submitted, wallet ledger
- * entry, feedback left) -- shared between the admin dashboard's global feed
+ * entry, feedback left, review reminder emailed) -- shared between the admin dashboard's global feed
  * and the per-user drill-down page. `showUser` is off on the drill-down
  * page since every row there is already scoped to one user. */
 export default function AdminActivityFeed({

@@ -16,10 +16,15 @@ logger = logging.getLogger(__name__)
 
 def send_due_reminders() -> int:
     waiting_since = datetime.now(timezone.utc) - timedelta(hours=settings.REVIEW_REMINDER_AFTER_HOURS)
-    job_ids = jobs.claim_review_reminders(waiting_since)
-    for job_id in job_ids:
-        emails.notify_review_reminder(job_id)
-    return len(job_ids)
+    sent = 0
+    for job_id in jobs.claim_review_reminders(waiting_since):
+        # The claim stamped review_reminder_sent_at (which the admin activity
+        # feed shows as "reminder sent") -- take it back if no email went out.
+        if emails.notify_review_reminder(job_id):
+            sent += 1
+        else:
+            jobs.release_review_reminder(job_id)
+    return sent
 
 
 def run_loop() -> None:

@@ -13,6 +13,7 @@ import {
   Globe,
   KeyRound,
   LayoutDashboard,
+  Mail,
   Menu,
   Mic,
   MessageSquare,
@@ -123,6 +124,10 @@ export function SpeakerOffIcon({ className }: IconProps) {
 
 export function GlobeIcon({ className }: IconProps) {
   return <Globe className={className} aria-hidden />;
+}
+
+export function MailIcon({ className }: IconProps) {
+  return <Mail className={className} aria-hidden />;
 }
 
 export function MenuIcon({ className }: IconProps) {
