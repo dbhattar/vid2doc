@@ -322,6 +322,40 @@ def list_jobs_eligible_for_retention(cutoff: datetime) -> list[dict]:
         session.close()
 
 
+def list_stale_failed_jobs(cutoff: datetime) -> list[dict]:
+    """`failed`/`cancelled` jobs created before `cutoff` whose files haven't
+    been cleaned up. They never produced a document, so retention.py only
+    frees their disk space (a retry of one just asks the user to re-upload);
+    unlike done/awaiting_review jobs there's nothing to refund -- failed and
+    cancelled jobs were already refunded when they ended."""
+    session = get_session()
+    try:
+        rows = (
+            session.query(Job)
+            .filter(Job.status.in_(["failed", "cancelled"]), Job.created_at < cutoff, Job.deleted_at.is_(None))
+            .all()
+        )
+        return [_job_to_dict(j) for j in rows]
+    finally:
+        session.close()
+
+
+def existing_job_ids(candidate_ids: list[str]) -> set[str]:
+    """Which of `candidate_ids` are real job rows -- retention.py uses it to
+    tell an orphaned folder (no row at all) from a live job's."""
+    if not candidate_ids:
+        return set()
+    session = get_session()
+    try:
+        found: set[str] = set()
+        for i in range(0, len(candidate_ids), 1000):
+            chunk = candidate_ids[i : i + 1000]
+            found.update(row[0] for row in session.query(Job.id).filter(Job.id.in_(chunk)).all())
+        return found
+    finally:
+        session.close()
+
+
 def list_all_jobs(limit: int = 20, offset: int = 0, job_type: str | None = None) -> list[dict]:
     """Every job, newest first, joined with the submitting user's identity --
     outerjoin since legacy jobs (pre-auth) have user_id=None. Admin-only

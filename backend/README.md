@@ -275,21 +275,47 @@ No auth. Liveness check for whatever platform runs the container.
 
 ## Retention
 
-`retention.py` is a one-shot script, not part of the API or worker process:
-for every `done` job older than 7 days with `deleted_at IS NULL`, it deletes
-that job's `data/uploads/{job_id}` and `data/output/{job_id}` directories
-from disk, then nulls `document_path` and sets `deleted_at` on the row (the
-row itself — id, `duration_seconds`, `user_id`, `billed_cents`, timestamps —
-is kept, since usage/billing history still needs it). Applies to every job
-regardless of who owns it; there's no plan tier with unlimited retention.
+`retention.py` is a one-shot script, not part of the API or worker process, and
+**nothing runs it unless a scheduler does** -- if the VPS's disk fills up with
+`data/uploads` and `data/output`, check that it is scheduled first
+(`fab ... retention-status`). It does three things:
 
-Run it on a schedule via the VPS's own crontab — not folded into `worker.py`'s
-poll loop, since that loop synchronously blocks on a video's full processing
-time and shouldn't also carry cleanup latency:
+1. For every `done` job older than 7 days with `deleted_at IS NULL`, it deletes
+   that job's `data/uploads/{job_id}` and `data/output/{job_id}` directories,
+   then nulls `document_path` and sets `deleted_at` on the row (the row itself
+   -- id, `duration_seconds`, `user_id`, `billed_cents`, timestamps -- is kept,
+   since usage/billing history still needs it). `awaiting_review` jobs older
+   than 7 days are swept too, refunded and marked `failed`.
+2. The same files-only cleanup for `failed`/`cancelled` jobs older than 7 days
+   (they never produced a document, and were already refunded; retrying one
+   after this asks the user to re-upload).
+3. Job-id-named folders under `uploads/` and `output/` that no job row owns and
+   that are older than 7 days (e.g. an upload rejected after its file was
+   written).
+
+Applies to every job regardless of who owns it; there's no plan tier with
+unlimited retention. `python retention.py --dry-run` lists what would go (and
+the space it would free) without deleting anything.
+
+Schedule it on the VPS -- not folded into `worker.py`'s poll loop, since that
+loop synchronously blocks on a video's full processing time and shouldn't also
+carry cleanup latency. From `deploy/`:
+
+```bash
+fab -H deploy@YOUR_VPS_IP -i ~/.ssh/your_key retention-run            # preview (dry run)
+fab -H deploy@YOUR_VPS_IP -i ~/.ssh/your_key retention-run --delete   # actually delete
+fab -H deploy@YOUR_VPS_IP -i ~/.ssh/your_key install-retention-cron   # daily at 03:00
+fab -H deploy@YOUR_VPS_IP -i ~/.ssh/your_key retention-status         # is it scheduled / last runs
+```
+
+or by hand, as a crontab line (`-T` because cron has no terminal):
 
 ```cron
-0 3 * * * cd /path/to/vid2doc/backend && docker compose run --rm api python retention.py >> /var/log/framewrite-retention.log 2>&1
+0 3 * * * cd /path/to/vid2doc/backend && docker compose run --rm -T api python retention.py >> /var/log/framewrite-retention.log 2>&1
 ```
+
+Disk diagnostics for the VPS are in `deploy/fabfile.py`: `disk`, `disk-top`,
+`docker-disk`, `job-disk`; `cap-journal` limits the systemd journal.
 
 ## Public showcase
 

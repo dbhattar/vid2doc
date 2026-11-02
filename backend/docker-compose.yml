@@ -1,3 +1,11 @@
+# Docker keeps every container's stdout/stderr in an unbounded JSON log file by
+# default; cap each service so logs can't slowly fill the disk.
+x-logging: &default-logging
+  driver: json-file
+  options:
+    max-size: "10m"
+    max-file: "3"
+
 services:
   postgres:
     image: postgres:16-alpine
@@ -15,6 +23,7 @@ services:
       timeout: 3s
       retries: 20
     restart: unless-stopped
+    logging: *default-logging
 
   api:
     build: .
@@ -38,6 +47,7 @@ services:
       postgres:
         condition: service_healthy
     restart: unless-stopped
+    logging: *default-logging
 
   worker:
     build: .
@@ -51,6 +61,7 @@ services:
       postgres:
         condition: service_healthy
     restart: unless-stopped
+    logging: *default-logging
 
   frontend:
     build:
@@ -65,3 +76,4 @@ services:
     depends_on:
       - api
     restart: unless-stopped
+    logging: *default-logging

@@ -341,7 +341,7 @@ def set_env(c, key, value, restart_after=True):
     leave a half-written .env behind. Restarts the stack afterward by
     default (see _restart_stack's docstring for why that's the right way
     to pick up an edited .env) so the change actually takes effect --
-    pass --restart-after=False to batch several set-env calls before one
+    pass --no-restart-after to batch several set-env calls before one
     restart.
 
     Usage: fab ... set-env --key=TRANSCRIPTION_ENGINE --value=baseten
@@ -397,7 +397,7 @@ def set_env(c, key, value, restart_after=True):
         print("==> Restarting the stack to pick up the change")
         _restart_stack(c)
     else:
-        print("Skipped restart (--restart-after=False) -- run `fab ... restart` when ready to apply.")
+        print("Skipped restart (--no-restart-after) -- run `fab ... restart` when ready to apply.")
 
 
 @task
@@ -464,3 +464,216 @@ def run(c, cmd, sudo=True):
 def logs(c, service="api", lines=100):
     """Tails logs for one service: api (default), worker, frontend, or postgres."""
     c.sudo(f"bash -c 'cd {APP_DIR}/backend && docker compose logs --tail {lines} {service}'")
+
+
+# --- Disk usage diagnostics ------------------------------------------------
+# Everything below is read-only (df/du/docker system df/journalctl --disk-usage):
+# it reports where the space went and never deletes anything. Run as sudo
+# because backend/data/ and /var/lib/docker are root-owned. Commands must not
+# contain single quotes: they're embedded in `bash -c '...'` (same convention
+# as the docker compose calls above), where nothing is expanded by the login
+# shell, so globs and `command substitution` are evaluated by the inner bash.
+
+
+def _report(c, title, cmd):
+    """One labelled section of a disk report. warn=True so a section that
+    fails (e.g. docker not running) doesn't abort the rest of the report."""
+    print(f"\n==> {title}")
+    c.sudo(f"bash -c '{cmd}'", warn=True)
+
+
+@task
+def disk(c):
+    """Where is the VPS's disk space going? One read-only report: filesystem
+    and inode usage, the biggest top-level directories, Docker's own
+    breakdown, the app's data directories, and the usual silent culprits
+    (Docker container logs, systemd journal, /var/log, apt caches).
+
+    Start here, then drill into whatever is big with `disk-top`,
+    `docker-disk` or `job-disk` below.
+
+    Usage:
+        fab ... disk
+    """
+    data = f"{APP_DIR}/backend/data"
+    _report(c, "Filesystems (df -h) -- the Use% column is what matters", "df -hT -x tmpfs -x devtmpfs -x squashfs -x overlay")
+    _report(c, "Inodes (df -i) -- 100% IUse% also means 'disk full', even with free space", "df -i / 2>/dev/null")
+    _report(c, "Biggest top-level directories on / (one filesystem, largest first)", "du -xh --max-depth=1 / 2>/dev/null | sort -rh | head -15")
+    _report(c, "Docker: images, containers, volumes, build cache (RECLAIMABLE = safe to prune)", "docker system df")
+    _report(c, "Docker root (/var/lib/docker) by subdirectory", "du -sh /var/lib/docker/* 2>/dev/null | sort -rh")
+    _report(c, f"App data ({data}) -- uploads, generated output, postgres", f"du -sh {data}/* 2>/dev/null | sort -rh")
+    _report(
+        c,
+        "Container log files (Docker's json logs grow without bound unless rotation is configured)",
+        "du -sh /var/lib/docker/containers/*/*-json.log 2>/dev/null | sort -rh | head -10",
+    )
+    _report(c, "systemd journal", "journalctl --disk-usage")
+    _report(c, "/var/log -- 10 biggest files", "du -ah /var/log 2>/dev/null | sort -rh | head -10")
+    _report(c, "Package caches (apt)", "du -sh /var/cache/apt /var/lib/apt/lists 2>/dev/null")
+    print("\nNext: `fab ... disk-top --path=/some/dir` to drill in, `docker-disk` for Docker detail, `job-disk` for per-job folders.")
+
+
+@task
+def disk_top(c, path="/", depth=1, count=20):
+    """Largest entries under one directory, biggest first -- drill into
+    whatever `disk` flagged. Stays on a single filesystem (du -x) so it
+    won't wander into /proc or mounted volumes when run on /.
+
+    Usage:
+        fab ... disk-top                                    # top level of /
+        fab ... disk-top --path=/var --depth=2
+        fab ... disk-top --path=/opt/framewrite/backend/data --count=30
+    """
+    path = str(path)
+    if not re.fullmatch(r"/[A-Za-z0-9_./-]*", path) or ".." in path:
+        print(f"ERROR: --path must be an absolute path of letters, digits and _ . / - only (got {path!r}).")
+        raise SystemExit(1)
+    _report(
+        c,
+        f"Largest entries under {path} (depth {int(depth)}, top {int(count)})",
+        f"du -xh --max-depth={int(depth)} {path} 2>/dev/null | sort -rh | head -{int(count)}",
+    )
+
+
+@task
+def docker_disk(c):
+    """Docker's disk usage in detail: every image, container and volume with
+    its size, plus build cache. `docker system df` in `disk` is the summary;
+    this names the individual offenders (e.g. a pile of old image versions
+    left behind by repeated deploys). Read-only -- to reclaim space you'd
+    run `docker image prune -a` / `docker builder prune` yourself, after
+    reading this.
+
+    Usage:
+        fab ... docker-disk
+    """
+    _report(c, "Docker disk usage, verbose (images / containers / volumes / build cache)", "docker system df -v")
+
+
+@task
+def job_disk(c, count=20):
+    """The biggest per-job folders under backend/data/uploads (the uploaded
+    or imported source media) and backend/data/output (frames, audio and
+    generated documents) -- usually where the app's own disk growth is.
+    Folder names are job ids: look one up in the admin Jobs page. Old jobs
+    are normally removed by the retention sweep (backend/retention.py), so a
+    large, very old folder here may mean that sweep isn't running or is
+    failing.
+
+    Usage:
+        fab ... job-disk
+        fab ... job-disk --count=50
+    """
+    data = f"{APP_DIR}/backend/data"
+    n = int(count)
+    _report(c, f"Largest {n} folders in {data}/uploads (source media)", f"du -sh {data}/uploads/* 2>/dev/null | sort -rh | head -{n}")
+    _report(c, f"Largest {n} folders in {data}/output (derived files)", f"du -sh {data}/output/* 2>/dev/null | sort -rh | head -{n}")
+    _report(
+        c,
+        "Job folders: how many, and total size",
+        f"echo uploads: `ls {data}/uploads 2>/dev/null | wc -l` folders; echo output: `ls {data}/output 2>/dev/null | wc -l` folders; "
+        f"du -sh {data}/uploads {data}/output 2>/dev/null",
+    )
+
+
+# --- Retention (7-day cleanup of job files) --------------------------------
+# backend/retention.py deletes old jobs' files, but it's a one-shot script:
+# nothing runs it unless a scheduler does. These tasks check for, install,
+# and manually run that schedule.
+
+RETENTION_CRON_FILE = "/etc/cron.d/framewrite-retention"
+RETENTION_LOG = "/var/log/framewrite-retention.log"
+# -T: cron has no terminal, and `docker compose run` otherwise tries to
+# allocate one.
+RETENTION_COMMAND = f"cd {APP_DIR}/backend && docker compose run --rm -T api python retention.py"
+
+
+@task
+def retention_status(c):
+    """Is the retention sweep actually scheduled, and when did it last run?
+    Read-only. If the 'Scheduled' section is empty, nothing is cleaning up
+    old jobs' files -- run `install-retention-cron`.
+
+    Usage:
+        fab ... retention-status
+    """
+    _report(c, f"Scheduled? ({RETENTION_CRON_FILE} and any crontab mentioning retention.py)",
+            f"ls -l {RETENTION_CRON_FILE} 2>&1; cat {RETENTION_CRON_FILE} 2>/dev/null; "
+            "grep -rs retention.py /etc/cron.d /etc/crontab /var/spool/cron 2>/dev/null; "
+            "for u in root deploy; do crontab -l -u $u 2>/dev/null | grep retention.py; done; true")
+    _report(c, f"Last runs ({RETENTION_LOG})",
+            f"ls -l {RETENTION_LOG} 2>&1; grep -e Retention -e Total {RETENTION_LOG} 2>/dev/null | tail -10")
+    _report(c, "Cron service running?", "systemctl is-active cron 2>&1")
+
+
+@task
+def install_retention_cron(c, hour=3):
+    """Schedules the retention sweep daily (03:00 server time by default) via
+    /etc/cron.d, logging to /var/log/framewrite-retention.log (rotated weekly).
+    Safe to re-run -- it rewrites the same file. This only schedules it; run
+    `retention-run` first to see what the first sweep would delete.
+
+    Usage:
+        fab ... install-retention-cron
+        fab ... install-retention-cron --hour=4
+    """
+    hour = int(hour)
+    if not 0 <= hour <= 23:
+        print("ERROR: --hour must be 0-23.")
+        raise SystemExit(1)
+    cron = (
+        "# Framewrite: delete old jobs' files (backend/retention.py). Managed by fab install-retention-cron.\n"
+        "SHELL=/bin/bash\n"
+        "PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin\n"
+        f"0 {hour} * * * root {RETENTION_COMMAND} >> {RETENTION_LOG} 2>&1\n"
+    )
+    logrotate = f"{RETENTION_LOG} {{\n    weekly\n    rotate 4\n    compress\n    missingok\n    notifempty\n}}\n"
+    print(f"==> Installing {RETENTION_CRON_FILE} (daily at {hour:02d}:00)")
+    for path, content, mode in ((RETENTION_CRON_FILE, cron, "644"), ("/etc/logrotate.d/framewrite-retention", logrotate, "644")):
+        tmp = f"/tmp/fw-{uuid.uuid4().hex}"
+        c.run(f"cat > {tmp} << 'FRAMEWRITE_EOF'\n{content}FRAMEWRITE_EOF")
+        c.sudo(f"mv {tmp} {path}")
+        c.sudo(f"chown root:root {path}")
+        c.sudo(f"chmod {mode} {path}")
+    c.sudo("systemctl enable --now cron", warn=True)
+    print("Done. Check it with: fab ... retention-status")
+
+
+@task
+def retention_run(c, delete=False):
+    """Runs the retention sweep right now. By default it's a DRY RUN: it lists
+    what would be deleted (and how much space it would free) without deleting
+    anything -- read it, then add --delete to actually clean up. Uses the same
+    code path as the nightly cron.
+
+    Usage:
+        fab ... retention-run             # preview only
+        fab ... retention-run --delete    # really delete
+    """
+    flag = "" if delete else " --dry-run"
+    c.sudo(f"bash -c '{RETENTION_COMMAND}{flag}'")
+
+
+@task
+def cap_journal(c, size="200M"):
+    """Caps the systemd journal (/var/log/journal) at `size` and trims it now.
+    Left alone it can reach gigabytes. This DELETES old journal entries beyond
+    the cap (application logs live in Docker's own logs, not here); it also
+    writes /etc/systemd/journald.conf.d/framewrite.conf so the cap persists.
+
+    Usage:
+        fab ... cap-journal
+        fab ... cap-journal --size=500M
+    """
+    size = str(size)
+    if not re.fullmatch(r"[1-9][0-9]*[KMG]", size):
+        print("ERROR: --size must look like 200M, 1G or 500K.")
+        raise SystemExit(1)
+    conf = f"[Journal]\nSystemMaxUse={size}\n"
+    tmp = f"/tmp/fw-{uuid.uuid4().hex}"
+    c.sudo("mkdir -p /etc/systemd/journald.conf.d")
+    c.run(f"cat > {tmp} << 'FRAMEWRITE_EOF'\n{conf}FRAMEWRITE_EOF")
+    c.sudo(f"mv {tmp} /etc/systemd/journald.conf.d/framewrite.conf")
+    c.sudo("systemctl restart systemd-journald")
+    c.sudo(f"journalctl --vacuum-size={size}")
+    c.sudo("journalctl --disk-usage")
