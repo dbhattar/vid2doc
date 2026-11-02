@@ -551,6 +551,34 @@ def docker_disk(c):
 
 
 @task
+def docker_prune(c, keep_hours=0, images=False):
+    """Reclaims Docker disk space: deletes build cache (what `docker system df`
+    reports as Build Cache / RECLAIMABLE) and dangling images. Safe for a
+    running stack -- it never touches running containers, volumes or the
+    app's data -- but the next `deploy` rebuilds the images from scratch, so
+    it's slower (re-downloads npm/pip packages).
+
+    --keep-hours=N keeps cache newer than N hours (default 0 = delete all of
+    it); --images also deletes every image no container is using, e.g.
+    old versions left behind by earlier deploys. Prints `docker system df`
+    before and after so you can see what it freed.
+
+    Usage:
+        fab ... docker-prune                        # all build cache + dangling images
+        fab ... docker-prune --keep-hours=168       # keep the last week of cache
+        fab ... docker-prune --images               # also unused images
+    """
+    hours = int(keep_hours)
+    until = f" --filter until={hours}h" if hours > 0 else ""
+    _report(c, "Before", "docker system df")
+    _report(c, "Removing build cache", f"docker builder prune -a -f{until}")
+    _report(c, "Removing dangling images", "docker image prune -f")
+    if images:
+        _report(c, "Removing images not used by any container", "docker image prune -a -f")
+    _report(c, "After", "docker system df")
+
+
+@task
 def job_disk(c, count=20):
     """The biggest per-job folders under backend/data/uploads (the uploaded
     or imported source media) and backend/data/output (frames, audio and
