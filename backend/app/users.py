@@ -18,6 +18,10 @@ def _user_to_dict(user: User) -> dict:
         "is_admin": user.is_admin,
         "announcements_opt_out": user.announcements_opt_out,
         "meetings_enabled": user.meetings_enabled,
+        "notify_job_done": user.notify_job_done,
+        "notify_review_reminder": user.notify_review_reminder,
+        "notify_meeting_notes": user.notify_meeting_notes,
+        "default_bot_name": user.default_bot_name,
         "created_at": user.created_at,
     }
 
@@ -112,6 +116,35 @@ def set_announcements_opt_out(user_id: str | uuid.UUID, opt_out: bool) -> bool:
         user.announcements_opt_out = opt_out
         session.commit()
         return True
+    finally:
+        session.close()
+
+
+PREFERENCE_FIELDS = ("notify_job_done", "notify_review_reminder", "notify_meeting_notes", "default_bot_name")
+
+
+def update_preferences(user_id: str | uuid.UUID, **fields) -> dict | None:
+    """Sets the given preference fields (only PREFERENCE_FIELDS, plus
+    announcements_opt_out) and returns the updated user, or None if there is
+    no such user."""
+    allowed = set(PREFERENCE_FIELDS) | {"announcements_opt_out"}
+    unknown = set(fields) - allowed
+    if unknown:
+        raise ValueError(f"Not a preference: {', '.join(sorted(unknown))}")
+    if isinstance(user_id, str):
+        try:
+            user_id = uuid.UUID(user_id)
+        except ValueError:
+            return None
+    session = get_session()
+    try:
+        user = session.get(User, user_id)
+        if not user:
+            return None
+        for key, value in fields.items():
+            setattr(user, key, value)
+        session.commit()
+        return _user_to_dict(user)
     finally:
         session.close()
 

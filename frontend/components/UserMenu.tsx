@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useEffect, useRef, useState } from "react";
 
@@ -65,9 +66,16 @@ export default function UserMenu({ user, collapsed }: { user: CurrentUser | null
             <p className="truncate text-sm font-medium text-ink">{name}</p>
             {user?.email && <p className="truncate text-xs text-ink-soft">{user.email}</p>}
           </div>
+          <Link
+            href="/settings"
+            onClick={() => setOpen(false)}
+            className="mt-1 flex w-full items-center px-3 py-2 text-left text-sm text-ink transition-colors hover:bg-paper-shade"
+          >
+            Settings
+          </Link>
           <button
             onClick={handleLogout}
-            className="mt-1 flex w-full items-center px-3 py-2 text-left text-sm text-ink transition-colors hover:bg-paper-shade"
+            className="flex w-full items-center px-3 py-2 text-left text-sm text-ink transition-colors hover:bg-paper-shade"
           >
             Log out
           </button>

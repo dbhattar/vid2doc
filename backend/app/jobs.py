@@ -276,6 +276,8 @@ def claim_review_reminders(waiting_since: datetime) -> list[str]:
                 Job.deleted_at.is_(None),
                 Job.user_id.is_not(None),
                 Job.cancel_requested.is_(False),
+                # Skip users who turned reminders off in Settings.
+                Job.user_id.in_(select(User.id).where(User.notify_review_reminder.is_(True))),
                 Job.updated_at < waiting_since,
                 (Job.review_reminder_sent_at.is_(None)) | (Job.review_reminder_sent_at < Job.updated_at),
             )

@@ -11,6 +11,10 @@ export type Meeting = {
   /** ISO time the bot is due to join, for a meeting scheduled ahead. */
   scheduled_for: string | null;
   status: MeetingStatus;
+  /** Planned length in minutes, if the user gave one. */
+  duration_minutes: number | null;
+  /** Email the owner when the notes are ready. */
+  notify_when_ready: boolean;
   job_id: string | null;
   error: string | null;
   created_at: string;
@@ -36,4 +40,15 @@ export const MEETING_STATUS_LABELS: Record<MeetingStatus, string> = {
 /** Statuses where the meeting is still in flight and worth polling. */
 export function isActiveMeeting(m: Meeting): boolean {
   return m.status === "scheduled" || m.status === "joining" || m.status === "recording" || m.status === "processing";
+}
+
+/** Local-time calendar day key, "YYYY-MM-DD" -- what the calendar groups by. */
+export function dayKey(d: Date): string {
+  const pad = (n: number) => String(n).padStart(2, "0");
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+/** The day a meeting sits on: when it is due to join, else when it was created. */
+export function meetingDate(m: Meeting): Date {
+  return new Date(m.scheduled_for ?? m.created_at);
 }

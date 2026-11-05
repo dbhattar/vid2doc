@@ -1,30 +1,20 @@
 "use client";
 
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
 import Button from "@/components/Button";
 import Card from "@/components/Card";
+import MeetingRow from "@/components/MeetingRow";
+import MeetingDayPanel from "@/components/MeetingDayPanel";
+import MeetingsCalendar from "@/components/MeetingsCalendar";
 import MeetingsRequestAccess, { type MeetingsRequestStatus } from "@/components/MeetingsRequestAccess";
 import { apiFetch, ApiError } from "@/lib/api";
 import { clearSession } from "@/lib/auth";
-import { isActiveMeeting, MEETING_STATUS_LABELS, PLATFORM_LABELS, type Meeting } from "@/lib/meetings";
+import { dayKey, isActiveMeeting, type Meeting } from "@/lib/meetings";
+import type { Preferences } from "@/lib/preferences";
 
 const POLL_INTERVAL_MS = 5000;
-const BOT_NAME_KEY = "framewrite_meeting_bot_name";
-const DEFAULT_BOT_NAME = "Framewrite Notetaker";
-
-const STATUS_COLORS: Record<Meeting["status"], string> = {
-  scheduled: "text-accent",
-  joining: "text-status-info",
-  recording: "text-status-error",
-  processing: "text-status-info",
-  done: "text-status-success",
-  failed: "text-status-error",
-  cancelled: "text-ink-soft",
-  awaiting_payment: "text-accent",
-};
 
 export default function MeetingsPage() {
   const router = useRouter();
@@ -53,20 +43,17 @@ export default function MeetingsPage() {
   }, [handleAuthError]);
 
   return (
-    <div className="w-full px-6 py-10">
+    <div className="flex min-h-full w-full flex-col px-6 py-6">
       <p className="font-sans text-xs font-semibold text-accent">
         Meetings → Notes{" "}
         <span className="ml-1 rounded-full border border-line px-2 py-0.5 text-[10px] font-semibold uppercase text-ink-soft">
           Preview
         </span>
       </p>
-      <h1 className="mt-2 font-display text-2xl font-bold tracking-tight text-ink">
-        Send a notetaker to your next meeting.
-      </h1>
+      <h1 className="mt-1 font-display text-2xl font-bold tracking-tight text-ink">Meetings</h1>
       <p className="mt-1 max-w-2xl text-sm text-ink-soft">
-        Paste a Zoom, Google Meet, or Microsoft Teams link. A bot joins, records the audio, and when the meeting ends
-        you get a speaker-labelled transcript with a summary, decisions, and action items -- we&apos;ll email you when
-        it&apos;s ready.
+        Pick a day, add the link, start time and length, and a notetaker joins, records, and sends you a speaker-labelled
+        transcript with a summary, decisions, and action items.
       </p>
 
       {accessError && <p className="mt-6 text-sm text-status-error">{accessError}</p>}
@@ -83,21 +70,10 @@ function MeetingsApp() {
   const router = useRouter();
   const [meetings, setMeetings] = useState<Meeting[] | null>(null);
   const [loadError, setLoadError] = useState<string | null>(null);
-  const [url, setUrl] = useState("");
-  const [title, setTitle] = useState("");
-  const [botName, setBotName] = useState(() => {
-    // Remembered from the last meeting so it doesn't have to be retyped.
-    try {
-      return window.localStorage.getItem(BOT_NAME_KEY) ?? "";
-    } catch {
-      return "";
-    }
-  });
-  const [when, setWhen] = useState<"now" | "later">("now");
-  const [startAt, setStartAt] = useState(""); // <input type="datetime-local"> value, browser-local time
-  const [submitting, setSubmitting] = useState(false);
-  const [submitError, setSubmitError] = useState<string | null>(null);
-  const [needsFunds, setNeedsFunds] = useState(false);
+  const [view, setView] = useState<"calendar" | "list">("calendar");
+  const [month, setMonth] = useState(() => new Date());
+  const [openDay, setOpenDay] = useState<string | null>(null);
+  const [defaults, setDefaults] = useState({ botName: "", notify: true });
   const [busyId, setBusyId] = useState<string | null>(null);
   const [actionError, setActionError] = useState<string | null>(null);
 
@@ -114,66 +90,41 @@ function MeetingsApp() {
   );
 
   const loadMeetings = useCallback(() => {
-    apiFetch<{ meetings: Meeting[] }>("/api/meetings")
+    // The calendar asks for the visible month (local midnight to midnight, as
+    // UTC instants); the list view just takes the most recent meetings.
+    let path = "/api/meetings";
+    if (view === "calendar") {
+      const start = new Date(month.getFullYear(), month.getMonth(), 1);
+      const end = new Date(month.getFullYear(), month.getMonth() + 1, 1);
+      path += `?start=${encodeURIComponent(start.toISOString())}&end=${encodeURIComponent(end.toISOString())}`;
+    }
+    apiFetch<{ meetings: Meeting[] }>(path)
       .then((data) => setMeetings(data.meetings))
       .catch((err) => {
         if (handleAuthError(err)) return;
         setLoadError(err instanceof ApiError ? err.message : "Failed to load meetings.");
       });
-  }, [handleAuthError]);
+  }, [handleAuthError, view, month]);
 
   useEffect(() => {
     loadMeetings();
   }, [loadMeetings]);
+
+  // The bot name and notify box start from the defaults in Settings; the form
+  // can still change them for one meeting.
+  useEffect(() => {
+    apiFetch<Preferences>("/api/me/preferences")
+      .then((p) => setDefaults({ botName: p.default_bot_name, notify: p.notify_meeting_notes }))
+      .catch(() => {
+        // Defaults are a convenience; the form works without them.
+      });
+  }, []);
 
   useEffect(() => {
     if (!meetings || !meetings.some(isActiveMeeting)) return;
     const id = setInterval(loadMeetings, POLL_INTERVAL_MS);
     return () => clearInterval(id);
   }, [meetings, loadMeetings]);
-
-  async function handleSubmit(e: React.FormEvent) {
-    e.preventDefault();
-    const trimmed = url.trim();
-    if (!trimmed) return;
-    // datetime-local has no timezone; the Date constructor reads it as local
-    // time, and toISOString() turns that into the UTC instant the API wants.
-    const startTime = when === "later" && startAt ? new Date(startAt) : null;
-    if (when === "later" && (!startTime || Number.isNaN(startTime.getTime()))) {
-      setSubmitError("Pick a date and time for the meeting.");
-      return;
-    }
-    setSubmitting(true);
-    setSubmitError(null);
-    setNeedsFunds(false);
-    try {
-      await apiFetch("/api/meetings", {
-        method: "POST",
-        body: JSON.stringify({
-          url: trimmed,
-          title: title.trim() || undefined,
-          bot_name: botName.trim() || undefined,
-          start_time: startTime ? startTime.toISOString() : undefined,
-        }),
-      });
-      try {
-        window.localStorage.setItem(BOT_NAME_KEY, botName.trim());
-      } catch {
-        // Storage can be blocked; the name just won't be remembered.
-      }
-      setUrl("");
-      setTitle("");
-      setWhen("now");
-      setStartAt("");
-      loadMeetings();
-    } catch (err) {
-      if (handleAuthError(err)) return;
-      setSubmitError(err instanceof ApiError ? err.message : "Couldn't send the notetaker.");
-      setNeedsFunds(err instanceof ApiError && err.status === 402);
-    } finally {
-      setSubmitting(false);
-    }
-  }
 
   async function runAction(meeting: Meeting, request: () => Promise<unknown>, fallback: string) {
     setBusyId(meeting.id);
@@ -189,149 +140,85 @@ function MeetingsApp() {
     }
   }
 
+  const cancelMeeting = (m: Meeting) =>
+    runAction(m, () => apiFetch(`/api/meetings/${m.id}`, { method: "DELETE" }), "Couldn't stop the notetaker.");
+  const processMeeting = (m: Meeting) =>
+    runAction(m, () => apiFetch(`/api/meetings/${m.id}/process`, { method: "POST" }), "Couldn't process the meeting.");
+  const toggleNotify = (m: Meeting, value: boolean) =>
+    runAction(
+      m,
+      () => apiFetch(`/api/meetings/${m.id}`, { method: "PATCH", body: JSON.stringify({ notify_when_ready: value }) }),
+      "Couldn't update the notification setting.",
+    );
+
   return (
-    <>
-      <form onSubmit={handleSubmit} className="mt-8 w-full rounded-lg border border-line bg-paper p-6 shadow-sm">
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-stretch">
-          <input
-            type="url"
-            value={url}
-            onChange={(e) => setUrl(e.target.value)}
-            placeholder="https://zoom.us/j/... or https://meet.google.com/..."
-            required
-            className="flex-1 rounded-md border border-line bg-paper px-3 py-2 text-sm text-ink outline-none transition-shadow focus:border-accent focus:ring-2 focus:ring-accent-soft"
-          />
-          <input
-            type="text"
-            value={title}
-            maxLength={200}
-            onChange={(e) => setTitle(e.target.value)}
-            placeholder="Title (optional)"
-            className="rounded-md border border-line bg-paper px-3 py-2 text-sm text-ink outline-none transition-shadow focus:border-accent focus:ring-2 focus:ring-accent-soft sm:w-56"
-          />
-          <input
-            type="text"
-            value={botName}
-            maxLength={50}
-            onChange={(e) => setBotName(e.target.value)}
-            placeholder={`Bot name (${DEFAULT_BOT_NAME})`}
-            aria-label="Name of the notetaker bot"
-            className="rounded-md border border-line bg-paper px-3 py-2 text-sm text-ink outline-none transition-shadow focus:border-accent focus:ring-2 focus:ring-accent-soft sm:w-56"
-          />
-          <Button type="submit" disabled={submitting || !url.trim()} className="shrink-0 justify-center">
-            {submitting ? "Sending..." : when === "later" ? "Schedule notetaker" : "Send notetaker"}
-          </Button>
+    <div className="mt-4 flex flex-1 flex-col">
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex overflow-hidden rounded-md border border-line text-sm" role="group" aria-label="View">
+          {(["calendar", "list"] as const).map((v) => (
+            <button
+              key={v}
+              onClick={() => setView(v)}
+              aria-pressed={view === v}
+              className={`px-3 py-1 capitalize ${view === v ? "bg-accent-soft font-semibold text-accent" : "text-ink-soft hover:bg-paper-shade"}`}
+            >
+              {v}
+            </button>
+          ))}
         </div>
-        <div className="mt-3 flex flex-wrap items-center gap-x-5 gap-y-2 text-sm text-ink">
-          <label className="flex items-center gap-2">
-            <input type="radio" name="when" checked={when === "now"} onChange={() => setWhen("now")} />
-            Join now
-          </label>
-          <label className="flex items-center gap-2">
-            <input type="radio" name="when" checked={when === "later"} onChange={() => setWhen("later")} />
-            Schedule for later
-          </label>
-          {when === "later" && (
-            <input
-              type="datetime-local"
-              value={startAt}
-              onChange={(e) => setStartAt(e.target.value)}
-              required
-              aria-label="Meeting start time"
-              className="rounded-md border border-line bg-paper px-3 py-1.5 text-sm text-ink outline-none transition-shadow focus:border-accent focus:ring-2 focus:ring-accent-soft"
-            />
-          )}
-        </div>
-        <p className="mt-3 text-xs text-ink-soft">
-          $1.00 per hour of meeting, charged when it ends.
-          {when === "later" && " The notetaker joins at the start time you pick (in your local time)."} The bot appears as a participant named &ldquo;{botName.trim() || DEFAULT_BOT_NAME}&rdquo;
-          &mdash; pick a name attendees will recognise as a notetaker &mdash; and you may need to admit it from the waiting room. You&apos;re responsible for telling
-          attendees the meeting is being recorded.
-        </p>
-        {submitError && (
-          <p className="mt-3 text-sm text-status-error">
-            {submitError}
-            {needsFunds && (
-              <>
-                {" "}
-                <Link href="/settings/billing" className="underline">
-                  Manage billing
-                </Link>
-              </>
-            )}
-          </p>
-        )}
-      </form>
-
-      <div className="mt-10">
-        <h2 className="text-sm font-semibold text-ink">Your meetings</h2>
-        {loadError && <p className="mt-2 text-sm text-status-error">{loadError}</p>}
-        {actionError && <p className="mt-2 text-sm text-status-error">{actionError}</p>}
-
-        {meetings && meetings.length === 0 && (
-          <Card className="mt-2 p-6 text-sm text-ink-soft">No meetings yet -- paste a link above to get started.</Card>
-        )}
-
-        {meetings && meetings.length > 0 && (
-          <ul className="mt-2 divide-y divide-line overflow-hidden rounded-lg border border-line bg-paper shadow-sm">
-            {meetings.map((m) => (
-              <li key={m.id} className="flex items-center justify-between gap-4 px-4 py-3">
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-medium text-ink">{m.title ?? "Meeting"}</p>
-                  <p className="text-xs text-ink-soft">
-                    {PLATFORM_LABELS[m.platform]} &middot;{" "}
-                    {m.status === "scheduled" && m.scheduled_for
-                      ? `Joins ${new Date(m.scheduled_for).toLocaleString()}`
-                      : new Date(m.created_at).toLocaleString()}
-                  </p>
-                  {m.error && (m.status === "failed" || m.status === "awaiting_payment") && (
-                    <p className="mt-0.5 max-w-md text-xs text-status-error">{m.error}</p>
-                  )}
-                </div>
-                <div className="flex shrink-0 items-center gap-3">
-                  <span className={`text-sm font-medium ${STATUS_COLORS[m.status]}`}>
-                    {MEETING_STATUS_LABELS[m.status]}
-                  </span>
-                  {m.job_id && (
-                    <Link href={`/dashboard/jobs/${m.job_id}`} className="text-sm text-accent hover:underline">
-                      View notes →
-                    </Link>
-                  )}
-                  {(m.status === "scheduled" || m.status === "joining" || m.status === "recording") && (
-                    <button
-                      onClick={() =>
-                        runAction(m, () => apiFetch(`/api/meetings/${m.id}`, { method: "DELETE" }), "Couldn't stop the notetaker.")
-                      }
-                      disabled={busyId === m.id}
-                      className="text-sm text-ink-soft hover:text-status-error hover:underline disabled:cursor-default disabled:opacity-50"
-                    >
-                      {busyId === m.id ? "Stopping..." : m.status === "recording" ? "Stop" : "Cancel"}
-                    </button>
-                  )}
-                  {!m.job_id && (m.status === "awaiting_payment" || m.status === "failed") && (
-                    <>
-                      {m.status === "awaiting_payment" && (
-                        <Link href="/settings/billing" className="text-sm text-accent hover:underline">
-                          Add funds
-                        </Link>
-                      )}
-                      <button
-                        onClick={() =>
-                          runAction(m, () => apiFetch(`/api/meetings/${m.id}/process`, { method: "POST" }), "Couldn't process the meeting.")
-                        }
-                        disabled={busyId === m.id}
-                        className="text-sm text-ink hover:text-accent hover:underline disabled:cursor-default disabled:opacity-50"
-                      >
-                        {busyId === m.id ? "Processing..." : "Process"}
-                      </button>
-                    </>
-                  )}
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
+        <Button onClick={() => setOpenDay(dayKey(new Date()))}>New meeting</Button>
       </div>
-    </>
+      {loadError && <p className="mt-2 text-sm text-status-error">{loadError}</p>}
+      {actionError && <p className="mt-2 text-sm text-status-error">{actionError}</p>}
+
+      {view === "calendar" && (
+        <div className="mt-3 flex flex-1 flex-col">
+          <MeetingsCalendar
+            month={month}
+            onMonthChange={setMonth}
+            meetings={meetings ?? []}
+            selectedDay={openDay}
+            onOpenDay={setOpenDay}
+          />
+        </div>
+      )}
+
+      {view === "list" && meetings && meetings.length === 0 && (
+        <Card className="mt-3 p-6 text-sm text-ink-soft">No meetings yet -- click New meeting to add one.</Card>
+      )}
+      {view === "list" && meetings && meetings.length > 0 && (
+        <ul className="mt-3 divide-y divide-line overflow-hidden rounded-lg border border-line bg-paper shadow-sm">
+          {meetings.map((m) => (
+            <MeetingRow
+              key={m.id}
+              meeting={m}
+              busy={busyId === m.id}
+              onCancel={cancelMeeting}
+              onProcess={processMeeting}
+              onToggleNotify={toggleNotify}
+            />
+          ))}
+        </ul>
+      )}
+
+      {openDay && (
+        <MeetingDayPanel
+          // Remount per day so the form starts fresh (and the time default fits that day).
+          key={openDay}
+          day={openDay}
+          meetings={meetings ?? []}
+          defaults={defaults}
+          busyId={busyId}
+          onClose={() => setOpenDay(null)}
+          onCreated={() => {
+            loadMeetings();
+          }}
+          onCancel={cancelMeeting}
+          onProcess={processMeeting}
+          onToggleNotify={toggleNotify}
+          onAuthError={handleAuthError}
+        />
+      )}
+    </div>
   );
 }

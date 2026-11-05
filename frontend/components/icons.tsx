@@ -23,6 +23,7 @@ import {
   Play,
   Radio,
   ScrollText,
+  Settings,
   Share2,
   Shield,
   Square,
@@ -172,6 +173,10 @@ export function ShieldIcon({ className }: IconProps) {
 
 export function UsersIcon({ className }: IconProps) {
   return <Users className={className} aria-hidden />;
+}
+
+export function SettingsIcon({ className }: IconProps) {
+  return <Settings className={className} aria-hidden />;
 }
 
 export function SunIcon({ className }: IconProps) {

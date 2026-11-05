@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect } from "react";
 
-import { BillingIcon, BotIcon, ChevronIcon, CloseIcon, DashboardIcon, DocumentIcon, DriveIcon, KeyIcon, LiveIcon, MicrophoneIcon, ShieldIcon, UsersIcon, VideoCameraIcon, WalletIcon } from "@/components/icons";
+import { BillingIcon, BotIcon, ChevronIcon, CloseIcon, DashboardIcon, DocumentIcon, DriveIcon, KeyIcon, LiveIcon, MicrophoneIcon, SettingsIcon, ShieldIcon, UsersIcon, VideoCameraIcon, WalletIcon } from "@/components/icons";
 import ThemeToggle from "@/components/ThemeToggle";
 import UserMenu from "@/components/UserMenu";
 import type { CurrentUser } from "@/lib/auth";
@@ -26,6 +26,7 @@ const PRIMARY_NAV_LINKS = [
 ];
 
 const SETTINGS_NAV_LINKS = [
+  { href: "/settings", label: "Settings", Icon: SettingsIcon },
   { href: "/settings/api-keys", label: "API keys", Icon: KeyIcon },
   { href: "/settings/integrations", label: "Integrations", Icon: DriveIcon },
   { href: "/settings/billing", label: "Billing", Icon: BillingIcon },
@@ -96,8 +97,10 @@ export default function Sidebar({
   const pathname = usePathname();
   // "/dashboard" itself is exact-match only -- otherwise it'd also light up
   // for "/dashboard/video" etc., which have their own nav entries now.
+  // "/settings" is exact-match too: its sub-pages (API keys, billing...) have
+  // their own entries.
   const isActive = (href: string) =>
-    href === "/dashboard" ? pathname === href : pathname === href || pathname?.startsWith(`${href}/`);
+    href === "/dashboard" || href === "/settings" ? pathname === href : pathname === href || pathname?.startsWith(`${href}/`);
 
   // Tapping a nav link should close the mobile drawer, same as any standard
   // off-canvas menu -- otherwise it stays open, covering the page you just

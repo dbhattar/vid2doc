@@ -1,5 +1,7 @@
 from datetime import datetime
 
+from sqlalchemy import func
+
 from .db import get_session
 from .models import Meeting
 
@@ -18,6 +20,8 @@ def _to_dict(m: Meeting) -> dict:
         "title": m.title,
         "scheduled_for": m.scheduled_for,
         "bot_name": m.bot_name,
+        "duration_minutes": m.duration_minutes,
+        "notify_when_ready": m.notify_when_ready,
         "job_id": m.job_id,
         "error_message": m.error_message,
         "created_at": m.created_at,
@@ -32,6 +36,8 @@ def create_meeting(
     title: str | None,
     scheduled_for: datetime | None = None,
     bot_name: str | None = None,
+    notify_when_ready: bool = True,
+    duration_minutes: int | None = None,
 ) -> dict:
     session = get_session()
     try:
@@ -42,6 +48,8 @@ def create_meeting(
             title=title,
             scheduled_for=scheduled_for,
             bot_name=bot_name,
+            notify_when_ready=notify_when_ready,
+            duration_minutes=duration_minutes,
             status="scheduled" if scheduled_for else "joining",
         )
         session.add(meeting)
@@ -79,16 +87,21 @@ def get_meeting_by_job_id(job_id: str) -> dict | None:
         session.close()
 
 
-def list_meetings_for_user(user_id: str, limit: int = 50) -> list[dict]:
+def list_meetings_for_user(
+    user_id: str, limit: int = 50, start: datetime | None = None, end: datetime | None = None
+) -> list[dict]:
+    """Newest first. With start/end, only meetings whose date (when it was
+    scheduled for, else when it was created) falls in [start, end) -- what the
+    calendar view asks for, one month at a time."""
     session = get_session()
     try:
-        rows = (
-            session.query(Meeting)
-            .filter_by(user_id=user_id)
-            .order_by(Meeting.created_at.desc())
-            .limit(limit)
-            .all()
-        )
+        query = session.query(Meeting).filter_by(user_id=user_id)
+        when = func.coalesce(Meeting.scheduled_for, Meeting.created_at)
+        if start is not None:
+            query = query.filter(when >= start)
+        if end is not None:
+            query = query.filter(when < end)
+        rows = query.order_by(when.desc()).limit(limit).all()
         return [_to_dict(m) for m in rows]
     finally:
         session.close()

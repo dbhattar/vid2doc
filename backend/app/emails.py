@@ -433,8 +433,8 @@ def notify_job_status_change(job_id: str) -> None:
     after the jobs.update_job(...) call that actually flips status to
     "done"/"failed" -- see pipeline.py's _finalize_document and run_job's
     except block, and retention.py's stale-review sweep."""
-    from . import jobs, users  # local import: avoids a module-load-order
-                                # dependency between emails.py and jobs.py/users.py
+    from . import jobs, meetings, users  # local import: avoids a module-load-order
+                                          # dependency between emails.py and jobs.py/users.py
 
     try:
         job = jobs.get_job(job_id)
@@ -443,7 +443,14 @@ def notify_job_status_change(job_id: str) -> None:
         user = users.get_user_by_id(job["user_id"])
         if not user or not user.get("email"):
             return
+        # Only the "ready" email is optional (failures always send). A
+        # meeting's notes follow that meeting's own choice, whose default
+        # comes from Settings; any other job follows the account-wide one.
         if job["status"] == "done":
+            meeting = meetings.get_meeting_by_job_id(job_id)
+            wanted = meeting["notify_when_ready"] if meeting else user["notify_job_done"]
+            if not wanted:
+                return
             send_job_done_email(user, job)
         else:
             send_job_failed_email(user, job)

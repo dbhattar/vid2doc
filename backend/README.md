@@ -123,6 +123,19 @@ valid and to build an authenticated shell page.
 curl -H "Authorization: Bearer $TOKEN" http://localhost:8000/api/auth/me
 ```
 
+### `GET` / `PATCH /api/me/preferences`
+
+The caller's own settings, edited on the app's Settings page. Fields:
+`notify_job_done` (email when a document is ready), `notify_review_reminder`
+(the one-day review reminder), `notify_meeting_notes` (default for the
+per-meeting "email me when the notes are ready" box), `product_announcements`
+(inverse of `users.announcements_opt_out`) and `default_bot_name` (the meeting
+notetaker's default name; blank clears it). `PATCH` takes any subset. Only the
+"ready" and reminder emails are optional: failures, payment problems and
+account emails always send. A meeting's own `notify_when_ready` (set at
+creation, changeable with `PATCH /api/meetings/{id}`) overrides
+`notify_job_done` for that meeting's notes.
+
 ### `POST /api/convert_to_doc`
 
 Multipart upload, field name `video`. Jobs are scoped to the caller.

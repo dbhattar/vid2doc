@@ -40,6 +40,10 @@ class CreateMeetingRequest(BaseModel):
     # When the bot should join; omit to send it now. Must carry a timezone
     # offset (the browser sends UTC).
     start_time: datetime | None = None
+    # Email me when the notes are ready; omit to use the Settings default.
+    notify_when_ready: bool | None = None
+    # Planned length in minutes (5 minutes to 8 hours); the bot leaves after it.
+    duration_minutes: int | None = Field(default=None, ge=5, le=480)
 
 
 # How far ahead a meeting may be scheduled, and the slack that still counts as
@@ -67,6 +71,8 @@ def _public(meeting: dict) -> dict:
         "title": meeting["title"],
         "scheduled_for": meeting["scheduled_for"],
         "status": meeting["status"],
+        "duration_minutes": meeting["duration_minutes"],
+        "notify_when_ready": meeting["notify_when_ready"],
         "job_id": meeting["job_id"],
         "error": meeting["error_message"],
         "created_at": meeting["created_at"],
@@ -97,7 +103,12 @@ def create_meeting(body: CreateMeetingRequest, current_user: dict = Depends(get_
     if not platform:
         raise HTTPException(status_code=400, detail="That doesn't look like a Zoom, Google Meet or Teams link.")
 
-    bot_name = _clean_bot_name(body.bot_name)
+    # Unspecified fields fall back to the user's Settings defaults; a blank
+    # bot name is an explicit "use the app default".
+    bot_name = _clean_bot_name(body.bot_name if body.bot_name is not None else current_user.get("default_bot_name"))
+    notify_when_ready = (
+        body.notify_when_ready if body.notify_when_ready is not None else current_user.get("notify_meeting_notes", True)
+    )
     join_at = None
     if body.start_time is not None:
         if body.start_time.tzinfo is None:
@@ -124,10 +135,19 @@ def create_meeting(body: CreateMeetingRequest, current_user: dict = Depends(get_
 
     title = (body.title or "").strip() or f"{_PLATFORM_NAMES[platform]} meeting"
     meeting = meetings.create_meeting(
-        current_user["id"], platform, url, title, scheduled_for=join_at, bot_name=bot_name
+        current_user["id"],
+        platform,
+        url,
+        title,
+        scheduled_for=join_at,
+        bot_name=bot_name,
+        notify_when_ready=notify_when_ready,
+        duration_minutes=body.duration_minutes,
     )
     try:
-        bot_id = meeting_bots.create_bot(url, join_at=join_at, bot_name=bot_name)
+        bot_id = meeting_bots.create_bot(
+            url, join_at=join_at, bot_name=bot_name, duration_minutes=body.duration_minutes
+        )
     except meeting_bots.MeetingBotError as e:
         meetings.update_meeting(meeting["id"], status="failed", error_message=str(e))
         raise HTTPException(status_code=502, detail=str(e))
@@ -136,8 +156,31 @@ def create_meeting(body: CreateMeetingRequest, current_user: dict = Depends(get_
 
 
 @router.get("/api/meetings")
-def list_meetings(current_user: dict = Depends(get_meetings_user)):
-    return {"meetings": [_public(m) for m in meetings.list_meetings_for_user(current_user["id"])]}
+def list_meetings(
+    start: datetime | None = None,
+    end: datetime | None = None,
+    current_user: dict = Depends(get_meetings_user),
+):
+    """The 50 most recent meetings, or -- for the calendar -- every meeting
+    dated within [start, end) (timezone-aware ISO times), up to 500."""
+    if (start is not None and start.tzinfo is None) or (end is not None and end.tzinfo is None):
+        raise HTTPException(status_code=400, detail="start and end need a timezone.")
+    ranged = start is not None or end is not None
+    rows = meetings.list_meetings_for_user(current_user["id"], limit=500 if ranged else 50, start=start, end=end)
+    return {"meetings": [_public(m) for m in rows]}
+
+
+class UpdateMeetingRequest(BaseModel):
+    notify_when_ready: bool
+
+
+@router.patch("/api/meetings/{meeting_id}")
+def update_meeting(meeting_id: str, body: UpdateMeetingRequest, current_user: dict = Depends(get_meetings_user)):
+    """Turn the "email me when the notes are ready" choice on or off, at any
+    point up to the job finishing."""
+    meeting = _owned(meeting_id, current_user)
+    meetings.update_meeting(meeting["id"], notify_when_ready=body.notify_when_ready)
+    return _public(meetings.get_meeting(meeting["id"]))
 
 
 @router.delete("/api/meetings/{meeting_id}")

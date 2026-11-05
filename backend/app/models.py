@@ -17,7 +17,7 @@ wallet-funded) -- there are no subscription plans/tiers.
 import uuid
 from datetime import datetime
 
-from sqlalchemy import JSON, BigInteger, Boolean, DateTime, Float, ForeignKey, String, Text, UniqueConstraint, func
+from sqlalchemy import JSON, BigInteger, Boolean, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint, func
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
@@ -47,6 +47,15 @@ class User(Base):
     # Per-user early access to the meeting notetaker (see feature_flags.py);
     # irrelevant once the global "meetings_public" setting is on.
     meetings_enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
+    # Notification and meeting preferences, edited on the Settings page
+    # (routes/preferences.py). The notify_* flags only gate optional emails;
+    # failures, payment problems and anything needing action still send.
+    notify_job_done: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
+    notify_review_reminder: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
+    # Default for the per-meeting "email me when the notes are ready" box.
+    notify_meeting_notes: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
+    # Name the meeting bot joins under by default; null means the app default.
+    default_bot_name: Mapped[str | None] = mapped_column(String, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     api_keys: Mapped[list["ApiKey"]] = relationship(back_populates="user")
@@ -302,6 +311,13 @@ class Meeting(Base):
     scheduled_for: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     # Name the bot joins under; null means the MEETING_BOT_NAME default.
     bot_name: Mapped[str | None] = mapped_column(String, nullable=True)
+    # Planned length in minutes, as entered on the calendar; the bot leaves
+    # this long plus a grace period after it starts recording. Null means the
+    # MEETING_MAX_SECONDS cap alone.
+    duration_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # Email the owner when the analysis (the job) is ready. The meeting's own
+    # problem emails (couldn't join, needs funds) are sent regardless.
+    notify_when_ready: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
     job_id: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())

@@ -71,19 +71,33 @@ def _require_configured() -> None:
         raise MeetingBotError("Meeting notetaker isn't available right now.")
 
 
-def create_bot(meeting_url: str, join_at: datetime | None = None, bot_name: str | None = None) -> str:
+# How long past its planned length the bot keeps recording: meetings overrun.
+OVERRUN_GRACE_SECONDS = 15 * 60
+
+
+def create_bot(
+    meeting_url: str,
+    join_at: datetime | None = None,
+    bot_name: str | None = None,
+    duration_minutes: int | None = None,
+) -> str:
     """Sends the bot into the meeting -- now, or at `join_at` (timezone-aware)
     for a scheduled meeting. Recall reserves a machine in advance for bots
     scheduled more than ~10 minutes out, which is why a scheduled bot is
     created up front rather than when its time arrives. Returns the vendor's
-    bot id. `bot_name` is what attendees see; it defaults to MEETING_BOT_NAME."""
+    bot id. `bot_name` is what attendees see; it defaults to MEETING_BOT_NAME.
+    `duration_minutes` is the planned length: the bot stops recording that long
+    (plus a grace period) after it starts, never beyond MEETING_MAX_SECONDS."""
     _require_configured()
+    max_seconds = settings.MEETING_MAX_SECONDS
+    if duration_minutes:
+        max_seconds = min(max_seconds, duration_minutes * 60 + OVERRUN_GRACE_SECONDS)
     body = {
         "meeting_url": meeting_url,
         "bot_name": bot_name or settings.MEETING_BOT_NAME,
         # No "transcript" provider on purpose -- see the module docstring.
         "recording_config": {"audio_mixed_mp3": {}},
-        "automatic_leave": {"in_call_recording_timeout": settings.MEETING_MAX_SECONDS},
+        "automatic_leave": {"in_call_recording_timeout": max_seconds},
     }
     if join_at is not None:
         body["join_at"] = join_at.astimezone(timezone.utc).isoformat().replace("+00:00", "Z")
