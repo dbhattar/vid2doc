@@ -1,15 +1,18 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
 
-from .. import jobs, public_jobs
+from .. import archive_access, jobs, public_jobs
 from ..config import settings
 from ..deps import get_current_user
 
 router = APIRouter()
 
 
-def build_job_response(job: dict, request: Request) -> dict:
+def build_job_response(job: dict, request: Request, full: bool = False) -> dict:
     """Shared by GET /api/get_status and GET /api/jobs -- a job list item has
-    exactly the same shape as a single-job status response."""
+    exactly the same shape as a single-job status response. `full` (the
+    single-job route only) also checks the S3 archive for the optional files
+    of a job whose local files retention has swept -- too many S3 calls to
+    do per row on a list."""
     response = {
         "job_id": job["id"],
         "status": job["status"],
@@ -63,12 +66,20 @@ def build_job_response(job: dict, request: Request) -> dict:
         doc_dir = settings.OUTPUT_DIR / job["id"] / "document"
         response["document_url"] = f"{base}/document.md"
         response["document_bundle_url"] = f"{base}/bundle.zip"
+        # A swept job with an S3 archive is still served (documents.py
+        # rebuilds it from there), so it's only the optional files that
+        # need an archive lookup instead of a local one.
+        swept = full and not (doc_dir / "document.md").exists() and archive_access.archive_prefix(job)
+
+        def has(name: str) -> bool:
+            return archive_access.archive_file_exists(job, name) if swept else (doc_dir / name).exists()
+
         # docx/pdf are best-effort exports -- only advertised if they actually rendered.
-        if (doc_dir / "document.docx").exists():
+        if has("document.docx"):
             response["document_docx_url"] = f"{base}/document.docx"
-        if (doc_dir / "document.pdf").exists():
+        if has("document.pdf"):
             response["document_pdf_url"] = f"{base}/document.pdf"
-        if (doc_dir / "transcript.json").exists():
+        if has("transcript.json"):
             response["document_transcript_json_url"] = f"{base}/transcript.json"
         # Only present for a live-recording session that had the opt-in
         # research panel enabled -- see routes/live.py's finalize_live_session.
@@ -84,4 +95,4 @@ def get_status(job_id: str, request: Request, current_user: dict = Depends(get_c
     job = jobs.get_job(job_id)
     if not job or job["user_id"] != current_user["id"]:
         raise HTTPException(status_code=404, detail="Job not found")
-    return build_job_response(job, request)
+    return build_job_response(job, request, full=True)

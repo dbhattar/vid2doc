@@ -13,7 +13,7 @@ from pathlib import Path
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import FileResponse, StreamingResponse
 
-from .. import jobs
+from .. import archive_access, jobs
 from ..config import settings
 from ..deps import get_current_user
 
@@ -53,7 +53,7 @@ def _shared_job_and_doc_dir(token: str) -> tuple[dict, Path]:
         raise HTTPException(status_code=404, detail="Shared document not found")
     if job["deleted_at"] is not None:
         raise HTTPException(status_code=404, detail="This document was deleted after 7 days per the retention policy")
-    return job, (settings.OUTPUT_DIR / job["id"] / "document").resolve()
+    return job, archive_access.ensure_local(job)
 
 
 def _build_public_response(job: dict, request: Request) -> dict:

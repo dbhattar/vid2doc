@@ -7,8 +7,7 @@ logic and app/agent_catalog.py for the catalog.
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-from .. import agent_catalog, agents, jobs
-from ..config import settings
+from .. import agent_catalog, agents, archive_access, jobs
 from ..deps import get_current_user
 
 router = APIRouter()
@@ -44,7 +43,7 @@ def _attach_job(agent_id: str, job_id: str, current_user: dict) -> dict | None:
     if job["deleted_at"] is not None:
         raise HTTPException(status_code=404, detail="This document was deleted after 7 days per the retention policy")
     title = job["title"] or "Untitled document"
-    doc_dir = (settings.OUTPUT_DIR / job_id / "document").resolve()
+    doc_dir = archive_access.ensure_local(job)
     content = agents.build_snapshot(doc_dir, title)
     return agents.attach_document(agent_id, job_id, title, content)
 

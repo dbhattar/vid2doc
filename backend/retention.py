@@ -10,6 +10,11 @@
    nulled -- nothing reads it once a job is done, so it's harmless as a record
    of where the upload used to live.
 
+   Exception: a done job with an S3 archive (a showcase submission or a
+   chat-enabled job) is NOT marked deleted. Its local files are freed like any
+   other, but it stays servable -- the owner's routes rebuild the document
+   from the archive on demand (see app/archive_access.py).
+
 2. `awaiting_review` jobs (a video paused for frame review, see pipeline.py)
    are swept too, but handled differently: since no usable document was ever
    produced, the charge gets refunded and the job is marked `failed` with a
@@ -39,7 +44,7 @@ import time
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
-from app import billing, emails, jobs
+from app import archive_access, billing, emails, jobs
 from app.config import settings
 
 RETENTION_DAYS = 7
@@ -117,6 +122,7 @@ def main(dry_run: bool = False) -> None:
           f"{len(eligible)} done/awaiting-review job(s) older than {RETENTION_DAYS} days", flush=True)
     for job in eligible:
         job_id = job["id"]
+        archived = job["status"] == "done" and archive_access.archive_prefix(job) is not None
         freed = _remove_job_dirs(job_id, dry_run)
         total_freed += freed
         if not dry_run:
@@ -132,9 +138,12 @@ def main(dry_run: bool = False) -> None:
                     deleted_at=datetime.now(timezone.utc),
                 )
                 emails.notify_job_status_change(job_id)
-            else:
+            elif not archived:
                 jobs.update_job(job_id, document_path=None, deleted_at=datetime.now(timezone.utc))
-        print(f"  {verb} job {job_id} ({_human(freed)}; created {job['created_at']}, was {job['status']})", flush=True)
+        if archived and not freed:
+            continue  # nothing local to free, and nothing else changes for it
+        note = ", archived" if archived else ""
+        print(f"  {verb} job {job_id} ({_human(freed)}{note}; created {job['created_at']}, was {job['status']})", flush=True)
 
     stale = jobs.list_stale_failed_jobs(cutoff)
     print(f"{len(stale)} failed/cancelled job(s) older than {RETENTION_DAYS} days", flush=True)

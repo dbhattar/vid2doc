@@ -4,8 +4,7 @@ import zipfile
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import FileResponse, StreamingResponse
 
-from .. import jobs
-from ..config import settings
+from .. import archive_access, jobs
 from ..deps import get_current_user
 
 router = APIRouter()
@@ -17,7 +16,7 @@ def _owned_done_doc_dir(job_id: str, current_user: dict):
         raise HTTPException(status_code=404, detail="Document not found")
     if job["deleted_at"] is not None:
         raise HTTPException(status_code=404, detail="This document was deleted after 7 days per the retention policy")
-    return (settings.OUTPUT_DIR / job_id / "document").resolve()
+    return archive_access.ensure_local(job)
 
 
 # Registered before the {file_path:path} catch-all below -- Starlette matches
