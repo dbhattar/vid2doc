@@ -3,6 +3,7 @@ export type Preferences = {
   notify_job_done: boolean;
   notify_review_reminder: boolean;
   notify_meeting_notes: boolean;
+  notify_topic_alerts: boolean;
   product_announcements: boolean;
   default_bot_name: string;
 };

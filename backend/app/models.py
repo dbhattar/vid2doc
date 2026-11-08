@@ -54,6 +54,8 @@ class User(Base):
     notify_review_reminder: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
     # Default for the per-meeting "email me when the notes are ready" box.
     notify_meeting_notes: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
+    # Gates topic-alert emails (a meeting covered a topic the user follows).
+    notify_topic_alerts: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
     # Name the meeting bot joins under by default; null means the app default.
     default_bot_name: Mapped[str | None] = mapped_column(String, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
@@ -324,6 +326,137 @@ class Meeting(Base):
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
+
+
+class MeetingSource(Base):
+    """A public recording archive Framewrite polls for new government
+    meetings (agency_ingest.py). `adapter` picks how `feed_url` is read --
+    "youtube" (a channel or playlist) is the only one so far."""
+
+    __tablename__ = "meeting_sources"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    agency_name: Mapped[str] = mapped_column(String, nullable=False)
+    slug: Mapped[str] = mapped_column(String, unique=True, nullable=False, index=True)
+    adapter: Mapped[str] = mapped_column(String, nullable=False, default="youtube")
+    feed_url: Mapped[str] = mapped_column(String, nullable=False)
+    # Case-insensitive regex a recording's title must match to be picked up
+    # (e.g. only "Board of Governors" meetings); null takes everything.
+    title_filter: Mapped[str | None] = mapped_column(String, nullable=True)
+    enabled: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
+    last_polled_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class AgencyMeeting(Base):
+    """One public meeting recording. The pipeline job (job_id) is owner-less
+    and short-lived -- everything the public pages need is copied here when
+    it finishes, so retention.py sweeping the job's files doesn't matter and
+    the agency's video is never re-hosted (source_url links to it).
+    status: discovered -> processing -> ready | failed; hidden is an admin
+    takedown, skipped is a recording seen but not taken (too old, live, or
+    filtered out by title), kept so it isn't looked up again."""
+
+    __tablename__ = "agency_meetings"
+    __table_args__ = (UniqueConstraint("source_id", "external_id"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    source_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("meeting_sources.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    external_id: Mapped[str] = mapped_column(String, nullable=False)
+    title: Mapped[str] = mapped_column(String, nullable=False)
+    meeting_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, index=True)
+    source_url: Mapped[str] = mapped_column(String, nullable=False)
+    job_id: Mapped[str | None] = mapped_column(String, nullable=True, index=True)
+    status: Mapped[str] = mapped_column(String, nullable=False, default="discovered", index=True)
+    duration_seconds: Mapped[float | None] = mapped_column(Float, nullable=True)
+    summary: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # transcript.json from the job: segments, speakers and speaker names.
+    transcript: Mapped[dict | None] = mapped_column(JSON, nullable=True)
+    error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    processed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+
+
+class Topic(Base):
+    """A subject people can follow, curated by an admin. Meetings are only
+    ever tagged with these (see topics.py)."""
+
+    __tablename__ = "topics"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    slug: Mapped[str] = mapped_column(String, unique=True, nullable=False, index=True)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    description: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    active: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="true")
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class TopicSuggestion(Base):
+    """A subject the tagger saw that isn't in the topic list. Never notifies
+    anyone; an admin approves it into a real Topic or rejects it.
+    status: pending | approved | rejected."""
+
+    __tablename__ = "topic_suggestions"
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    name: Mapped[str] = mapped_column(String, unique=True, nullable=False)
+    mentions: Mapped[int] = mapped_column(Integer, nullable=False, default=1)
+    example_meeting_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("agency_meetings.id", ondelete="SET NULL"), nullable=True
+    )
+    status: Mapped[str] = mapped_column(String, nullable=False, default="pending", index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class AgencyMeetingTopic(Base):
+    """A topic a meeting covered, with what was said and where (seconds into
+    the recording, for timestamp links)."""
+
+    __tablename__ = "agency_meeting_topics"
+    __table_args__ = (UniqueConstraint("meeting_id", "topic_id"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    meeting_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("agency_meetings.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    topic_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("topics.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    summary: Mapped[str] = mapped_column(Text, nullable=False, default="")
+    start_ts: Mapped[float | None] = mapped_column(Float, nullable=True)
+    end_ts: Mapped[float | None] = mapped_column(Float, nullable=True)
+
+
+class TopicSubscription(Base):
+    __tablename__ = "topic_subscriptions"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), primary_key=True)
+    topic_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("topics.id", ondelete="CASCADE"), primary_key=True, index=True
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+
+class TopicNotification(Base):
+    """Delivery queue for topic alerts: one row per (meeting, subscriber), so
+    a retry or a re-run never emails anyone twice.
+    status: pending -> sending -> sent | failed | skipped (opted out, or
+    nothing to say, by the time it was sent)."""
+
+    __tablename__ = "topic_notifications"
+    __table_args__ = (UniqueConstraint("meeting_id", "user_id"),)
+
+    id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
+    meeting_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("agency_meetings.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(UUID(as_uuid=True), ForeignKey("users.id"), nullable=False)
+    status: Mapped[str] = mapped_column(String, nullable=False, default="pending", index=True)
+    claimed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
 
 class Feedback(Base):

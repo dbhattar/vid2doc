@@ -71,6 +71,9 @@ services:
         NEXT_PUBLIC_GOOGLE_CLIENT_ID: ${NEXT_PUBLIC_GOOGLE_CLIENT_ID}
         NEXT_PUBLIC_GA_MEASUREMENT_ID: ${NEXT_PUBLIC_GA_MEASUREMENT_ID}
     image: vid2doc-frontend
+    environment:
+      # Server-rendered public pages reach the API over the compose network.
+      API_INTERNAL_URL: http://api:8000
     ports:
       - "127.0.0.1:3000:3000"
     depends_on:

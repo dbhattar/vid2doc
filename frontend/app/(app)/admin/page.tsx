@@ -224,6 +224,9 @@ export default function AdminPage() {
           <Link href="/admin/announcements" className="text-sm font-medium text-accent hover:underline">
             Send announcement &rarr;
           </Link>
+          <Link href="/admin/agency" className="text-sm font-medium text-accent hover:underline">
+            Agency meetings &rarr;
+          </Link>
           <Link href="/admin/public-jobs" className="text-sm font-medium text-accent hover:underline">
             Public showcase queue &rarr;
           </Link>

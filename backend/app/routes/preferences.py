@@ -16,6 +16,7 @@ class PreferencesPatch(BaseModel):
     notify_job_done: bool | None = None
     notify_review_reminder: bool | None = None
     notify_meeting_notes: bool | None = None
+    notify_topic_alerts: bool | None = None
     # Product announcements; the inverse of users.announcements_opt_out.
     product_announcements: bool | None = None
     default_bot_name: str | None = Field(default=None, max_length=50)
@@ -26,6 +27,7 @@ def _public(user: dict) -> dict:
         "notify_job_done": user["notify_job_done"],
         "notify_review_reminder": user["notify_review_reminder"],
         "notify_meeting_notes": user["notify_meeting_notes"],
+        "notify_topic_alerts": user["notify_topic_alerts"],
         "product_announcements": not user["announcements_opt_out"],
         "default_bot_name": user["default_bot_name"] or "",
     }

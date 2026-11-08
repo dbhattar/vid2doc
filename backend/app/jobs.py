@@ -118,7 +118,8 @@ def get_job_by_share_token(token: str) -> dict | None:
 
 
 def claim_next_queued_job() -> dict | None:
-    """Atomically claims the oldest queued job so multiple worker replicas
+    """Atomically claims the oldest queued job (owner-less public-meeting jobs
+    last, so a multi-hour one never holds up a customer) so multiple worker replicas
     never process the same job twice. Postgres's SELECT ... FOR UPDATE SKIP
     LOCKED lets a second worker skip a row a first worker already has locked,
     rather than blocking on it or racing it (the previous SQLite version used
@@ -126,7 +127,11 @@ def claim_next_queued_job() -> dict | None:
     session = get_session()
     try:
         job = session.execute(
-            select(Job).where(Job.status == "queued").order_by(Job.created_at).limit(1).with_for_update(skip_locked=True)
+            select(Job)
+            .where(Job.status == "queued")
+            .order_by(Job.user_id.is_(None), Job.created_at)
+            .limit(1)
+            .with_for_update(skip_locked=True)
         ).scalar_one_or_none()
         if not job:
             return None

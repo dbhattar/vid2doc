@@ -126,7 +126,9 @@ curl -H "Authorization: Bearer $TOKEN" http://localhost:8000/api/auth/me
 ### `GET` / `PATCH /api/me/preferences`
 
 The caller's own settings, edited on the app's Settings page. Fields:
-`notify_job_done` (email when a document is ready), `notify_review_reminder`
+`notify_job_done` (email when a document is ready), `notify_topic_alerts`
+(email when a public agency meeting covers a topic the user follows),
+`notify_review_reminder`
 (the one-day review reminder), `notify_meeting_notes` (default for the
 per-meeting "email me when the notes are ready" box), `product_announcements`
 (inverse of `users.announcements_opt_out`) and `default_bot_name` (the meeting
@@ -330,6 +332,51 @@ or by hand, as a crontab line (`-T` because cron has no terminal):
 Disk diagnostics for the VPS are in `deploy/fabfile.py`: `disk`, `disk-top`,
 `docker-disk`, `job-disk`; `cap-journal` limits the systemd journal.
 
+## Public agency meetings
+
+Framewrite itself watches public recording archives (agencies' YouTube
+channels or playlists), publishes a summary, topics and transcript for each
+meeting on public pages, and emails people who follow a topic it covered.
+Code: `app/agency_ingest.py` (sources, polling, queueing, finishing),
+`app/topics.py` (topic list, LLM tagging, public queries), `app/topic_alerts.py`
+(email queue). A daemon-thread loop in `worker.py` runs each:
+
+1. **Poll** (only while the `AGENCY_INGEST_ENABLED` setting is on): each
+   enabled `meeting_sources` row's newest recordings become `agency_meetings`.
+   Recordings older than `AGENCY_BACKFILL_DAYS`, live, longer than
+   `AGENCY_MAX_DURATION_SECONDS` or not matching the source's title filter are
+   stored as `skipped` so they aren't looked up again.
+2. **Queue**: a discovered meeting becomes an owner-less (`user_id` NULL),
+   unbilled `audio` job -- diarized transcript with speaker names, nothing to
+   review -- at most `AGENCY_MAX_NEW_PER_DAY` a day. Its download is audio-only
+   with the agency length cap (`pipeline._download_if_needed`), and the queue
+   serves owner-less jobs after user jobs (`jobs.claim_next_queued_job`).
+   YouTube captions, when the video has them, replace paid transcription.
+3. **Finish**: when the job is done the transcript is copied into the meeting
+   row (the job's files can then be swept by retention), the LLM tags it
+   against the admin-curated `topics`, it becomes `ready` (public), and one
+   `topic_notifications` row per follower is queued. A subject the model sees
+   that isn't a listed topic becomes a new active topic on the spot (people can
+   follow it right away, and it has no followers yet so it notifies no one);
+   an admin can deactivate it, and a deactivated topic is never recreated.
+   With the `TOPICS_AUTO_CREATE` tunable off it becomes a `topic_suggestions`
+   row for an admin to approve instead. An LLM failure leaves the meeting
+   public but untagged -- an admin re-tags it.
+4. **Send**: one email per follower per meeting listing their matching topics,
+   with `List-Unsubscribe` and a footer link (a `topic_unsubscribe` token that
+   only switches off `users.notify_topic_alerts`, via
+   `POST /api/announcements/unsubscribe`). A failed send is retried by running
+   alert queueing again (an admin re-tag does).
+
+API: public `GET /api/public/topics[/{slug}[/meetings]]` and
+`GET /api/public/agency-meetings/{id}` (ready meetings only); signed-in
+`GET`/`PUT /api/me/topic-subscriptions`; admin `/api/admin/agency/...`
+(sources, topics, suggestions, meetings: add by URL, retag, retry, hide).
+Admin UI at `/admin/agency`; public pages at `/topics`, `/topics/{slug}` and
+`/agency-meetings/{id}` (server-rendered, so the frontend container needs
+`API_INTERNAL_URL`). Tunables are under "Agency ingest" on the admin Settings
+page. Only YouTube is supported as a source so far (`MeetingSource.adapter`).
+
 ## Public showcase
 
 A user can opt a completed `job_type == "video"` job into the public
@@ -347,6 +394,16 @@ opt-in time (before admin review, not after) rather than relying on the
 module docstring for the full design rationale, and
 [`s3-showcase-setup.md`](s3-showcase-setup.md) for one-time bucket setup
 (policy, CORS, credentials).
+
+`GET /api/public/showcase` (`app/showcase_feed.py`) is one merged feed: the
+approved documents above plus every ready, un-hidden public agency meeting
+(see "Public agency meetings"). Each item has a `kind` (`document` or
+`meeting`; meetings carry `agency`, `summary` and `topics` instead of a video
+and document URL) and the list is newest-first with `limit`/`offset`, or with
+`random=true` a random sample of `limit` (the marketing homepage's five).
+Meetings join the showcase on their own once ready; hiding one from
+`/admin/agency` removes it. The marketing site's `/showcase` page and homepage
+carousel read this endpoint.
 
 ## Local development
 

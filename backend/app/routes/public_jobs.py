@@ -10,7 +10,7 @@ only title/duration_seconds/featured_since and derived document/video URLs.
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from .. import jobs, public_jobs
+from .. import jobs, public_jobs, showcase_feed
 from ..config import settings
 from ..deps import get_current_user
 
@@ -44,6 +44,7 @@ def _build_showcase_response(job: dict, full: bool = False) -> dict:
     base = f"{settings.PUBLIC_ARCHIVE_BASE_URL}/{prefix}"
     response = {
         "id": job["id"],
+        "kind": "document",
         "title": job["title"],
         "duration_seconds": job["duration_seconds"],
         "featured_since": job["public_reviewed_at"],
@@ -63,15 +64,29 @@ def _build_showcase_response(job: dict, full: bool = False) -> dict:
 
 
 @router.get("/api/public/showcase")
-def list_showcase(limit: int = Query(default=20, ge=1, le=50), offset: int = Query(default=0, ge=0)) -> dict:
-    # exclude_hidden=True -- admin-curated: see Job.public_hidden and
-    # routes/admin.py's hide/unhide endpoints. Direct permalink access
-    # (get_showcase_job below) is deliberately unaffected by this flag.
-    approved = jobs.list_jobs_by_public_status("approved", limit=limit, offset=offset, exclude_hidden=True)
-    return {
-        "jobs": [_build_showcase_response(j) for j in approved],
-        "total": jobs.count_jobs_by_public_status("approved", exclude_hidden=True),
-    }
+def list_showcase(
+    limit: int = Query(default=20, ge=1, le=50),
+    offset: int = Query(default=0, ge=0),
+    random: bool = Query(default=False),
+) -> dict:
+    """Approved user documents and public agency meetings as one list, newest
+    first -- or, with `random`, a random sample of `limit` (the marketing
+    homepage). Items carry a `kind` ("document" | "meeting"); the key stays
+    "jobs" for the clients that already read it. Admin-hidden items are left
+    out (see Job.public_hidden / AgencyMeeting status "hidden"); direct
+    permalink access to a document (get_showcase_job below) is unaffected."""
+    entries, total = showcase_feed.page_entries(limit, offset, random)
+    meetings = showcase_feed.meeting_items([i for i, kind in entries if kind == "meeting"])
+    items = []
+    for item_id, kind in entries:
+        if kind == "meeting":
+            item = meetings.get(item_id)
+        else:
+            job = jobs.get_job(item_id)
+            item = _build_showcase_response(job) if job else None
+        if item:
+            items.append(item)
+    return {"jobs": items, "total": total}
 
 
 @router.get("/api/public/showcase/{job_id}")

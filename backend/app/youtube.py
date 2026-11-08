@@ -94,12 +94,42 @@ def fetch_metadata(url: str) -> dict:
         raise YoutubeDownloadError("Couldn't read that YouTube video -- check the link and try again.")
 
 
+def list_feed_entries(feed_url: str, limit: int) -> list[dict]:
+    """The newest `limit` videos of a channel or playlist, newest first, as
+    {"id", "title", "url"}. Flat listing: no per-video detail (upload date,
+    duration, live status) -- fetch_metadata gets that for the few the
+    caller doesn't already know."""
+    result = _run_yt_dlp(
+        ["--flat-playlist", "--dump-json", "--no-warnings", "--playlist-end", str(limit), feed_url],
+        _METADATA_TIMEOUT_SECONDS * 2,
+    )
+    if result.returncode != 0:
+        raise YoutubeDownloadError("Couldn't read that channel or playlist.")
+    entries = []
+    for line in result.stdout.splitlines():
+        try:
+            entry = json.loads(line)
+        except ValueError:
+            continue
+        video_id = entry.get("id")
+        if video_id:
+            entries.append(
+                {
+                    "id": video_id,
+                    "title": entry.get("title") or "",
+                    "url": entry.get("url") or f"https://www.youtube.com/watch?v={video_id}",
+                }
+            )
+    return entries
+
+
 def download_youtube_video(
     url: str,
     upload_dir: Path,
     dest_path: Path,
     max_duration_seconds: int | None,
     max_upload_bytes: int,
+    audio_only: bool = False,
 ) -> tuple[float, int]:
     """Downloads `url` to `dest_path` (capped at 720p, merged to mp4). Called
     from the worker only (see module docstring) -- the caller has already
@@ -110,27 +140,29 @@ def download_youtube_video(
     validation failure, removes `upload_dir` entirely and raises
     YoutubeDownloadError. Returns (duration_seconds, size_bytes) on success.
     `max_duration_seconds=None` skips the duration cap entirely (admin
-    bypass -- see pipeline.py's _download_if_needed)."""
-    result = _run_yt_dlp(
-        [
-            "-f", "bestvideo[height<=720]+bestaudio/best[height<=720]",
-            "--merge-output-format", "mp4",
-            "--no-playlist",
-            # Best-effort caption fetch, piggybacked on this same download --
-            # no extra network round-trip. yt-dlp already prefers a
-            # manually-uploaded track over an auto-generated one when both
-            # exist (confirmed directly, not assumed -- passing both flags
-            # together writes exactly one file, the better of the two), and
-            # exits 0 with no file written if neither exists in this
-            # language (also confirmed) -- so this can never turn a video
-            # that would otherwise download fine into a failure. See
-            # get_downloaded_captions() below and plan/youtube-captions-plan.md.
-            "--write-subs", "--write-auto-subs", "--sub-langs", _CAPTION_LANG, "--sub-format", "srt",
-            "-o", str(dest_path),
-            url,
-        ],
-        _DOWNLOAD_TIMEOUT_SECONDS,
-    )
+    bypass -- see pipeline.py's _download_if_needed). `audio_only` fetches
+    just the audio track (falling back to the smallest combined format) --
+    for a job that never looks at the picture, where a multi-hour 720p video
+    would otherwise blow the size cap. ffmpeg reads it by content, so the
+    ".mp4" name is only a name."""
+    video_format = "bestaudio/worst" if audio_only else "bestvideo[height<=720]+bestaudio/best[height<=720]"
+    base_args = ["-f", video_format, "--merge-output-format", "mp4", "--no-playlist"]
+    # Best-effort caption fetch, piggybacked on this same download -- no extra
+    # network round-trip. yt-dlp already prefers a manually-uploaded track over
+    # an auto-generated one when both exist (confirmed directly, not assumed --
+    # passing both flags together writes exactly one file, the better of the
+    # two), and exits 0 with no file written if neither exists in this
+    # language (also confirmed). But if YouTube rate-limits the caption
+    # request itself (HTTP 429, seen on a VPS IP) yt-dlp fetches captions
+    # before the media, exits 1 and downloads nothing -- so a failed attempt
+    # is retried once without captions rather than failing a video that would
+    # otherwise download fine. See get_downloaded_captions() below and
+    # plan/youtube-captions-plan.md.
+    caption_args = ["--write-subs", "--write-auto-subs", "--sub-langs", _CAPTION_LANG, "--sub-format", "srt"]
+    result = _run_yt_dlp([*base_args, *caption_args, "-o", str(dest_path), url], _DOWNLOAD_TIMEOUT_SECONDS)
+    if result.returncode != 0 and not dest_path.is_file():
+        logger.warning("yt-dlp failed with captions requested, retrying without them")
+        result = _run_yt_dlp([*base_args, "-o", str(dest_path), url], _DOWNLOAD_TIMEOUT_SECONDS)
     if result.returncode != 0 or not dest_path.is_file():
         shutil.rmtree(upload_dir, ignore_errors=True)
         raise YoutubeDownloadError("Couldn't download that video -- it may be private, age-restricted, or removed.")

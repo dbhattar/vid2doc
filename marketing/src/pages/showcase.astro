@@ -1,0 +1,110 @@
+---
+import MarketingLayout from '../layouts/MarketingLayout.astro';
+import ShowcaseModal from '../components/Showcase/ShowcaseModal.astro';
+---
+
+<MarketingLayout
+  title="Showcase — Framewrite"
+  description="Real videos turned into real documents, plus summaries of public agency meetings, all made with Framewrite."
+  path="/showcase"
+>
+  <section class="showcase-page">
+    <div class="container">
+      <p class="eyebrow">Showcase</p>
+      <h1>Real videos, turned into real documents</h1>
+      <p class="lede">
+        Documents our users chose to publish, and public agency meetings we process, summarize and sort by topic.
+      </p>
+
+      <p id="showcase-page-status" class="showcase-page-status">Loading…</p>
+      <div id="showcase-page-grid" class="showcase-page-grid"></div>
+      <nav id="showcase-pager" class="showcase-pager" aria-label="Showcase pages"></nav>
+    </div>
+  </section>
+
+  <ShowcaseModal />
+</MarketingLayout>
+
+<style>
+  .showcase-page {
+    padding: 56px 0 80px;
+  }
+
+  h1 {
+    font-size: var(--step-4);
+    max-width: 22ch;
+    margin: 0 0 16px;
+  }
+
+  .lede {
+    max-width: 60ch;
+    margin: 0 0 40px;
+    color: var(--ink-soft);
+  }
+
+  .showcase-page-status {
+    color: var(--ink-soft);
+  }
+
+  .showcase-page-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 20px;
+  }
+
+  /* The cards are built at runtime (see showcase-core.ts's renderCard), so
+     they never get this component's scope class. :global lets the grid
+     override the carousel's fixed flex-basis, which is meaningless in a grid. */
+  .showcase-page-grid :global(.showcase-card) {
+    flex: initial;
+    min-width: 0;
+  }
+
+  .showcase-pager {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    margin-top: 48px;
+  }
+
+  .showcase-pager :global(.showcase-pager-item),
+  .showcase-pager :global(.showcase-pager-gap) {
+    min-width: 40px;
+    padding: 8px 12px;
+    text-align: center;
+    font-size: 0.9rem;
+  }
+
+  .showcase-pager :global(.showcase-pager-item) {
+    border: var(--border-width) solid var(--line);
+    border-radius: var(--radius-md);
+    color: var(--ink);
+    text-decoration: none;
+  }
+
+  .showcase-pager :global(a.showcase-pager-item:hover) {
+    border-color: var(--accent);
+    color: var(--accent);
+  }
+
+  .showcase-pager :global(.is-current) {
+    background: var(--accent);
+    border-color: var(--accent);
+    color: var(--paper);
+    font-weight: 600;
+  }
+
+  .showcase-pager :global(.is-disabled) {
+    opacity: 0.4;
+  }
+
+  .showcase-pager :global(.showcase-pager-gap) {
+    color: var(--ink-soft);
+  }
+</style>
+
+<script>
+  import '../components/Showcase/showcase-page.ts';
+</script>

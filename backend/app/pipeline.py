@@ -2,7 +2,7 @@ import json
 import os
 from pathlib import Path
 
-from . import billing, emails, jobs, meetings, public_jobs, users, youtube
+from . import agency_ingest, billing, emails, jobs, meetings, public_jobs, users, youtube
 from .config import settings
 from .exceptions import PipelineError
 from .stages import assemble, assemble_video, audio, classify, compose, frames, highlights, meeting_notes, render_scene, scenes, speaker_ids, stock_media, transcribe, transform
@@ -427,9 +427,14 @@ def _download_if_needed(job: dict, output_dir: Path) -> dict:
 
     user = users.get_user_by_id(job["user_id"]) if job.get("user_id") else None
     max_duration = None if (user and user.get("is_admin")) else settings.MAX_DURATION_SECONDS
+    # A public agency meeting (agency_ingest.py) has no owner and runs for
+    # hours: audio only, and its own length cap.
+    is_agency_meeting = agency_ingest.get_meeting_id_by_job(job_id) is not None
+    if is_agency_meeting:
+        max_duration = settings.AGENCY_MAX_DURATION_SECONDS
 
     duration, size_bytes = youtube.download_youtube_video(
-        job["source_url"], upload_dir, dest_path, max_duration, settings.MAX_UPLOAD_BYTES
+        job["source_url"], upload_dir, dest_path, max_duration, settings.MAX_UPLOAD_BYTES, audio_only=is_agency_meeting
     )
 
     captions = youtube.get_downloaded_captions(dest_path)

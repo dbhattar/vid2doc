@@ -31,7 +31,7 @@ def _p(*args, **kwargs) -> Param:
     return Param(*args, **kwargs)
 
 
-GROUPS = ("Pricing", "Limits", "Features", "Meetings", "Review reminders", "AI models", "Worker")
+GROUPS = ("Pricing", "Limits", "Features", "Meetings", "Review reminders", "Agency ingest", "AI models", "Worker")
 
 PARAMS: tuple[Param, ...] = (
     # --- Pricing: seconds of media per cent, so a bigger number is cheaper.
@@ -57,6 +57,13 @@ PARAMS: tuple[Param, ...] = (
     # --- Review reminders
     _p("REVIEW_REMINDER_AFTER_HOURS", "Review reminders", "Remind after", "A job still waiting for review after this long gets one reminder email.", "float", min=0.1, max=720, unit="hours"),
     _p("REVIEW_REMINDER_CHECK_SECONDS", "Review reminders", "Check every", "How often the worker looks for jobs due a reminder.", "int", min=30, max=86400, unit="seconds"),
+    # --- Agency ingest
+    _p("AGENCY_INGEST_ENABLED", "Agency ingest", "Poll agency sources", "Turn on to watch the enabled sources and process new public meetings. Each meeting costs transcription (unless the video has captions) and LLM calls.", "bool"),
+    _p("AGENCY_POLL_INTERVAL_SECONDS", "Agency ingest", "Poll every", "How often the worker checks each source for new recordings.", "int", min=60, max=86400, unit="seconds"),
+    _p("AGENCY_BACKFILL_DAYS", "Agency ingest", "Ignore recordings older than", "A recording published longer ago than this is skipped, so a new source doesn't process its whole archive.", "int", min=1, max=365, unit="days"),
+    _p("AGENCY_MAX_NEW_PER_DAY", "Agency ingest", "Max new meetings per day", "Spending cap: at most this many recordings are queued in 24 hours; the rest wait.", "int", min=0, max=100),
+    _p("AGENCY_MAX_DURATION_SECONDS", "Agency ingest", "Max meeting length", "A recording longer than this fails instead of being processed.", "int", min=600, max=86400, unit="seconds"),
+    _p("TOPICS_AUTO_CREATE", "Agency ingest", "Create new topics automatically", "On: a subject the tagger finds that isn't on the topic list becomes a public topic people can follow. Off: it waits in the suggestions list for an admin to approve.", "bool"),
     # --- AI models
     _p("LLM_PROVIDER", "AI models", "LLM provider", "Which provider writes documents, notes and summaries. Its API key must be set on the server, or jobs fail.", "choice", choices=("anthropic", "openai")),
     _p("OPENAI_MODEL", "AI models", "OpenAI model", "Model id used when the provider is OpenAI. A wrong id makes jobs fail.", "str", max_length=100),

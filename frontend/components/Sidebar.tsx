@@ -22,6 +22,7 @@ const PRIMARY_NAV_LINKS = [
   // Video Gen nav item hidden for now (page/route/backend untouched, still
   // reachable directly at /dashboard/video-gen) -- re-add when ready.
   { href: "/documents", label: "Documents", Icon: DocumentIcon },
+  { href: "/topics", label: "Topics", Icon: LiveIcon },
   { href: "/agents", label: "Agents", Icon: BotIcon },
 ];
 

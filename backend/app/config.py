@@ -75,6 +75,21 @@ class Settings:
     REVIEW_REMINDER_AFTER_HOURS = float(os.environ.get("REVIEW_REMINDER_AFTER_HOURS", 24))
     REVIEW_REMINDER_CHECK_SECONDS = int(os.environ.get("REVIEW_REMINDER_CHECK_SECONDS", 15 * 60))
 
+    # Public agency meetings (agency_ingest.py). Off until an admin turns it
+    # on, since every new recording costs transcription and LLM calls.
+    AGENCY_INGEST_ENABLED = os.environ.get("AGENCY_INGEST_ENABLED", "false").lower() in ("1", "true", "yes")
+    AGENCY_POLL_INTERVAL_SECONDS = int(os.environ.get("AGENCY_POLL_INTERVAL_SECONDS", 30 * 60))
+    # Recordings older than this are ignored, so enabling a source doesn't
+    # transcribe its whole archive.
+    AGENCY_BACKFILL_DAYS = int(os.environ.get("AGENCY_BACKFILL_DAYS", 14))
+    AGENCY_MAX_NEW_PER_DAY = int(os.environ.get("AGENCY_MAX_NEW_PER_DAY", 5))
+    # Public meetings run for hours; user jobs stay capped by MAX_DURATION_SECONDS.
+    # A subject the tagger finds that isn't on the topic list becomes a new
+    # public topic (people can follow it right away). Off: it goes to the
+    # admin's suggestion queue instead. See topics.tag_meeting.
+    TOPICS_AUTO_CREATE = os.environ.get("TOPICS_AUTO_CREATE", "true").lower() in ("1", "true", "yes")
+    AGENCY_MAX_DURATION_SECONDS = int(os.environ.get("AGENCY_MAX_DURATION_SECONDS", 8 * 3600))
+
     # Audio jobs try to name speakers from what they say (stages/speaker_ids.py;
     # one extra LLM call per job with 2+ speakers). Set to "false" to skip it.
     SPEAKER_AUTO_ID_ENABLED = os.environ.get("SPEAKER_AUTO_ID_ENABLED", "true").strip().lower() != "false"

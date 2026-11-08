@@ -22,6 +22,13 @@ type GoogleLoginResponse = {
   user: CurrentUser;
 };
 
+/** Where to go after signing in: the page the visitor came from (?next=), but
+ * only a path on this site -- never a full URL, so a crafted link can't send
+ * someone to another domain. */
+function safeNextPath(next: string | null): string {
+  return next && next.startsWith("/") && !next.startsWith("//") && !next.includes("\\") ? next : "/dashboard";
+}
+
 export default function LoginPage() {
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
@@ -38,7 +45,7 @@ export default function LoginPage() {
         body: JSON.stringify({ id_token: credential }),
       });
       saveSession(data.access_token, data.user);
-      router.replace("/dashboard");
+      router.replace(safeNextPath(new URLSearchParams(window.location.search).get("next")));
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Sign-in failed. Please try again.");
     }

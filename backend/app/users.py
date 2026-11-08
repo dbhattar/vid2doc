@@ -21,6 +21,7 @@ def _user_to_dict(user: User) -> dict:
         "notify_job_done": user.notify_job_done,
         "notify_review_reminder": user.notify_review_reminder,
         "notify_meeting_notes": user.notify_meeting_notes,
+        "notify_topic_alerts": user.notify_topic_alerts,
         "default_bot_name": user.default_bot_name,
         "created_at": user.created_at,
     }
@@ -120,7 +121,13 @@ def set_announcements_opt_out(user_id: str | uuid.UUID, opt_out: bool) -> bool:
         session.close()
 
 
-PREFERENCE_FIELDS = ("notify_job_done", "notify_review_reminder", "notify_meeting_notes", "default_bot_name")
+PREFERENCE_FIELDS = (
+    "notify_job_done",
+    "notify_review_reminder",
+    "notify_meeting_notes",
+    "notify_topic_alerts",
+    "default_bot_name",
+)
 
 
 def update_preferences(user_id: str | uuid.UUID, **fields) -> dict | None:

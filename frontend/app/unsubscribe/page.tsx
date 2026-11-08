@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { Suspense, useState } from "react";
 
 import Button from "@/components/Button";
 import { apiFetch, ApiError } from "@/lib/api";
@@ -10,13 +11,19 @@ import { apiFetch, ApiError } from "@/lib/api";
  * explicit click rather than unsubscribing on load, so email link scanners
  * can't unsubscribe people by prefetching it. */
 export default function UnsubscribePage() {
-  const [token, setToken] = useState<string | null>(null);
+  return (
+    <Suspense>
+      <UnsubscribeContent />
+    </Suspense>
+  );
+}
+
+function UnsubscribeContent() {
+  const params = useSearchParams();
+  const token = params.get("token");
+  const topicAlerts = params.get("kind") === "topics";
   const [state, setState] = useState<"idle" | "busy" | "done">("idle");
   const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    setToken(new URLSearchParams(window.location.search).get("token"));
-  }, []);
 
   async function handleUnsubscribe() {
     setState("busy");
@@ -38,11 +45,13 @@ export default function UnsubscribePage() {
         </a>
         {state === "done" ? (
           <p className="mt-8 text-sm text-ink">
-            You&apos;re unsubscribed from Framewrite announcements. You&apos;ll still get emails about your own jobs.
+            {topicAlerts
+              ? "You won't get topic alerts any more. You can turn them back on in Settings. You'll still get emails about your own jobs."
+              : "You're unsubscribed from Framewrite announcements. You'll still get emails about your own jobs."}
           </p>
         ) : (
           <>
-            <p className="mt-8 text-sm text-ink">Stop receiving Framewrite product updates and announcements?</p>
+            <p className="mt-8 text-sm text-ink">{topicAlerts ? "Stop receiving topic alerts about public meetings?" : "Stop receiving Framewrite product updates and announcements?"}</p>
             <Button onClick={handleUnsubscribe} disabled={!token || state === "busy"} className="mt-4 justify-center">
               {state === "busy" ? "Unsubscribing..." : "Unsubscribe"}
             </Button>

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
@@ -8,6 +9,7 @@ import Button from "@/components/Button";
 import Card from "@/components/Card";
 import { apiFetch, ApiError } from "@/lib/api";
 import { clearSession, type CurrentUser } from "@/lib/auth";
+import type { PublicTopic } from "@/lib/agency";
 import type { Preferences } from "@/lib/preferences";
 import { applyTheme, loadThemePreference, saveThemePreference, type ThemePreference } from "@/lib/theme";
 
@@ -30,6 +32,11 @@ const NOTIFICATIONS: { key: ToggleKey; label: string; hint: string }[] = [
     key: "notify_review_reminder",
     label: "Review reminders",
     hint: "Remind me if a job has been waiting for my review for a day.",
+  },
+  {
+    key: "notify_topic_alerts",
+    label: "Topic alerts",
+    hint: "Email me when a public agency meeting discusses a topic I follow.",
   },
   {
     key: "product_announcements",
@@ -57,6 +64,8 @@ export default function SettingsPage() {
   // localStorage during init can't cause a hydration mismatch.
   const [theme, setTheme] = useState<ThemePreference>(() => loadThemePreference());
   const [voice, updateVoice] = useVoiceSettings();
+  const [topics, setTopics] = useState<PublicTopic[]>([]);
+  const [followed, setFollowed] = useState<string[]>([]);
 
   const handleAuthError = useCallback(
     (err: unknown) => {
@@ -82,6 +91,36 @@ export default function SettingsPage() {
         setLoadError(err instanceof ApiError ? err.message : "Failed to load your settings.");
       });
   }, [handleAuthError]);
+
+  useEffect(() => {
+    Promise.all([
+      apiFetch<{ topics: PublicTopic[] }>("/api/public/topics"),
+      apiFetch<{ topic_ids: string[] }>("/api/me/topic-subscriptions"),
+    ])
+      .then(([t, f]) => {
+        setTopics(t.topics);
+        setFollowed(f.topic_ids);
+      })
+      .catch(() => {
+        // The topics card just stays empty; the rest of the page doesn't depend on it.
+      });
+  }, []);
+
+  async function unfollow(topicId: string) {
+    setSaving(topicId);
+    setError(null);
+    try {
+      const r = await apiFetch<{ topic_ids: string[] }>("/api/me/topic-subscriptions", {
+        method: "PUT",
+        body: JSON.stringify({ topic_ids: followed.filter((id) => id !== topicId) }),
+      });
+      setFollowed(r.topic_ids);
+    } catch (err) {
+      if (!handleAuthError(err)) setError(err instanceof ApiError ? err.message : "Couldn't update your topics.");
+    } finally {
+      setSaving(null);
+    }
+  }
 
   async function save(patch: Partial<Preferences>, key: string) {
     setSaving(key);
@@ -167,6 +206,34 @@ export default function SettingsPage() {
                 </li>
               ))}
             </ul>
+          </Card>
+
+          <Card className="p-6">
+            <h2 className="text-sm font-semibold text-ink">Topics you follow</h2>
+            <p className="text-xs text-ink-soft">
+              Public agency meetings that discuss these topics are emailed to you if &ldquo;Topic alerts&rdquo; is on.
+            </p>
+            {followed.length === 0 ? (
+              <p className="mt-3 text-sm text-ink-soft">You aren&apos;t following any topics yet.</p>
+            ) : (
+              <ul className="mt-3 divide-y divide-line">
+                {topics
+                  .filter((t) => followed.includes(t.id))
+                  .map((t) => (
+                    <li key={t.id} className="flex items-center justify-between gap-3 py-2 first:pt-0 last:pb-0">
+                      <Link href={`/topics/${t.slug}`} className="text-sm text-ink hover:underline">
+                        {t.name}
+                      </Link>
+                      <Button variant="outline" disabled={saving === t.id} onClick={() => unfollow(t.id)}>
+                        Unfollow
+                      </Button>
+                    </li>
+                  ))}
+              </ul>
+            )}
+            <Link href="/topics" className="mt-3 inline-block text-sm font-medium text-accent hover:underline">
+              Browse topics
+            </Link>
           </Card>
 
           {user.features?.meetings && (
