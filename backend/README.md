@@ -377,6 +377,20 @@ Admin UI at `/admin/agency`; public pages at `/topics`, `/topics/{slug}` and
 `API_INTERNAL_URL`). Tunables are under "Agency ingest" on the admin Settings
 page. Only YouTube is supported as a source so far (`MeetingSource.adapter`).
 
+## Importing from a link
+
+`POST /api/convert_from_youtube` (admin-only) takes a YouTube URL or a direct
+link to a video/audio file (`app/direct_media.py`), so a recording doesn't
+have to be downloaded and re-uploaded. The same goes for "add one recording"
+in `/admin/agency`. The server fetches whatever address it's given, so
+`direct_media` only allows http(s), requires the host to resolve to public
+addresses only, and follows redirects by hand, re-checking each hop. A link
+that opens a web page (a Zoom/Teams share link) is refused with an
+explanation, since it isn't a file. A direct link is downloaded whole in the
+worker, capped by `MAX_UPLOAD_BYTES` (`AGENCY_MAX_DOWNLOAD_BYTES` for public
+meetings). Only the file's own link works: it must be reachable without a
+login and not expire before the worker fetches it.
+
 ## Public showcase
 
 A user can opt a completed `job_type == "video"` job into the public

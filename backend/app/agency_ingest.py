@@ -16,6 +16,7 @@ Reconciling from here rather than hooking the pipeline means the pipeline
 doesn't know this exists, and a crashed tick just picks up where it stopped.
 """
 
+import hashlib
 import json
 import logging
 import re
@@ -25,7 +26,7 @@ from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import func, select
 
-from . import jobs, topic_alerts, topics, youtube
+from . import direct_media, jobs, topic_alerts, topics, youtube
 from .config import settings
 from .db import get_session
 from .models import AgencyMeeting, Job, MeetingSource
@@ -245,11 +246,18 @@ def add_meeting_by_url(source_id: str, url: str) -> dict:
     """Admin: add one recording by link (for trying the pipeline on a real
     meeting before polling is on, or to catch one the poller skipped).
     Queued straight away, ignoring the backfill window and daily cap."""
-    if not youtube.is_youtube_url(url):
-        raise IngestError("Only YouTube links are supported so far.")
     try:
-        meta = youtube.fetch_metadata(url)
-    except youtube.YoutubeDownloadError as e:
+        if youtube.is_youtube_url(url):
+            meta = youtube.fetch_metadata(url)
+        elif direct_media.is_direct_url(url):
+            # A direct link to the recording file. The length may be unknown
+            # until it's downloaded (the worker checks the cap then).
+            meta = direct_media.fetch_metadata(url, max_bytes=settings.AGENCY_MAX_DOWNLOAD_BYTES)
+            url = meta["url"]
+            meta["id"] = "file:" + hashlib.sha1(url.encode()).hexdigest()[:24]
+        else:
+            raise IngestError("That doesn't look like a link to a video.")
+    except (youtube.YoutubeDownloadError, direct_media.DirectMediaError) as e:
         raise IngestError(str(e))
     duration = meta.get("duration")
     if duration and duration > settings.AGENCY_MAX_DURATION_SECONDS:

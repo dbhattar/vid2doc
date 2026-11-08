@@ -50,7 +50,18 @@ export function formatTimestamp(seconds: number): string {
 /** The official recording, opened at `seconds` (YouTube's &t= parameter). */
 export function recordingLinkAt(sourceUrl: string, seconds: number | null): string {
   if (seconds == null) return sourceUrl;
-  return `${sourceUrl}${sourceUrl.includes("?") ? "&" : "?"}t=${Math.floor(seconds)}s`;
+  let host = "";
+  try {
+    host = new URL(sourceUrl).hostname;
+  } catch {
+    return sourceUrl;
+  }
+  if (/(^|\.)(youtube\.com|youtu\.be)$/.test(host)) {
+    return `${sourceUrl}${sourceUrl.includes("?") ? "&" : "?"}t=${Math.floor(seconds)}s`;
+  }
+  // A direct file link: a query parameter could invalidate a signed URL, but a
+  // media fragment is never sent to the server and browsers' players honour it.
+  return `${sourceUrl.split("#")[0]}#t=${Math.floor(seconds)}`;
 }
 
 /** Consecutive segments by the same speaker, joined into one turn, so a

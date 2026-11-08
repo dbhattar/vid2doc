@@ -55,7 +55,7 @@ export default function VideoPage() {
   const [cancellingJobId, setCancellingJobId] = useState<string | null>(null);
   const [cancelError, setCancelError] = useState<string | null>(null);
   const [source, setSource] = useState<"file" | "youtube">("file");
-  // YouTube import is admin-only for now (backend enforces it too). Stays
+  // Link import (YouTube, or a direct file link) is admin-only for now (backend enforces it too). Stays
   // false until /api/auth/me answers, so non-admins never see it flash in.
   const [isAdmin, setIsAdmin] = useState(false);
   const [youtubeUrl, setYoutubeUrl] = useState("");
@@ -253,7 +253,7 @@ export default function VideoPage() {
                   source === "youtube" ? "border-ink bg-ink text-paper" : "border-line text-ink-soft hover:border-ink"
                 }`}
               >
-                YouTube link
+                Video link
               </button>
             </div>
           )}
@@ -282,7 +282,7 @@ export default function VideoPage() {
                 type="url"
                 value={youtubeUrl}
                 onChange={(e) => setYoutubeUrl(e.target.value)}
-                placeholder="https://www.youtube.com/watch?v=..."
+                placeholder="YouTube URL, or a direct link to a video file (https://.../meeting.mp4)"
                 className="flex-1 rounded-md border border-line bg-paper px-3 py-2 text-sm text-ink outline-none transition-shadow focus:border-accent focus:ring-2 focus:ring-accent-soft"
               />
               <Button type="submit" disabled={uploading || !youtubeUrl.trim()} className="shrink-0 justify-center">

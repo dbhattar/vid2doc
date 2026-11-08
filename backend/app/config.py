@@ -88,6 +88,9 @@ class Settings:
     # public topic (people can follow it right away). Off: it goes to the
     # admin's suggestion queue instead. See topics.tag_meeting.
     TOPICS_AUTO_CREATE = os.environ.get("TOPICS_AUTO_CREATE", "true").lower() in ("1", "true", "yes")
+    # A recording imported from a direct file link is downloaded whole (video
+    # included), unlike a YouTube one which is fetched audio-only.
+    AGENCY_MAX_DOWNLOAD_BYTES = int(os.environ.get("AGENCY_MAX_DOWNLOAD_BYTES", 4 * 1024 * 1024 * 1024))
     AGENCY_MAX_DURATION_SECONDS = int(os.environ.get("AGENCY_MAX_DURATION_SECONDS", 8 * 3600))
 
     # Audio jobs try to name speakers from what they say (stages/speaker_ids.py;

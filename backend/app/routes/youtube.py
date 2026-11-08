@@ -3,7 +3,7 @@ import uuid
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-from .. import billing, jobs
+from .. import billing, direct_media, jobs
 from ..config import settings
 from ..deps import get_current_user
 from ..stages import transform
@@ -43,12 +43,23 @@ def convert_from_youtube(body: YoutubeConvertRequest, current_user: dict = Depen
     extract_frames = body.extract_frames and body.transformation == "document"
 
     url = body.url.strip()
-    if not is_youtube_url(url):
-        raise HTTPException(status_code=400, detail="That doesn't look like a YouTube URL.")
-
     try:
-        meta = fetch_metadata(url)
-    except YoutubeDownloadError as e:
+        if is_youtube_url(url):
+            meta = fetch_metadata(url)
+        elif direct_media.is_direct_url(url):
+            # A direct link to a video/audio file. Same admin-only gate; the
+            # length must be readable from the link because the charge is
+            # made up front.
+            meta = direct_media.fetch_metadata(url, max_bytes=settings.MAX_UPLOAD_BYTES)
+            if not meta.get("duration"):
+                raise HTTPException(
+                    status_code=400,
+                    detail="Couldn't read that file's length from the link. Download it and upload it instead.",
+                )
+            url = meta["url"]
+        else:
+            raise HTTPException(status_code=400, detail="That doesn't look like a link to a video.")
+    except (YoutubeDownloadError, direct_media.DirectMediaError) as e:
         raise HTTPException(status_code=400, detail=str(e))
 
     duration = meta.get("duration") or 0

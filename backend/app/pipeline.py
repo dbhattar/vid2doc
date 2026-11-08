@@ -2,7 +2,7 @@ import json
 import os
 from pathlib import Path
 
-from . import agency_ingest, billing, emails, jobs, meetings, public_jobs, users, youtube
+from . import agency_ingest, billing, direct_media, emails, jobs, meetings, public_jobs, users, youtube
 from .config import settings
 from .exceptions import PipelineError
 from .stages import assemble, assemble_video, audio, classify, compose, frames, highlights, meeting_notes, render_scene, scenes, speaker_ids, stock_media, transcribe, transform
@@ -433,14 +433,18 @@ def _download_if_needed(job: dict, output_dir: Path) -> dict:
     if is_agency_meeting:
         max_duration = settings.AGENCY_MAX_DURATION_SECONDS
 
-    duration, size_bytes = youtube.download_youtube_video(
-        job["source_url"], upload_dir, dest_path, max_duration, settings.MAX_UPLOAD_BYTES, audio_only=is_agency_meeting
-    )
-
-    captions = youtube.get_downloaded_captions(dest_path)
-    if captions:
-        output_dir.mkdir(parents=True, exist_ok=True)
-        (output_dir / "precomputed_segments.json").write_text(json.dumps(captions))
+    if youtube.is_youtube_url(job["source_url"]):
+        duration, size_bytes = youtube.download_youtube_video(
+            job["source_url"], upload_dir, dest_path, max_duration, settings.MAX_UPLOAD_BYTES, audio_only=is_agency_meeting
+        )
+        captions = youtube.get_downloaded_captions(dest_path)
+        if captions:
+            output_dir.mkdir(parents=True, exist_ok=True)
+            (output_dir / "precomputed_segments.json").write_text(json.dumps(captions))
+    else:
+        # A direct link to a media file (direct_media.py): no captions to pick up.
+        max_bytes = settings.AGENCY_MAX_DOWNLOAD_BYTES if is_agency_meeting else settings.MAX_UPLOAD_BYTES
+        duration, size_bytes = direct_media.download_direct_media(job["source_url"], upload_dir, dest_path, max_duration, max_bytes)
 
     jobs.update_job(job_id, source_path=str(dest_path), duration_seconds=duration, source_size_bytes=size_bytes)
     return jobs.get_job(job_id)

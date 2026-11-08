@@ -240,7 +240,7 @@ export default function AdminAgencyPage() {
               </option>
             ))}
           </select>
-          <input className={`${INPUT} w-80`} placeholder="Add one recording by YouTube URL" value={addUrl} onChange={(e) => setAddUrl(e.target.value)} required />
+          <input className={`${INPUT} w-80`} placeholder="Add one recording: YouTube URL or direct video-file link" value={addUrl} onChange={(e) => setAddUrl(e.target.value)} required />
           <Button type="submit" disabled={busy === "add-meeting" || sources.length === 0}>
             Process now
           </Button>
