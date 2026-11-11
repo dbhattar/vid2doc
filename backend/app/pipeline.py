@@ -5,7 +5,7 @@ from pathlib import Path
 from . import agency_ingest, billing, direct_media, emails, jobs, meetings, public_jobs, users, youtube
 from .config import settings
 from .exceptions import PipelineError
-from .stages import assemble, assemble_video, audio, classify, compose, frames, highlights, meeting_notes, render_scene, scenes, speaker_ids, stock_media, transcribe, transform
+from .stages import assemble, assemble_video, audio, classify, compose, frames, highlights, medium, meeting_notes, render_scene, scenes, speaker_ids, stock_media, transcribe, transform
 
 
 class JobCancelled(Exception):
@@ -270,7 +270,20 @@ def _transcribe_segments(job: dict, output_dir: Path) -> list[dict]:
     return transcript["segments"]
 
 
+def _source_noun(job: dict) -> str:
+    """What the transformation text calls the source: "recording" for a document
+    made from an audio transcript (see derived.py), else "video"."""
+    parent_id = job.get("parent_job_id")
+    parent = jobs.get_job(parent_id) if parent_id else None
+    return "recording" if parent and parent["job_type"] == "audio" else "video"
+
+
 def _compose_and_finalize(job: dict, output_dir: Path, images_meta: list[dict], tables_meta: list[dict]) -> None:
+    with medium.noun(_source_noun(job)):
+        _compose_and_finalize_body(job, output_dir, images_meta, tables_meta)
+
+
+def _compose_and_finalize_body(job: dict, output_dir: Path, images_meta: list[dict], tables_meta: list[dict]) -> None:
     """Transcribe, compose, and finalize -- the shared tail for every video
     document: a job that has already decided which images/tables to include
     (resume_after_review), a job whose user opted out of frame extraction
@@ -327,7 +340,17 @@ def _compose_and_finalize(job: dict, output_dir: Path, images_meta: list[dict], 
     # timestamp by matching against these, not the rewritten prose. Written
     # unconditionally (not gated on chat opt-in, which only happens after
     # the job is already done -- too late to recover this otherwise).
-    transcript_json = json.dumps({"segments": segments}, indent=2)
+    # Speaker labels are normalized to "Speaker 1", "Speaker 2", ... on this
+    # stored copy only (the document above was composed from the raw ones), so
+    # the transcript view and any document derived from it read cleanly.
+    stored_segments = [dict(s) for s in segments]
+    # (A derived document keeps the labels it was given: they may be real names.)
+    speakers = (
+        _normalize_speaker_labels(stored_segments)
+        if not job.get("parent_job_id") and all("speaker" in s for s in stored_segments)
+        else []
+    )
+    transcript_json = json.dumps({"speakers": speakers, "segments": stored_segments}, indent=2)
     _finalize_document(job, title, sections, images_meta, tables_meta, extra_files={"transcript.json": transcript_json})
 
 

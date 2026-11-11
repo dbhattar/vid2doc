@@ -34,6 +34,7 @@ def _job_to_dict(job: Job) -> dict:
         "extract_frames": job.extract_frames,
         "transformation": job.transformation,
         "review_topics": job.review_topics,
+        "parent_job_id": job.parent_job_id,
         "error_message": job.error_message,
         "deleted_at": job.deleted_at,
         "public_status": job.public_status,
@@ -71,6 +72,7 @@ def create_job(
     public_upfront: bool = False,
     transformation: str = "document",
     review_topics: bool = False,
+    parent_job_id: str | None = None,
 ) -> None:
     session = get_session()
     try:
@@ -91,6 +93,7 @@ def create_job(
                 extract_frames=extract_frames,
                 transformation=transformation,
                 review_topics=review_topics,
+                parent_job_id=parent_job_id,
                 public_upfront=public_upfront,
             )
         )
@@ -226,7 +229,7 @@ def list_jobs_for_user(
 ) -> list[dict]:
     session = get_session()
     try:
-        query = session.query(Job).filter_by(user_id=user_id)
+        query = session.query(Job).filter_by(user_id=user_id).filter(Job.parent_job_id.is_(None))
         if status:
             query = query.filter_by(status=status)
         if job_type:
@@ -242,12 +245,22 @@ def count_jobs_for_user(
 ) -> int:
     session = get_session()
     try:
-        query = session.query(Job).filter_by(user_id=user_id)
+        query = session.query(Job).filter_by(user_id=user_id).filter(Job.parent_job_id.is_(None))
         if status:
             query = query.filter_by(status=status)
         if job_type:
             query = query.filter_by(job_type=job_type)
         return query.count()
+    finally:
+        session.close()
+
+
+def list_child_jobs(parent_job_id: str) -> list[dict]:
+    """The documents derived from a job (see Job.parent_job_id), oldest first."""
+    session = get_session()
+    try:
+        rows = session.query(Job).filter(Job.parent_job_id == parent_job_id).order_by(Job.created_at).all()
+        return [_job_to_dict(j) for j in rows]
     finally:
         session.close()
 

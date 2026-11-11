@@ -29,6 +29,8 @@ def build_job_response(job: dict, request: Request, full: bool = False) -> dict:
         response["extract_frames"] = job["extract_frames"]
         response["transformation"] = job["transformation"]
         response["review_topics"] = job["review_topics"]
+        # Set on a document derived from another video job (routes/derived.py).
+        response["parent_job_id"] = job.get("parent_job_id")
         # public_consent_refund_cents is the *live preview* amount before opt-in
         # (so the confirmation UI can show a real dollar figure, not a vague
         # percentage) -- once public_refund_cents is set (opt-in has happened),

@@ -17,7 +17,7 @@ from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 from ..config import settings
 from ..exceptions import PipelineError
 from ..youtube import is_youtube_url
-from . import compose, web_research
+from . import compose, medium, web_research
 
 logger = logging.getLogger(__name__)
 
@@ -52,6 +52,7 @@ def _call_json(system: str, user: str, name: str, schema: dict) -> dict:
     """One structured-output call on whichever provider LLM_PROVIDER names.
     `schema` must satisfy OpenAI strict mode (every property required,
     additionalProperties false); Anthropic gets it as a forced tool."""
+    system = medium.say(system)  # the fixed prompt only -- never the transcript in `user`
     if settings.LLM_PROVIDER == "openai":
         import openai
 
@@ -257,7 +258,7 @@ def extract_research_topics(segments: list[dict]) -> list[dict]:
             unique.append(t)
     unique = unique[:RESEARCH_MAX_TOPICS]
     if not unique:
-        raise PipelineError("Nothing in this video was specific enough to research.")
+        raise PipelineError(medium.say("Nothing in this video was specific enough to research."))
     return unique
 
 
@@ -281,7 +282,7 @@ def compose_research(
             logger.exception("Research failed for %r", t["topic"])
             continue
         # A topic the user added themselves has no transcript context.
-        paragraphs = ([f"From the video: {context}"] if context else []) + [result["summary"]]
+        paragraphs = ([f"{medium.say('From the video:')} {context}"] if context else []) + [result["summary"]]
         if result["links"]:
             paragraphs.append("Sources:\n" + "\n".join(f"- {_link(l['title'], l['url'])}" for l in result["links"]))
         sections.append(_section(t["topic"], paragraphs))
@@ -311,5 +312,5 @@ def run(
         raise PipelineError(f"Unknown transformation {transformation!r}")
     # The section headings of a study guide ("Summary", "Key concepts") say
     # nothing about the video, so titles are generated from the topics instead.
-    base = compose.generate_title([{"heading": h} for h in title_headings[:12]]) if title_headings else "Video"
+    base = compose.generate_title([{"heading": h} for h in title_headings[:12]]) if title_headings else medium.say("Video")
     return f"{TITLE_PREFIX[transformation]}: {base}", sections

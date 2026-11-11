@@ -10,6 +10,13 @@ export const TRANSFORMATION_LABELS: Record<Transformation, string> = {
   research: "Research report",
 };
 
+/** One line on what each document made from a finished video or audio contains. */
+export const TRANSFORMATION_DESCRIPTIONS: Record<Exclude<Transformation, "document">, string> = {
+  notes: "Short bullet notes with links back to where each point came up, plus further reading.",
+  study_guide: "Summary, key concepts, and review questions with answers.",
+  research: "The topics discussed, researched on the web, with cited sources.",
+};
+
 export type Job = {
   job_id: string;
   status: JobStatus;
@@ -26,6 +33,9 @@ export type Job = {
   // transformation === "research" only: whether the job pauses for the user
   // to confirm topics before researching (see backend/app/routes/topic_review.py).
   review_topics?: boolean;
+  // Set on a document made from another video job (notes, study guide,
+  // research) -- see backend/app/routes/derived.py.
+  parent_job_id?: string | null;
   document_url?: string;
   document_bundle_url?: string;
   document_docx_url?: string;
@@ -165,6 +175,16 @@ export type TranscriptSegment = { speaker: string; text: string; start_ts: numbe
  * `applied` hints were filled into speaker_names automatically (high confidence);
  * the rest are offered as suggestions. Absent on transcripts from before this existed. */
 export type SpeakerHint = { name: string; confidence: "high" | "medium"; evidence: string; applied: boolean };
+
+/** What can still be made from a finished video, and what has been made --
+ * GET /api/jobs/{id}/derived. */
+export type DerivedOption = { transformation: Exclude<Transformation, "document">; cost_cents: number };
+export type DerivedDocuments = {
+  can_create: boolean;
+  reason: string | null;
+  options: DerivedOption[];
+  documents: Job[];
+};
 
 export type TranscriptData = {
   speakers: string[];

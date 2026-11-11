@@ -17,7 +17,7 @@ wallet-funded) -- there are no subscription plans/tiers.
 import uuid
 from datetime import datetime
 
-from sqlalchemy import JSON, BigInteger, Boolean, DateTime, Float, ForeignKey, Integer, String, Text, UniqueConstraint, func
+from sqlalchemy import JSON, BigInteger, Boolean, DateTime, Float, ForeignKey, Index, Integer, String, Text, UniqueConstraint, func, text
 from sqlalchemy.dialects.postgresql import UUID
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column, relationship
 
@@ -99,6 +99,17 @@ class WalletLedgerEntry(Base):
 
 class Job(Base):
     __tablename__ = "jobs"
+    __table_args__ = (
+        # One live (not failed/cancelled) derived document of each type per
+        # video: a double-click on "Create" can't make, or charge for, two.
+        Index(
+            "uq_jobs_live_derivative",
+            "parent_job_id",
+            "transformation",
+            unique=True,
+            postgresql_where=text("parent_job_id IS NOT NULL AND status NOT IN ('failed', 'cancelled')"),
+        ),
+    )
 
     id: Mapped[str] = mapped_column(String, primary_key=True)  # str(uuid.uuid4()), generated in routes/convert.py
     user_id: Mapped[uuid.UUID | None] = mapped_column(
@@ -168,6 +179,13 @@ class Job(Base):
     # extraction so the user can confirm/edit/add topics before the paid web
     # research runs (see pipeline.py's awaiting_topic_review pause).
     review_topics: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="false")
+    # Set on a document derived from a finished video job (notes, study guide
+    # or research made from its transcript, see routes/derived.py) -- it points
+    # at the video job. Such a child is an ordinary job otherwise, but is left
+    # out of the default job lists and shown on its parent's page instead.
+    parent_job_id: Mapped[str | None] = mapped_column(
+        String, ForeignKey("jobs.id", ondelete="CASCADE"), nullable=True, index=True
+    )
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     # Public showcase: user opts a completed job_type=="video" job into a

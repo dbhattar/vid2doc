@@ -9,6 +9,7 @@ import os
 from ..agents import collect_sources, strip_citation_markers
 from ..config import settings
 from ..exceptions import PipelineError
+from . import medium
 
 RESEARCH_INSTRUCTIONS = (
     "You research one topic that came up in a video. Use web search to write a short, factual background "
@@ -32,8 +33,8 @@ def research_topic(topic: str, context: str) -> dict:
     response = openai.OpenAI(api_key=api_key).responses.create(
         model=settings.AGENT_OPENAI_MODEL,
         tools=[{"type": "web_search"}],
-        instructions=RESEARCH_INSTRUCTIONS,
-        input=f"Topic: {topic}\n\nWhat the video says about it:\n{context}",
+        instructions=medium.say(RESEARCH_INSTRUCTIONS),
+        input=f"Topic: {topic}\n\n{medium.say('What the video says about it:')}\n{context}",
     )
     links: dict[str, dict] = {}
     for source in collect_sources(response):

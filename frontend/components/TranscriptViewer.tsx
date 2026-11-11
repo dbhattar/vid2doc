@@ -7,7 +7,9 @@ import { apiFetch, ApiError } from "@/lib/api";
 import { formatTimestamp, type TranscriptData } from "@/lib/jobs";
 import { speakerColorFor as colorFor, speakerInitials as initials } from "@/lib/speakerColors";
 
-export default function TranscriptViewer({ jobId }: { jobId: string }) {
+/** `readOnly` is for a video's transcript: no speaker renaming or summary
+ * (those endpoints are audio-only), just the speaker-tagged text. */
+export default function TranscriptViewer({ jobId, readOnly = false }: { jobId: string; readOnly?: boolean }) {
   const [data, setData] = useState<TranscriptData | null>(null);
   const [names, setNames] = useState<Record<string, string>>({});
   const [error, setError] = useState<string | null>(null);
@@ -17,8 +19,14 @@ export default function TranscriptViewer({ jobId }: { jobId: string }) {
   useEffect(() => {
     apiFetch<TranscriptData>(`/api/documents/${jobId}/transcript.json`)
       .then((d) => {
-        setData(d);
-        setNames(d.speaker_names);
+        // A video's transcript.json is older/lighter than an audio one: it may
+        // have no speaker list or names (older ones have raw engine labels).
+        setData({
+          ...d,
+          speakers: d.speakers ?? Array.from(new Set(d.segments.map((s) => s.speaker))),
+          speaker_names: d.speaker_names ?? {},
+        });
+        setNames(d.speaker_names ?? {});
       })
       .catch((err) => {
         setError(err instanceof ApiError ? err.message : "Failed to load transcript.");
@@ -70,6 +78,7 @@ export default function TranscriptViewer({ jobId }: { jobId: string }) {
     <div className="mt-6 rounded-lg border border-line bg-paper p-6 shadow-sm">
       <h2 className="font-display text-lg font-bold text-ink">Transcript</h2>
 
+      {!readOnly && (
       <div className="mt-3 rounded-md bg-paper-shade p-3 text-sm text-ink">
         <div className="mb-1 flex items-center justify-between gap-2">
           <p className="text-xs font-semibold text-ink-soft">Summary</p>
@@ -79,6 +88,7 @@ export default function TranscriptViewer({ jobId }: { jobId: string }) {
         </div>
         {data.summary ? <p>{data.summary}</p> : <p className="text-ink-soft">No summary yet.</p>}
       </div>
+      )}
 
       {data.speakers.length > 1 && (
         <div className="mt-4 flex h-2 overflow-hidden rounded-full bg-paper-shade">
@@ -97,6 +107,20 @@ export default function TranscriptViewer({ jobId }: { jobId: string }) {
         </div>
       )}
 
+      {readOnly ? (
+        <div className="mt-4 flex flex-wrap items-center gap-3">
+          {data.speakers.map((speaker, i) => (
+            <div key={speaker} className="flex items-center gap-2 text-sm text-ink">
+              <span
+                className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold ${colorFor(i).avatar}`}
+              >
+                {initials(displayName(speaker))}
+              </span>
+              {displayName(speaker)}
+            </div>
+          ))}
+        </div>
+      ) : (
       <div className="mt-4 flex flex-wrap items-center gap-3">
         {data.speakers.map((speaker, i) => {
           const hint = data.speaker_hints?.[speaker];
@@ -141,6 +165,7 @@ export default function TranscriptViewer({ jobId }: { jobId: string }) {
           {saving ? "Saving..." : "Save names"}
         </Button>
       </div>
+      )}
 
       <div className="mt-4 max-h-[32rem] space-y-3 overflow-y-auto pr-1">
         {data.segments.map((seg, i) => {

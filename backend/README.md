@@ -168,6 +168,36 @@ scene, or topic review) the user is emailed (`emails.notify_review_needed`), and
 reminded once if it is still waiting a day later (`review_reminders.py`, a worker
 thread; `REVIEW_REMINDER_AFTER_HOURS`).
 
+#### More documents from a finished video or audio transcript
+
+The app no longer asks what to make up front: a video always produces the
+initial set (the formatted document, the transcript, and the images unless
+frame extraction was skipped), and `transformation` above defaults to
+`document` (the field is kept for API clients; the UI always sends the
+default). Notes, a study guide and research are made afterwards from the
+finished job (`app/derived.py`, `routes/derived.py`):
+
+- `POST /api/jobs/{job_id}/derive` `{"transformation": "notes" | "study_guide" | "research", "review_topics"?}`
+  creates a **child job** (`jobs.parent_job_id`) that skips download, frames and
+  transcription: the parent's `transcript.json` is copied to the child's
+  `precomputed_segments.json`, so only the text transformation runs. A child is
+  an ordinary job (own progress, cancel, refund, email, topic-review pause) but
+  is left out of `GET /api/jobs`; list a video's children with
+  `GET /api/jobs/{job_id}/derived` (also returns what can be made and the price).
+  One live document per type per video (a partial unique index enforces it).
+  Notes and study guide are free for now; research is charged at the research
+  rate and refunded on failure like any job. It needs the parent's transcript, so
+  it stops working once retention sweeps the parent (archived jobs are rebuilt).
+- The same works from a finished **audio** job (`job_type == "audio"`, including
+  live recordings and captured meetings): its transcript's speaker names are
+  applied, so the documents say "Jane Doe", not "Speaker 2". The child is a
+  `video`-type job either way (that is what the text-transformation path runs
+  on), and keeps those names in its own `transcript.json`.
+- Retrying a failed child (`POST /api/jobs/{job_id}/retry`) re-derives it.
+- `GET /api/jobs/{job_id}/images`, `GET /api/documents/{job_id}/images.zip` and
+  `GET /api/documents/{job_id}/transcript.txt` serve the rest of the initial set
+  (`transcript.json` has speaker labels normalized to "Speaker N").
+
 ### Runtime settings (admin Settings page)
 
 Operational settings -- per-type prices, upload/duration limits, feature

@@ -1,4 +1,5 @@
 import io
+import json
 import zipfile
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -43,6 +44,52 @@ def get_document_bundle(job_id: str, current_user: dict = Depends(get_current_us
         buffer,
         media_type="application/zip",
         headers={"Content-Disposition": f'attachment; filename="{job_id}.zip"'},
+    )
+
+
+@router.get("/api/documents/{job_id}/images.zip")
+def get_images_zip(job_id: str, current_user: dict = Depends(get_current_user)):
+    """Just the images captured from the video (the bundle has them plus the document)."""
+    images_dir = _owned_done_doc_dir(job_id, current_user) / "images"
+    paths = sorted(p for p in images_dir.iterdir() if p.is_file()) if images_dir.is_dir() else []
+    if not paths:
+        raise HTTPException(status_code=404, detail="No images for this document")
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as zf:
+        for path in paths:
+            zf.write(path, arcname=path.name)
+    buffer.seek(0)
+    return StreamingResponse(
+        buffer,
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{job_id}-images.zip"'},
+    )
+
+
+def _clock(seconds: float) -> str:
+    seconds = int(max(0, seconds))
+    return f"{seconds // 3600:02d}:{seconds % 3600 // 60:02d}:{seconds % 60:02d}"
+
+
+@router.get("/api/documents/{job_id}/transcript.txt")
+def get_transcript_text(job_id: str, current_user: dict = Depends(get_current_user)):
+    """The transcript as plain text: "[00:01:23] Speaker 1: ..." per turn,
+    rendered from transcript.json (speaker names applied where it has them)."""
+    path = _owned_done_doc_dir(job_id, current_user) / "transcript.json"
+    try:
+        data = json.loads(path.read_text())
+        segments = data["segments"]
+    except (OSError, ValueError, KeyError, TypeError):
+        raise HTTPException(status_code=404, detail="Transcript not found")
+    names = data.get("speaker_names") or {}
+    lines = [
+        f"[{_clock(float(s.get('start_ts') or 0))}] {names.get(s.get('speaker'), s.get('speaker') or 'Speaker')}: {s.get('text', '')}"
+        for s in segments
+    ]
+    return StreamingResponse(
+        io.BytesIO(("\n\n".join(lines) + "\n").encode()),
+        media_type="text/plain; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{job_id}-transcript.txt"'},
     )
 
 

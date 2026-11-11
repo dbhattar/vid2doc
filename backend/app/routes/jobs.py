@@ -4,7 +4,7 @@ from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
-from .. import billing, emails, jobs
+from .. import billing, derived, emails, jobs
 from ..config import settings
 from ..deps import get_current_user
 from .status import build_job_response
@@ -40,6 +40,15 @@ def retry_job(job_id: str, request: Request, current_user: dict = Depends(get_cu
         raise HTTPException(status_code=404, detail="Job not found")
     if job["status"] != "failed":
         raise HTTPException(status_code=400, detail="Only failed jobs can be retried")
+    if job.get("parent_job_id"):
+        # A document derived from a video (routes/derived.py): there's no file
+        # to re-run, so make it again from the video's transcript.
+        try:
+            parent = derived.check_parent(jobs.get_job(job["parent_job_id"]), current_user["id"])
+            child = derived.create(parent, current_user["id"], job["transformation"], job.get("review_topics", False))
+        except derived.DerivedError as e:
+            raise HTTPException(status_code=e.status, detail=str(e))
+        return build_job_response(child, request)
     if job["duration_seconds"] is None:
         raise HTTPException(status_code=400, detail="Missing duration -- please upload it again")
 

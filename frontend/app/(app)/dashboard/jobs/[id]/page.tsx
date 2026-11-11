@@ -11,6 +11,8 @@ import ChatEnableControl from "@/components/ChatEnableControl";
 import ChatPanel from "@/components/ChatPanel";
 import DocumentPreview from "@/components/DocumentPreview";
 import FrameReviewPanel from "@/components/FrameReviewPanel";
+import JobOutputs from "@/components/JobOutputs";
+import MoreDocuments from "@/components/MoreDocuments";
 import { ArchiveIcon, ClapperboardIcon, DriveIcon, GlobeIcon, JsonFileIcon, MarkdownFileIcon, MicrophoneIcon, PdfFileIcon, VideoCameraIcon, WordFileIcon } from "@/components/icons";
 import MediaPreviewPlayer, { type MediaPreviewHandle } from "@/components/MediaPreviewPlayer";
 import ProgressStepper from "@/components/ProgressStepper";
@@ -150,6 +152,11 @@ export default function JobDetailPage() {
         >
           ← Back to {dashboardLabelFor(job?.job_type)}
         </Link>
+        {job?.parent_job_id && (
+          <Link href={`/dashboard/jobs/${job.parent_job_id}`} className="text-sm text-ink-soft hover:text-accent hover:underline">
+            ← The original recording
+          </Link>
+        )}
         {job && job.status === "done" && !job.retention_expired && job.job_type !== "video_gen" && (
           <Link href="/documents" className="text-sm text-ink-soft hover:text-accent hover:underline">
             All documents →
@@ -387,10 +394,28 @@ export default function JobDetailPage() {
               <TranscriptViewer jobId={job.job_id} />
             )}
 
-            {job.status === "done" && !job.retention_expired && job.document_url && (
+            {/* Notes, a study guide or research made from the transcript
+                (backend/app/routes/derived.py) -- a video gets the same as a
+                tab in JobOutputs. */}
+            {job.job_type === "audio" && job.status === "done" && !job.retention_expired && job.document_transcript_json_url && (
               <Card className="p-6">
-                <DocumentPreview markdownUrl={job.document_url} bordered={false} />
+                <h2 className="mb-3 font-display text-lg font-bold text-ink">More documents</h2>
+                <MoreDocuments jobId={job.job_id} />
               </Card>
+            )}
+
+            {/* A video's full document comes with its transcript and images,
+                and can be turned into more documents; everything else
+                (audio, notes/study guide/research, older jobs) is just its
+                document. */}
+            {job.status === "done" && !job.retention_expired && job.document_url && (
+              job.job_type === "video" && (job.transformation ?? "document") === "document" && !job.parent_job_id ? (
+                <JobOutputs job={job} />
+              ) : (
+                <Card className="p-6">
+                  <DocumentPreview markdownUrl={job.document_url} bordered={false} />
+                </Card>
+              )
             )}
 
             {job.status === "done" && !job.retention_expired && job.research_url && (
