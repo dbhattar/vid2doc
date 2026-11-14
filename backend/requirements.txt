@@ -12,7 +12,12 @@ pillow==11.0.0
 imagehash==4.3.1
 pytesseract==0.3.13
 scikit-image==0.24.0
-numpy
+# Pinned on purpose: numpy 2.4+ is built for x86-64-v2 (SSE4.2/POPCNT) and
+# refuses to import on a CPU without it ("NumPy was built with baseline
+# optimizations: (X86_V2) but your machine doesn't support"), which crash-
+# looped the production VPS. 2.2.6 is what the old Python 3.10 image resolved
+# to. Raise it only after checking the VPS CPU supports the newer baseline.
+numpy==2.2.6
 assemblyai==0.35.1
 anthropic==0.40.0
 openai==1.109.1
