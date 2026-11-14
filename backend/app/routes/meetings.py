@@ -17,7 +17,7 @@ from datetime import datetime, timedelta, timezone
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 
-from .. import billing, emails, feature_flags, jobs, meeting_bots, meetings
+from .. import billing, emails, feature_flags, job_errors, jobs, meeting_bots, meetings
 from ..config import settings
 from ..deps import get_current_user
 from ..media import probe_duration_seconds
@@ -74,7 +74,7 @@ def _public(meeting: dict) -> dict:
         "duration_minutes": meeting["duration_minutes"],
         "notify_when_ready": meeting["notify_when_ready"],
         "job_id": meeting["job_id"],
-        "error": meeting["error_message"],
+        "error": job_errors.user_facing_error(meeting["error_message"]),
         "created_at": meeting["created_at"],
     }
 

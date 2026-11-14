@@ -61,6 +61,16 @@ function AdminJobsPageContent() {
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [error, setError] = useState<string | null>(null);
+  // Jobs whose full failure message is shown (the row only has room for one line).
+  const [expandedErrors, setExpandedErrors] = useState<Set<string>>(new Set());
+
+  function toggleError(jobId: string) {
+    setExpandedErrors((prev) => {
+      const next = new Set(prev);
+      if (!next.delete(jobId)) next.add(jobId);
+      return next;
+    });
+  }
 
   // A tile linking here with a different job_type doesn't remount this
   // component (same route) -- reset back to page 1 so switching filters
@@ -154,9 +164,28 @@ function AdminJobsPageContent() {
                           {job.title || "Untitled"}
                         </p>
                         {job.status === "failed" && job.error_message && (
-                          <p className="mt-0.5 truncate text-xs text-status-error" title={job.error_message}>
-                            {job.error_message}
-                          </p>
+                          <div className="mt-0.5 text-xs text-status-error">
+                            <button
+                              type="button"
+                              onClick={() => toggleError(job.id)}
+                              aria-expanded={expandedErrors.has(job.id)}
+                              title={expandedErrors.has(job.id) ? "Click to collapse" : "Click to see the full error"}
+                              className={`block w-full text-left ${
+                                expandedErrors.has(job.id) ? "whitespace-pre-wrap [overflow-wrap:anywhere]" : "truncate"
+                              }`}
+                            >
+                              {job.error_message}
+                            </button>
+                            {expandedErrors.has(job.id) && (
+                              <button
+                                type="button"
+                                onClick={() => navigator.clipboard?.writeText(job.error_message ?? "")}
+                                className="mt-1 text-ink-soft underline hover:text-ink"
+                              >
+                                Copy error
+                              </button>
+                            )}
+                          </div>
                         )}
                       </td>
                       <td className="whitespace-nowrap px-4 py-3">

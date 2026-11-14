@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
 
-from .. import archive_access, jobs, public_jobs
+from .. import archive_access, job_errors, jobs, public_jobs
 from ..config import settings
 from ..deps import get_current_user
 
@@ -88,7 +88,7 @@ def build_job_response(job: dict, request: Request, full: bool = False) -> dict:
         if (doc_dir / "research.md").exists():
             response["research_url"] = f"{base}/research.md"
     if job["status"] == "failed":
-        response["error"] = job["error_message"]
+        response["error"] = job_errors.user_facing_error(job["error_message"])
     return response
 
 

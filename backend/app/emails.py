@@ -1,6 +1,7 @@
 import html
 import logging
 
+from . import job_errors
 from .config import settings
 from .mailgun_client import send_email
 
@@ -217,9 +218,10 @@ def send_job_failed_email(user: dict, job: dict) -> None:
     job_url = f"{settings.FRONTEND_URL}/dashboard/jobs/{job['id']}"
     subject = f'"{raw_title}" failed to process'
 
+    reason = job_errors.user_facing_error(job.get("error_message"))
     error_line = ""
-    if job.get("error_message"):
-        error_line = f"""<p style="margin:0 0 20px;font-size:14px;line-height:1.6;color:{_TEXT_MUTED};">{html.escape(job["error_message"])}</p>"""
+    if reason:
+        error_line = f"""<p style="margin:0 0 20px;font-size:14px;line-height:1.6;color:{_TEXT_MUTED};">{html.escape(reason)}</p>"""
     body_html = f"""\
                 <p style="margin:0 0 12px;font-size:15px;line-height:1.6;color:{_TEXT_MUTED};">
                   Hi {name}, your job &ldquo;{title}&rdquo; failed to process. You've been refunded if you were charged.
@@ -229,7 +231,7 @@ def send_job_failed_email(user: dict, job: dict) -> None:
         "Failed", f"&ldquo;{title}&rdquo; couldn't be processed", body_html, "View details", job_url,
         "If this keeps happening, reply to this email and we'll take a look.",
     )
-    error_suffix = f": {job['error_message']}" if job.get("error_message") else "."
+    error_suffix = f": {reason}" if reason else "."
     text = (
         f"Hi {raw_name},\n\nYour job \"{raw_title}\" failed to process{error_suffix}\n\n"
         f"You've been refunded if you were charged. Details: {job_url}\n\n-- The Framewrite team"
