@@ -17,7 +17,7 @@ import uuid
 
 from sqlalchemy.exc import IntegrityError
 
-from . import billing, job_storage, jobs
+from . import archive_access, billing, job_storage, jobs
 from .config import settings
 from .stages import transform
 
@@ -50,7 +50,7 @@ def check_parent(job: dict | None, user_id: str) -> dict:
         or job.get("parent_job_id")
     ):
         raise DerivedError("More documents can only be made from a video's full document or an audio transcript.")
-    if job["status"] != "done" or job["deleted_at"] is not None:
+    if job["status"] != "done" or archive_access.is_expired(job):
         raise DerivedError("The recording has to finish processing first." if job["status"] != "done" else "This document has expired.")
     return job
 

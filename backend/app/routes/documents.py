@@ -5,7 +5,7 @@ import zipfile
 from fastapi import APIRouter, Depends, HTTPException
 from fastapi.responses import StreamingResponse
 
-from .. import document_serving, job_storage, jobs
+from .. import archive_access, document_serving, job_storage, jobs
 from ..deps import get_current_user
 
 router = APIRouter()
@@ -15,7 +15,7 @@ def _owned_done_job(job_id: str, current_user: dict) -> dict:
     job = jobs.get_job(job_id)
     if not job or job["user_id"] != current_user["id"] or job["status"] != "done":
         raise HTTPException(status_code=404, detail="Document not found")
-    if job["deleted_at"] is not None:
+    if archive_access.is_expired(job):
         raise HTTPException(status_code=404, detail="This document is no longer available")
     return job
 

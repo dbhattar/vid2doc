@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
 
-from .. import job_errors, job_storage, jobs, public_jobs
+from .. import archive_access, job_errors, job_storage, jobs, public_jobs
 from ..config import settings
 from ..deps import get_current_user
 
@@ -55,7 +55,7 @@ def build_job_response(job: dict, request: Request, full: bool = False) -> dict:
         # opt-in confirm UI can show a real dollar figure.
         response["chat_enabled"] = job["chat_enabled_at"] is not None
         response["chat_enable_fee_cents"] = settings.CHAT_ENABLE_FEE_CENTS
-    if job["status"] == "done" and job["deleted_at"] is not None:
+    if job["status"] == "done" and archive_access.is_expired(job):
         # Retention swept the files (see retention.py) -- still "done" in
         # the sense that conversion succeeded, but nothing left to serve.
         response["retention_expired"] = True

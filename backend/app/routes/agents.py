@@ -7,7 +7,7 @@ logic and app/agent_catalog.py for the catalog.
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-from .. import agent_catalog, agents, job_storage, jobs
+from .. import agent_catalog, agents, archive_access, job_storage, jobs
 from ..deps import get_current_user
 
 router = APIRouter()
@@ -40,7 +40,7 @@ def _attach_job(agent_id: str, job_id: str, current_user: dict) -> dict | None:
         raise HTTPException(status_code=404, detail="Document not found")
     if job["job_type"] not in ("video", "audio"):
         raise HTTPException(status_code=400, detail="Only video and audio documents can be attached")
-    if job["deleted_at"] is not None:
+    if archive_access.is_expired(job):
         raise HTTPException(status_code=404, detail="This document is no longer available")
     title = job["title"] or "Untitled document"
     with job_storage.doc_dir_for(job) as doc_dir:
@@ -88,7 +88,7 @@ def create_agent(body: AgentCreateRequest, current_user: dict = Depends(get_curr
     # leave a half-built agent behind.
     for job_id in body.job_ids:
         job = jobs.get_job(job_id)
-        if not job or job["user_id"] != current_user["id"] or job["status"] != "done" or job["deleted_at"] is not None:
+        if not job or job["user_id"] != current_user["id"] or job["status"] != "done" or archive_access.is_expired(job):
             raise HTTPException(status_code=404, detail="Document not found")
     agent = agents.create_agent(current_user["id"], body.name.strip(), body.instructions, body.tool_ids, body.skill_ids)
     for job_id in dict.fromkeys(body.job_ids):

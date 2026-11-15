@@ -30,6 +30,15 @@ def archive_prefix(job: dict) -> str | None:
     return None
 
 
+def is_expired(job: dict) -> bool:
+    """Retention removed the job's files and nothing can bring them back. A job
+    with a showcase/chat archive (or in private job storage) is never expired,
+    even if an older sweep marked it deleted -- before such jobs were exempt
+    from being marked, retention flagged them too, and their documents are
+    still served from the archive."""
+    return job.get("deleted_at") is not None and archive_prefix(job) is None and not job.get("storage_prefix")
+
+
 def _doc_dir(job_id: str) -> Path:
     return (settings.OUTPUT_DIR / job_id / "document").resolve()
 

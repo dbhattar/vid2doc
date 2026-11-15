@@ -9,7 +9,7 @@ import secrets
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
-from .. import document_serving, job_storage, jobs
+from .. import archive_access, document_serving, job_storage, jobs
 from ..config import settings
 from ..deps import get_current_user
 
@@ -29,7 +29,7 @@ def enable_share(job_id: str, current_user: dict = Depends(get_current_user)) ->
     rather than rotating it out from under anyone it's already been sent to.
     Only a completed, un-expired job can be shared."""
     job = _owned_job(job_id, current_user)
-    if job["status"] != "done" or job["deleted_at"] is not None:
+    if job["status"] != "done" or archive_access.is_expired(job):
         raise HTTPException(status_code=400, detail="Only a completed, un-expired job can be shared")
     token = job["share_token"] or secrets.token_urlsafe(24)
     if token != job["share_token"]:
@@ -47,7 +47,7 @@ def _shared_job(token: str) -> dict:
     job = jobs.get_job_by_share_token(token)
     if not job or job["status"] != "done":
         raise HTTPException(status_code=404, detail="Shared document not found")
-    if job["deleted_at"] is not None:
+    if archive_access.is_expired(job):
         raise HTTPException(status_code=404, detail="This document is no longer available")
     return job
 

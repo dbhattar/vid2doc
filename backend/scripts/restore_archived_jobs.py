@@ -3,6 +3,10 @@ have an S3 archive (a showcase submission or a chat-enabled job), so they
 show up on the dashboard again. Their documents are rebuilt from the archive
 on first access (see app/archive_access.py).
 
+No longer needed to make these jobs show up: the app now treats a job with an
+archive as available whatever `deleted_at` says (archive_access.is_expired).
+This only tidies the stale flag, e.g. for reporting.
+
 Dry run by default; pass --apply to change anything:
 
     docker compose run --rm -T api python scripts/restore_archived_jobs.py

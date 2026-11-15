@@ -5,7 +5,7 @@ too. See app/derived.py."""
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
-from .. import derived, job_storage, jobs
+from .. import archive_access, derived, job_storage, jobs
 from ..deps import get_current_user
 from .status import build_job_response
 
@@ -56,7 +56,7 @@ def list_derived(job_id: str, request: Request, current_user: dict = Depends(get
 def list_images(job_id: str, request: Request, current_user: dict = Depends(get_current_user)):
     """The images (slides, diagrams, tables) captured from the video."""
     job = jobs.get_job(job_id)
-    if not job or job["user_id"] != current_user["id"] or job["status"] != "done" or job["deleted_at"] is not None:
+    if not job or job["user_id"] != current_user["id"] or job["status"] != "done" or archive_access.is_expired(job):
         raise HTTPException(status_code=404, detail="Job not found")
     base = f"{str(request.base_url).rstrip('/')}/api/documents/{job_id}/images"
     if job_storage.is_stored(job):
