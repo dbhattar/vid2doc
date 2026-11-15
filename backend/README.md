@@ -327,7 +327,12 @@ sat for `JOB_STORAGE_SETTLE_SECONDS`), a loop in `worker.py`
 `transcript.json`, `images/`) and original upload (or, for video generation,
 `final.mp4` and a thumbnail) to `jobs/<user_id>/<job_id>/`, records
 `jobs.storage_prefix` / `jobs.storage_files`, then deletes the local
-`data/uploads/<job_id>` and `data/output/<job_id>`. Until then the job is served from local disk like any legacy job. A failed
+`data/uploads/<job_id>` and `data/output/<job_id>` -- but only after listing the
+bucket confirms every file arrived at the size it has on disk (a truncated or
+missing object keeps the local copy and the job is retried). If that delete is
+interrupted or fails, the same loop sweeps leftover local folders of stored jobs
+every 10 minutes (`job_storage.remove_stored_leftovers`), since `retention.py`
+skips stored jobs. Until the upload, the job is served from local disk like any legacy job. A failed
 upload leaves the files on disk and is retried about every 15 minutes;
 `retention.py` is only the 7-day backstop if it never succeeds. Set
 `JOB_STORAGE_SYNC_FROM` to leave older jobs on disk (no backfill).

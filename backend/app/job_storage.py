@@ -135,15 +135,31 @@ def store_finished_job(job_id: str) -> bool:
         prefix = prefix_for(job["user_id"], job_id)
         _upload_all(prefix, files)
         jobs.update_job(job_id, storage_prefix=prefix, storage_files=sorted(files))
-        shutil.rmtree(settings.OUTPUT_DIR / job_id, ignore_errors=True)
-        shutil.rmtree(settings.UPLOADS_DIR / job_id, ignore_errors=True)
+        # Only now, with every file confirmed in S3 and recorded, is the local
+        # copy removed. If that is interrupted, remove_stored_leftovers() finishes it.
+        _remove_local_dirs(job_id)
         return True
     except Exception as e:
         print(f"Storing job {job_id} in S3 failed; keeping it on local disk: {e}", flush=True)
         return False
 
 
+def _verify_uploaded(client, bucket: str, prefix: str, files: dict[str, Path]) -> None:
+    """Raises unless every file is in S3 at the size it has on disk. Listing the
+    prefix does this in a call or two however many images the job has."""
+    sizes: dict[str, int] = {}
+    for page in client.get_paginator("list_objects_v2").paginate(Bucket=bucket, Prefix=prefix):
+        for obj in page.get("Contents", []):
+            sizes[obj["Key"]] = obj["Size"]
+    for rel, path in files.items():
+        remote = sizes.get(f"{prefix}{rel}")
+        if remote != path.stat().st_size:
+            raise JobStorageError(f"{rel}: S3 has {remote} bytes, disk has {path.stat().st_size}")
+
+
 def _upload_all(prefix: str, files: dict[str, Path]) -> None:
+    """Uploads every file and confirms each one arrived in full; on any failure
+    removes what was uploaded, so the caller keeps the local copy untouched."""
     client = get_job_client()
     bucket = settings.JOB_STORAGE_S3_BUCKET
     uploaded: list[str] = []
@@ -158,6 +174,7 @@ def _upload_all(prefix: str, files: dict[str, Path]) -> None:
                         raise
                     time.sleep(2**attempt)
             uploaded.append(f"{prefix}{rel}")
+        _verify_uploaded(client, bucket, prefix, files)
     except Exception:
         for key in uploaded:
             with contextlib.suppress(Exception):
@@ -363,9 +380,52 @@ def store_pending_jobs(batch: int = 10) -> int:
     return moved
 
 
+def _remove_local_dirs(job_id: str) -> bool:
+    """Deletes the job's local output and upload folders. Returns whether both
+    are gone; a failure is logged (not swallowed) and left for the leftover sweep."""
+    clean = True
+    for base in (settings.OUTPUT_DIR, settings.UPLOADS_DIR):
+        path = base / job_id
+        try:
+            shutil.rmtree(path)
+        except FileNotFoundError:
+            pass
+        except OSError as e:
+            clean = False
+            logger.warning("Couldn't remove %s after storing job %s in S3: %s", path, job_id, e)
+    return clean
+
+
+def remove_stored_leftovers() -> int:
+    """Safety net: removes local folders of jobs whose files are already in S3.
+    Normally store_finished_job deletes them straight after the upload, but a
+    crash between the upload and the delete, or a delete that hit a permission
+    error, would otherwise leave them on disk for good -- retention.py skips
+    stored jobs and its orphan sweep skips any folder whose job row exists.
+    Only folders of jobs recorded as stored are touched. Returns how many were removed."""
+    candidates: dict[str, list[Path]] = {}
+    for base in (settings.OUTPUT_DIR, settings.UPLOADS_DIR):
+        if not base.is_dir():
+            continue
+        for entry in base.iterdir():
+            if entry.is_dir() and _UUID_RE.match(entry.name):
+                candidates.setdefault(entry.name, []).append(entry)
+    removed = 0
+    for job_id in sorted(jobs.stored_job_ids(list(candidates))):
+        if _remove_local_dirs(job_id):
+            removed += 1
+            logger.info("Removed leftover local files of stored job %s", job_id)
+    return removed
+
+
+# How often the loop looks for leftovers (it is cheap, but needs no more often).
+_LEFTOVER_SWEEP_SECONDS = 10 * 60
+
+
 def run_loop() -> None:
     """Blocking loop for a daemon thread in worker.py (its own thread because
     the main worker loop blocks for a job's full processing time)."""
+    last_leftover_sweep = 0.0
     while True:
         try:
             moved = store_pending_jobs()
@@ -373,4 +433,10 @@ def run_loop() -> None:
                 logger.info("Moved %d finished job(s) to S3", moved)
         except Exception:
             logger.exception("Job storage sweep failed")
+        if enabled() and time.monotonic() - last_leftover_sweep >= _LEFTOVER_SWEEP_SECONDS:
+            last_leftover_sweep = time.monotonic()
+            try:
+                remove_stored_leftovers()
+            except Exception:
+                logger.exception("Leftover sweep failed")
         time.sleep(settings.JOB_STORAGE_SYNC_SECONDS)

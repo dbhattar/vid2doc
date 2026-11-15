@@ -389,6 +389,25 @@ def list_stale_failed_jobs(cutoff: datetime) -> list[dict]:
         session.close()
 
 
+def stored_job_ids(candidate_ids: list[str]) -> set[str]:
+    """Which of `candidate_ids` are jobs whose files are in private S3
+    (job_storage) -- job_storage uses it to find leftover local copies."""
+    if not candidate_ids:
+        return set()
+    session = get_session()
+    try:
+        found: set[str] = set()
+        for i in range(0, len(candidate_ids), 1000):
+            chunk = candidate_ids[i : i + 1000]
+            found.update(
+                row[0]
+                for row in session.query(Job.id).filter(Job.id.in_(chunk), Job.storage_prefix.is_not(None)).all()
+            )
+        return found
+    finally:
+        session.close()
+
+
 def existing_job_ids(candidate_ids: list[str]) -> set[str]:
     """Which of `candidate_ids` are real job rows -- retention.py uses it to
     tell an orphaned folder (no row at all) from a live job's."""
