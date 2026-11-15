@@ -252,7 +252,7 @@ curl -H "Authorization: Bearer $TOKEN" "http://localhost:8000/api/get_status?job
 - `200` — `{"job_id", "status", "progress_stage", "created_at", "duration_seconds", "document_url"?, "document_bundle_url"?, "document_docx_url"?, "document_pdf_url"?, "retention_expired"?, "error"?}`
   - `status`: `queued` | `processing` | `done` | `failed`
   - `document_url` (Markdown) / `document_bundle_url` (zip of the Markdown + its `images/`) present whenever `status == "done"` and the document hasn't been swept by retention; `document_docx_url`/`document_pdf_url` present only if those best-effort exports actually rendered successfully
-  - `retention_expired: true` instead of any `document_*_url` if the job succeeded but its files were deleted by the retention sweep (see Retention below)
+  - `retention_expired: true` instead of any `document_*_url` if the job succeeded but its files were deleted by the retention sweep (see Job storage and retention below)
   - `error` present only when `status == "failed"`
 - `404` — unknown job id, or a job id that belongs to a different user (ownership is never revealed)
 
@@ -289,7 +289,7 @@ The wallet balance is never a stored/mutable number — it's always
 `usage_charge` / `usage_refund` entries), so it can't drift and every
 charge/refund has an audit trail. A failed job is refunded automatically
 (see `pipeline.py`'s except block). Documents aren't guaranteed to be
-retained past 7 days for anyone — see Retention below.
+retained past 7 days unless private S3 storage is on — see Job storage and retention below.
 
 ### `POST /api/billing/checkout/topup`
 
@@ -318,19 +318,59 @@ via `processed_webhook_events` and skipped. For local dev:
 
 No auth. Liveness check for whatever platform runs the container.
 
-## Retention
+## Job storage and retention
+
+Finished jobs live in a **private S3 bucket** (`JOB_STORAGE_S3_BUCKET`, see
+`app/job_storage.py`) until the user deletes them -- there is no expiry. Uploads and processing happen on the VPS first. Once a job is `done` (and has
+sat for `JOB_STORAGE_SETTLE_SECONDS`), a loop in `worker.py`
+(`job_storage.run_loop`) uploads its documents (`document.md/.docx/.pdf`,
+`transcript.json`, `images/`) and original upload (or, for video generation,
+`final.mp4` and a thumbnail) to `jobs/<user_id>/<job_id>/`, records
+`jobs.storage_prefix` / `jobs.storage_files`, then deletes the local
+`data/uploads/<job_id>` and `data/output/<job_id>`. Until then the job is served from local disk like any legacy job. A failed
+upload leaves the files on disk and is retried about every 15 minutes;
+`retention.py` is only the 7-day backstop if it never succeeds. Set
+`JOB_STORAGE_SYNC_FROM` to leave older jobs on disk (no backfill).
+
+Only the job-storage IAM user can read the bucket (Block Public Access on, no
+ACLs, TLS only, bucket policy denies everyone else). A user reaches their files
+through the API, which checks ownership first and then either streams the file
+(documents, images, transcripts, zips) or redirects to / returns a 5-minute
+presigned URL for that one key (video and audio, `GET /api/jobs/{id}/media-url`,
+`/api/videos/{id}/output.mp4`). Keys are built from the stored prefix and must
+appear in `storage_files`, never from request input. Share links are the one
+deliberate exception: the owner's token routes read the same files.
+`DELETE /api/jobs/{id}` removes a done job's S3 objects (and its chat archive);
+deleting is refused for jobs in the public showcase.
+
+The bucket has its own IAM user (`JOB_STORAGE_AWS_ACCESS_KEY_ID` /
+`JOB_STORAGE_AWS_SECRET_ACCESS_KEY`), separate from the showcase bucket's
+(`AWS_ACCESS_KEY_ID`), so neither identity can reach the other's bucket. When a
+job is published to the showcase or chat-enabled, its files are streamed from
+the job bucket (job user) into the showcase bucket (showcase user) -- a
+server-side S3 copy would need one identity with access to both. Use
+`framewrite-jobs-dev` locally and `framewrite-jobs-prod` in production.
+
+Create the bucket with `deploy/configure-job-bucket.sh` and the IAM user's
+policy with `deploy/configure-job-iam-user.sh` (see `deploy/README.md`); leave
+`JOB_STORAGE_S3_BUCKET` empty to disable (files then stay on local disk and the
+7-day sweep below applies to everything). Jobs that finished before it was
+enabled are not migrated -- they expire at 7 days as before.
 
 `retention.py` is a one-shot script, not part of the API or worker process, and
 **nothing runs it unless a scheduler does** -- if the VPS's disk fills up with
 `data/uploads` and `data/output`, check that it is scheduled first
-(`fab ... retention-status`). It does three things:
+(`fab ... retention-status`). It no longer touches jobs stored in S3. It does
+three things:
 
-1. For every `done` job older than 7 days with `deleted_at IS NULL`, it deletes
-   that job's `data/uploads/{job_id}` and `data/output/{job_id}` directories,
+1. For `done` jobs with no `storage_prefix` (older than the S3 rollout, or whose
+   upload failed) older than 7 days, it deletes that job's
+   `data/uploads/{job_id}` and `data/output/{job_id}` directories,
    then nulls `document_path` and sets `deleted_at` on the row (the row itself
    -- id, `duration_seconds`, `user_id`, `billed_cents`, timestamps -- is kept,
    since usage/billing history still needs it). `awaiting_review` jobs older
-   than 7 days are swept too, refunded and marked `failed`.
+   than 7 days are swept too, refunded and marked `failed` (they hold their
+   scratch files locally until they finish).
 2. The same files-only cleanup for `failed`/`cancelled` jobs older than 7 days
    (they never produced a document, and were already refunded; retrying one
    after this asks the user to re-upload).
@@ -338,8 +378,7 @@ No auth. Liveness check for whatever platform runs the container.
    that are older than 7 days (e.g. an upload rejected after its file was
    written).
 
-Applies to every job regardless of who owns it; there's no plan tier with
-unlimited retention. `python retention.py --dry-run` lists what would go (and
+`python retention.py --dry-run` lists what would go (and
 the space it would free) without deleting anything.
 
 Schedule it on the VPS -- not folded into `worker.py`'s poll loop, since that
@@ -490,6 +529,7 @@ docker compose up --build
 | `MEETING_BOT_NAME` / `MEETING_MAX_SECONDS` | Name the notetaker joins under, and how long it records before leaving (default 2h). Admins enable the feature per user or for everyone from the admin dashboard |
 | `FRONTEND_URL` | Where Stripe Checkout redirects back to after a session |
 | `PUBLIC_ARCHIVE_S3_BUCKET`, `PUBLIC_ARCHIVE_S3_REGION`, `PUBLIC_ARCHIVE_BASE_URL`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY` | Permanent S3 archive for the public showcase — see [`s3-showcase-setup.md`](s3-showcase-setup.md) for one-time bucket setup |
+| `JOB_STORAGE_S3_BUCKET`, `JOB_STORAGE_AWS_ACCESS_KEY_ID`, `JOB_STORAGE_AWS_SECRET_ACCESS_KEY`, `JOB_STORAGE_S3_REGION`, `JOB_STORAGE_URL_EXPIRES_SECONDS` | Private bucket for finished jobs' documents and uploads, kept until the user deletes them (empty = local disk + 7-day sweep). The bucket has its own IAM user's keys; region defaults to `PUBLIC_ARCHIVE_S3_REGION`. Set up with `deploy/configure-job-bucket.sh` and `deploy/configure-job-iam-user.sh` |
 | `NEXT_PUBLIC_API_BASE_URL` | Frontend build arg (not read by the backend itself) — public URL the browser uses to reach this API |
 | `NEXT_PUBLIC_GOOGLE_CLIENT_ID` | Frontend build arg — same value as `GOOGLE_CLIENT_ID` above |
 | `NEXT_PUBLIC_GA_MEASUREMENT_ID` | Frontend build arg — Google Analytics measurement ID, same property as the marketing site |

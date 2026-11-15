@@ -20,7 +20,7 @@ import sys
 import threading
 import time
 
-from app import agency_ingest, announcements, billing, emails, jobs, review_reminders, topic_alerts
+from app import agency_ingest, announcements, billing, emails, job_storage, jobs, review_reminders, topic_alerts
 from app.config import settings
 
 CANCEL_POLL_SECONDS = 1.0
@@ -134,6 +134,7 @@ def main() -> None:
     threading.Thread(target=review_reminders.run_loop, daemon=True).start()
     threading.Thread(target=agency_ingest.run_loop, daemon=True).start()
     threading.Thread(target=topic_alerts.run_delivery_loop, daemon=True).start()
+    threading.Thread(target=job_storage.run_loop, daemon=True).start()
     while True:
         job = jobs.claim_next_queued_job()
         if job is None:

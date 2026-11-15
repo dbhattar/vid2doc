@@ -146,7 +146,7 @@ function BillingPageContent() {
       </Card>
 
       <p className="mt-6 text-xs text-ink-soft">
-        Documents aren&apos;t guaranteed to be retained past 7 days -- download what you need.
+        Your documents and original files stay in your account, private to you, until you delete them.
       </p>
       </div>
     </div>

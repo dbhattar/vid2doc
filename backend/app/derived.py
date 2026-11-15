@@ -17,7 +17,7 @@ import uuid
 
 from sqlalchemy.exc import IntegrityError
 
-from . import archive_access, billing, jobs
+from . import billing, job_storage, jobs
 from .config import settings
 from .stages import transform
 
@@ -60,9 +60,8 @@ def load_segments(parent: dict) -> list[dict]:
     are gone (retention sweeps them after a week; an archived job is rebuilt).
     An audio transcript's speaker names (set by the user or identified from the
     conversation) are applied, so the documents say "Jane Doe", not "Speaker 2"."""
-    doc_dir = archive_access.ensure_local(parent)
     try:
-        data = json.loads((doc_dir / "transcript.json").read_text())
+        data = json.loads(job_storage.read_doc_text(parent, "transcript.json"))
         names = data.get("speaker_names") or {}
         segments = [{**s, "speaker": names.get(s.get("speaker"), s.get("speaker"))} for s in data["segments"]]
     except (OSError, ValueError, KeyError, TypeError, AttributeError):

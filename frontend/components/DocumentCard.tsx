@@ -47,7 +47,7 @@ export default function DocumentCard({ job }: { job: Job }) {
           <TypeIcon className="h-4 w-4" />
         </span>
         {job.retention_expired && (
-          <span className="shrink-0 text-xs text-ink-soft" title="Documents aren't guaranteed past 7 days">
+          <span className="shrink-0 text-xs text-ink-soft" title="Removed under the earlier 7-day retention policy">
             Expired
           </span>
         )}

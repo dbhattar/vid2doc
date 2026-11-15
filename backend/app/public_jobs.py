@@ -34,7 +34,7 @@ from pathlib import Path
 
 from sqlalchemy import select
 
-from . import billing, jobs
+from . import billing, job_storage, jobs
 from .config import settings
 from .db import get_session
 from .models import Job
@@ -123,6 +123,18 @@ def upload_job_archive(job_id: str, doc_dir: Path, source_path: Path, prefix: st
     return video_filename
 
 
+def archive_job(job: dict, doc_dir: Path, prefix: str) -> str:
+    """Archive a finished job under `prefix` in the archive bucket: copied
+    server-side if it lives in private job storage, uploaded from local disk
+    otherwise. Returns the source media's filename relative to the prefix."""
+    if job_storage.is_stored(job):
+        try:
+            return job_storage.copy_job_archive(job, settings.PUBLIC_ARCHIVE_S3_BUCKET, prefix)
+        except Exception as e:
+            raise PublicArchiveUploadError(f"Failed to archive job {job['id']} to S3: {e}") from e
+    return upload_job_archive(job["id"], doc_dir, Path(job["source_path"]), prefix)
+
+
 def archive_file_exists(prefix: str, filename: str) -> bool:
     """Cheap existence check for an optional archived file (docx/pdf/
     transcript.json) -- used only by single-item detail responses, never by
@@ -159,7 +171,7 @@ def submit_public_consent(job: dict, doc_dir: Path) -> dict:
     the admin queue backed by a partial archive."""
     refund_cents = compute_refund_cents(job["billed_cents"])
     prefix = archive_prefix_for(job["id"])
-    video_key = upload_job_archive(job["id"], doc_dir, Path(job["source_path"]), prefix)
+    video_key = archive_job(job, doc_dir, prefix)
 
     now = datetime.now(timezone.utc)
     jobs.update_job(

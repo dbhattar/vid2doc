@@ -46,6 +46,7 @@ Or grab everything at once via `document_bundle_url`, which zips the document to
 extracted images.
 
 :::note
-Documents are retained for 7 days. After that, `status` stays `"done"` (the conversion did
-succeed) but the response includes `"retention_expired": true` instead of any download URLs.
+Documents are stored privately and kept until you delete the job. Jobs finished before
+this change were removed after 7 days: for those, `status` stays `"done"` but the response includes
+`"retention_expired": true` instead of any download URLs.
 :::

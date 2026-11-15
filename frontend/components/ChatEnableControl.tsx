@@ -48,8 +48,8 @@ export default function ChatEnableControl({ job, onUpdated }: { job: Job; onUpda
       <div className="mt-4 rounded-lg border border-line bg-paper-shade p-4">
         <p className="text-sm text-ink">
           Enabling chat costs {fee}, one time, for unlimited questions after that. This is <strong>permanent</strong>:
-          it archives this document and its original video/audio so both keep working even after the usual 7-day
-          retention period, with no way to turn it back off.
+          it keeps a separate copy of this document and its original video/audio for chat, with no way to turn it back
+          off.
         </p>
         <div className="mt-3 flex items-center gap-3">
           <button onClick={handleSubmit} disabled={busy} className={buttonClassName("primary")}>

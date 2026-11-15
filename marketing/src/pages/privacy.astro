@@ -75,9 +75,11 @@ const lastUpdated = 'November 7, 2026';
 
         <h2>How long we keep things</h2>
         <p>
-          <strong>Account documents</strong> are kept for 7 days after processing, after which the
-          file itself is deleted (your job history and billing record are kept, since that's part
-          of your account's usage history) -- download what you need before then.
+          <strong>Account documents and original uploads</strong> are stored in a private Amazon Web
+          Services (AWS) S3 bucket, encrypted at rest, and are only available to you when you are
+          signed in. We keep them until you delete the job, which removes the files. Your job
+          history and billing record are kept, since that's part of your account's usage history.
+          Jobs finished before this change were deleted after 7 days.
         </p>
         <h2>Public meetings we publish</h2>
         <p>

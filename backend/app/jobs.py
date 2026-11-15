@@ -4,7 +4,7 @@ from datetime import datetime, timezone
 from sqlalchemy import func, select, update
 
 from .db import get_session
-from .models import Job, User
+from .models import ChatMessage, Job, User
 
 
 def _now() -> datetime:
@@ -51,6 +51,8 @@ def _job_to_dict(job: Job) -> dict:
         "chat_enabled_at": job.chat_enabled_at,
         "chat_archive_prefix": job.chat_archive_prefix,
         "chat_video_key": job.chat_video_key,
+        "storage_prefix": job.storage_prefix,
+        "storage_files": job.storage_files or [],
         "created_at": job.created_at,
         "updated_at": job.updated_at,
     }
@@ -270,6 +272,9 @@ def delete_job(job_id: str) -> None:
     try:
         job = session.get(Job, job_id)
         if job:
+            # chat_messages has a real FK to jobs -- a done job with chat on
+            # can't be deleted without them going first.
+            session.query(ChatMessage).filter(ChatMessage.job_id == job_id).delete()
             session.delete(job)
             session.commit()
     finally:
@@ -334,10 +339,34 @@ def list_jobs_eligible_for_retention(cutoff: datetime) -> list[dict]:
     try:
         rows = (
             session.query(Job)
-            .filter(Job.status.in_(["done", "awaiting_review"]), Job.created_at < cutoff, Job.deleted_at.is_(None))
+            .filter(Job.status.in_(["done", "awaiting_review"]),
+                Job.created_at < cutoff,
+                Job.deleted_at.is_(None),
+                Job.storage_prefix.is_(None),
+            )
             .all()
         )
         return [_job_to_dict(j) for j in rows]
+    finally:
+        session.close()
+
+
+def list_jobs_pending_storage(settled_before: datetime, created_from: datetime | None, limit: int) -> list[dict]:
+    """Finished jobs that still live only on local disk, waiting for (or
+    retrying) their upload to private S3 (see job_storage.run_loop). Oldest
+    first, so a job that keeps failing doesn't starve newer ones forever."""
+    session = get_session()
+    try:
+        query = session.query(Job).filter(
+            Job.status == "done",
+            Job.storage_prefix.is_(None),
+            Job.deleted_at.is_(None),
+            Job.user_id.is_not(None),
+            Job.updated_at < settled_before,
+        )
+        if created_from is not None:
+            query = query.filter(Job.created_at >= created_from)
+        return [_job_to_dict(j) for j in query.order_by(Job.created_at).limit(limit).all()]
     finally:
         session.close()
 

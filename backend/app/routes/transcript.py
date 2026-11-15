@@ -13,11 +13,11 @@ import json
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 
-from .. import jobs
+from .. import job_storage
 from ..deps import get_current_user
 from ..pipeline import _build_audio_sections, _llm_available
 from ..stages import assemble, compose
-from .documents import _owned_done_doc_dir
+from .documents import _owned_done_job
 
 router = APIRouter()
 
@@ -48,24 +48,24 @@ def _rerender_audio_document(job_id: str, job: dict, doc_dir, data: dict) -> Non
 
 @router.post("/api/jobs/{job_id}/speakers")
 def set_speaker_names(job_id: str, body: SetSpeakerNamesRequest, current_user: dict = Depends(get_current_user)):
-    doc_dir = _owned_done_doc_dir(job_id, current_user)
-    job = jobs.get_job(job_id)
+    job = _owned_done_job(job_id, current_user)
     if job["job_type"] != "audio":
         raise HTTPException(status_code=404, detail="Job not found")
 
-    transcript_path = doc_dir / "transcript.json"
-    if not transcript_path.is_file():
-        raise HTTPException(status_code=404, detail="No transcript available for this job")
+    with job_storage.doc_dir_for(job, writable=True) as doc_dir:
+        transcript_path = doc_dir / "transcript.json"
+        if not transcript_path.is_file():
+            raise HTTPException(status_code=404, detail="No transcript available for this job")
 
-    data = json.loads(transcript_path.read_text())
-    unknown = set(body.speaker_names) - set(data["speakers"])
-    if unknown:
-        raise HTTPException(status_code=400, detail=f"Unknown speaker(s): {', '.join(sorted(unknown))}")
+        data = json.loads(transcript_path.read_text())
+        unknown = set(body.speaker_names) - set(data["speakers"])
+        if unknown:
+            raise HTTPException(status_code=400, detail=f"Unknown speaker(s): {', '.join(sorted(unknown))}")
 
-    data["speaker_names"].update(body.speaker_names)
-    transcript_path.write_text(json.dumps(data, indent=2))
+        data["speaker_names"].update(body.speaker_names)
+        transcript_path.write_text(json.dumps(data, indent=2))
 
-    _rerender_audio_document(job_id, job, doc_dir, data)
+        _rerender_audio_document(job_id, job, doc_dir, data)
     return data
 
 
@@ -76,23 +76,23 @@ def generate_summary(job_id: str, current_user: dict = Depends(get_current_user)
     job-finish time (see pipeline.py's run_job). Safe to call more than
     once: each call overwrites transcript.json's `summary` and re-renders,
     same as renaming a speaker."""
-    doc_dir = _owned_done_doc_dir(job_id, current_user)
-    job = jobs.get_job(job_id)
+    job = _owned_done_job(job_id, current_user)
     if job["job_type"] != "audio":
         raise HTTPException(status_code=404, detail="Job not found")
     if not _llm_available():
         raise HTTPException(status_code=400, detail="No LLM provider configured -- summaries aren't available.")
 
-    transcript_path = doc_dir / "transcript.json"
-    if not transcript_path.is_file():
-        raise HTTPException(status_code=404, detail="No transcript available for this job")
+    with job_storage.doc_dir_for(job, writable=True) as doc_dir:
+        transcript_path = doc_dir / "transcript.json"
+        if not transcript_path.is_file():
+            raise HTTPException(status_code=404, detail="No transcript available for this job")
 
-    data = json.loads(transcript_path.read_text())
-    try:
-        data["summary"] = compose.generate_summary(data["segments"])
-    except Exception as e:
-        raise HTTPException(status_code=502, detail=f"Summary generation failed: {e}")
-    transcript_path.write_text(json.dumps(data, indent=2))
+        data = json.loads(transcript_path.read_text())
+        try:
+            data["summary"] = compose.generate_summary(data["segments"])
+        except Exception as e:
+            raise HTTPException(status_code=502, detail=f"Summary generation failed: {e}")
+        transcript_path.write_text(json.dumps(data, indent=2))
 
-    _rerender_audio_document(job_id, job, doc_dir, data)
+        _rerender_audio_document(job_id, job, doc_dir, data)
     return data

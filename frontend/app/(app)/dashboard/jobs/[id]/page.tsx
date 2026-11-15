@@ -262,7 +262,7 @@ export default function JobDetailPage() {
 
             {job.status === "done" && job.retention_expired && (
               <p className="mt-4 rounded-md bg-paper-shade p-3 text-sm text-ink-soft">
-                This document was deleted per the 7-day retention policy and can no longer be downloaded.
+                This document was removed under our earlier 7-day retention policy and can no longer be downloaded.
               </p>
             )}
 

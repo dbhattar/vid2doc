@@ -258,6 +258,12 @@ class Job(Base):
     # review_reminders.py). A job that resumes and pauses again gets a newer
     # updated_at than this, which makes it eligible for a fresh reminder.
     review_reminder_sent_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    # Private S3 storage for a finished job (see app/job_storage.py): the key
+    # prefix ("jobs/<user_id>/<job_id>/"), and the stored files relative to
+    # it. NULL prefix means a legacy job whose files live only on local disk
+    # and are swept by retention.py.
+    storage_prefix: Mapped[str | None] = mapped_column(String, nullable=True)
+    storage_files: Mapped[list | None] = mapped_column(JSON, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()

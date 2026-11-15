@@ -7,7 +7,7 @@ logic and app/agent_catalog.py for the catalog.
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
 
-from .. import agent_catalog, agents, archive_access, jobs
+from .. import agent_catalog, agents, job_storage, jobs
 from ..deps import get_current_user
 
 router = APIRouter()
@@ -33,7 +33,7 @@ def _validate_catalog_ids(tool_ids: list[str], skill_ids: list[str], user: dict)
 
 def _attach_job(agent_id: str, job_id: str, current_user: dict) -> dict | None:
     """Snapshots a finished document into the agent's knowledge base. Same
-    ownership/state rules as routes/documents.py's _owned_done_doc_dir
+    ownership/state rules as routes/documents.py's _owned_done_job
     (404 rather than leaking whether someone else's job exists)."""
     job = jobs.get_job(job_id)
     if not job or job["user_id"] != current_user["id"] or job["status"] != "done":
@@ -41,10 +41,10 @@ def _attach_job(agent_id: str, job_id: str, current_user: dict) -> dict | None:
     if job["job_type"] not in ("video", "audio"):
         raise HTTPException(status_code=400, detail="Only video and audio documents can be attached")
     if job["deleted_at"] is not None:
-        raise HTTPException(status_code=404, detail="This document was deleted after 7 days per the retention policy")
+        raise HTTPException(status_code=404, detail="This document is no longer available")
     title = job["title"] or "Untitled document"
-    doc_dir = archive_access.ensure_local(job)
-    content = agents.build_snapshot(doc_dir, title)
+    with job_storage.doc_dir_for(job) as doc_dir:
+        content = agents.build_snapshot(doc_dir, title)
     return agents.attach_document(agent_id, job_id, title, content)
 
 

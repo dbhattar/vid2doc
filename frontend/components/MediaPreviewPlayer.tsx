@@ -31,7 +31,7 @@ const MediaPreviewPlayer = forwardRef<MediaPreviewHandle, { jobId: string; kind:
     useEffect(() => {
       setSrc(null);
       setFailed(false);
-      apiFetch<{ url: string }>(`/api/jobs/${jobId}/chat/media-url`)
+      apiFetch<{ url: string }>(`/api/jobs/${jobId}/media-url`)
         .then((res) => setSrc(res.url))
         .catch(() => setFailed(true));
     }, [jobId]);
@@ -81,7 +81,7 @@ const MediaPreviewPlayer = forwardRef<MediaPreviewHandle, { jobId: string; kind:
       },
     }));
 
-    // The presigned URL expires (15 min) and is only fetched once, so a long
+    // The presigned URL expires (minutes) and is only fetched once, so a long
     // session would otherwise end in a dead player. On a media error, fetch
     // a fresh URL and resume where playback was.
     function handleError() {
@@ -90,7 +90,7 @@ const MediaPreviewPlayer = forwardRef<MediaPreviewHandle, { jobId: string; kind:
       refreshingRef.current = true;
       const resumeAt = el.currentTime;
       const wasPlaying = !el.paused;
-      apiFetch<{ url: string }>(`/api/jobs/${jobId}/chat/media-url`)
+      apiFetch<{ url: string }>(`/api/jobs/${jobId}/media-url`)
         .then((res) => {
           el.addEventListener(
             "loadedmetadata",

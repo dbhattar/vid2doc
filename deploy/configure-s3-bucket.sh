@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
-# Configures an S3 bucket for the public-showcase feature (see
-# backend/app/public_jobs.py, backend/s3-showcase-setup.md): disables Block
-# Public Access, applies the public-read bucket policy and CORS config, and
+# Creates (if it doesn't exist yet) and configures an S3 bucket for the
+# public-showcase feature (see backend/app/public_jobs.py,
+# backend/s3-showcase-setup.md): disables Block Public Access, applies the public-read bucket policy and CORS config, and
 # (optionally) attaches the app's own least-privilege object-access policy
 # to an existing IAM user. The three policy documents live in deploy/aws/ --
 # this script just applies them via the AWS CLI, under whichever --profile
@@ -23,8 +23,11 @@
 #   # optional, skip this flag if you'd rather attach it by hand:
 #   ./configure-s3-bucket.sh --profile framewrite-s3 --bucket framewrite-local-dev-bucket --region us-west-2 --iam-user framewrite-showcase
 #
-# --profile needs permission to manage the bucket itself (policy/CORS/public-
-# access-block) and, if --iam-user is given, IAM:PutUserPolicy -- this does
+# An existing bucket is configured as-is; a missing one is created first in
+# --region (the name must be globally unique across all of AWS).
+#
+# --profile needs permission to create the bucket (s3:CreateBucket) if it
+# doesn't exist, to manage it (policy/CORS/public-access-block) and, if --iam-user is given, IAM:PutUserPolicy -- this does
 # NOT need to be (and for least privilege, should not be) the same identity
 # as --iam-user, which only ever needs object-level S3 access at runtime.
 
@@ -81,6 +84,30 @@ trap 'rm -rf "$TMP_DIR"' EXIT
 render_policy() {
   sed "s/framewrite-local-dev-bucket/${BUCKET}/g" "$1"
 }
+
+# Create the bucket if it isn't there yet. head-bucket distinguishes the cases
+# by status: 404 = doesn't exist (create it); anything else (403 = it exists
+# but isn't yours or this profile can't see it) must NOT fall through to a
+# create, which would fail confusingly or touch someone else's name.
+if HEAD_ERR="$(aws "${AWS_ARGS[@]}" s3api head-bucket --bucket "$BUCKET" 2>&1)"; then
+  echo "==> Bucket $BUCKET already exists -- configuring it"
+elif [[ "$HEAD_ERR" == *"404"* || "$HEAD_ERR" == *"Not Found"* || "$HEAD_ERR" == *"NoSuchBucket"* ]]; then
+  echo "==> Creating bucket $BUCKET in $REGION"
+  if [[ "$REGION" == "us-east-1" ]]; then
+    # us-east-1 is the default location and rejects an explicit LocationConstraint.
+    aws "${AWS_ARGS[@]}" s3api create-bucket --bucket "$BUCKET"
+  else
+    aws "${AWS_ARGS[@]}" s3api create-bucket --bucket "$BUCKET" \
+      --create-bucket-configuration "LocationConstraint=$REGION"
+  fi
+  # create-bucket returns before the name is visible everywhere; wait for it so
+  # the put-* calls below don't race it.
+  aws "${AWS_ARGS[@]}" s3api wait bucket-exists --bucket "$BUCKET"
+else
+  echo "ERROR: can't use bucket '$BUCKET': $HEAD_ERR" >&2
+  echo "       (A 403 usually means the name is taken by another AWS account, or this profile lacks access to it.)" >&2
+  exit 1
+fi
 
 echo "==> Disabling Block Public Access on $BUCKET"
 aws "${AWS_ARGS[@]}" s3api put-public-access-block \

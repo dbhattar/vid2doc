@@ -5,7 +5,7 @@ too. See app/derived.py."""
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel
 
-from .. import archive_access, derived, jobs
+from .. import derived, job_storage, jobs
 from ..deps import get_current_user
 from .status import build_job_response
 
@@ -58,11 +58,16 @@ def list_images(job_id: str, request: Request, current_user: dict = Depends(get_
     job = jobs.get_job(job_id)
     if not job or job["user_id"] != current_user["id"] or job["status"] != "done" or job["deleted_at"] is not None:
         raise HTTPException(status_code=404, detail="Job not found")
-    images_dir = archive_access.ensure_local(job) / "images"
     base = f"{str(request.base_url).rstrip('/')}/api/documents/{job_id}/images"
-    names = (
-        sorted(p.name for p in images_dir.iterdir() if p.is_file() and p.suffix.lower() in _IMAGE_TYPES)
-        if images_dir.is_dir()
-        else []
-    )
+    if job_storage.is_stored(job):
+        names = sorted(r.rsplit("/", 1)[-1] for r in job["storage_files"] if r.startswith("document/images/"))
+    else:
+        with job_storage.doc_dir_for(job) as doc_dir:
+            images_dir = doc_dir / "images"
+            names = (
+                sorted(p.name for p in images_dir.iterdir() if p.is_file())
+                if images_dir.is_dir()
+                else []
+            )
+    names = [n for n in names if "." + n.rsplit(".", 1)[-1].lower() in _IMAGE_TYPES]
     return {"images": [{"name": n, "url": f"{base}/{n}"} for n in names]}

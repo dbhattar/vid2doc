@@ -239,6 +239,29 @@ class Settings:
     # https://<bucket>.s3.<region>.amazonaws.com
     PUBLIC_ARCHIVE_BASE_URL = os.environ.get("PUBLIC_ARCHIVE_BASE_URL", "").rstrip("/")
 
+    # Private bucket for finished jobs' documents and source media, kept until
+    # the user deletes the job (see app/job_storage.py). Must NOT be the public
+    # showcase bucket. Empty disables it: files stay on local disk and are
+    # swept by retention.py.
+    JOB_STORAGE_S3_BUCKET = os.environ.get("JOB_STORAGE_S3_BUCKET", "")
+    # The job-storage bucket has its own IAM user, separate from the showcase
+    # bucket's (AWS_ACCESS_KEY_ID/AWS_SECRET_ACCESS_KEY), so neither identity
+    # can reach the other's bucket. Both empty falls back to boto3's default
+    # credential chain, e.g. an attached IAM role. The region defaults to the
+    # showcase bucket's.
+    JOB_STORAGE_AWS_ACCESS_KEY_ID = os.environ.get("JOB_STORAGE_AWS_ACCESS_KEY_ID", "")
+    JOB_STORAGE_AWS_SECRET_ACCESS_KEY = os.environ.get("JOB_STORAGE_AWS_SECRET_ACCESS_KEY", "")
+    JOB_STORAGE_S3_REGION = os.environ.get("JOB_STORAGE_S3_REGION") or os.environ.get("PUBLIC_ARCHIVE_S3_REGION", "us-east-1")
+    # Uploads and processing happen on the VPS; a background loop in the worker
+    # (job_storage.run_loop) pushes finished jobs to S3 afterwards and retries
+    # any that failed. A job is left alone for SETTLE seconds after finishing.
+    JOB_STORAGE_SYNC_SECONDS = int(os.environ.get("JOB_STORAGE_SYNC_SECONDS", 60))
+    JOB_STORAGE_SETTLE_SECONDS = int(os.environ.get("JOB_STORAGE_SETTLE_SECONDS", 60))
+    # ISO date. Jobs created before it stay on local disk and the 7-day sweep
+    # (no backfill). Empty means every finished job still on disk is synced.
+    JOB_STORAGE_SYNC_FROM = os.environ.get("JOB_STORAGE_SYNC_FROM", "")
+    JOB_STORAGE_URL_EXPIRES_SECONDS = int(os.environ.get("JOB_STORAGE_URL_EXPIRES_SECONDS", 300))
+
     # Chat-with-document: flat one-time fee (cents) to permanently enable
     # chat on a completed job -- unlimited messages after that, not metered
     # per-message (see app/billing.py's charge_for_chat). Placeholder value

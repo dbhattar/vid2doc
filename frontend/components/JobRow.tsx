@@ -55,7 +55,7 @@ export default function JobRow({
                 : "Review frames →"}
           </Link>
         )}
-        {(job.status === "failed" || job.status === "awaiting_review") && (
+        {(job.status === "failed" || job.status === "awaiting_review" || job.status === "done") && (
           <>
             {job.status === "failed" && (
               <button

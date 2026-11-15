@@ -1,0 +1,21 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "DenyInsecureTransport",
+      "Effect": "Deny",
+      "Principal": "*",
+      "Action": "s3:*",
+      "Resource": ["arn:aws:s3:::framewrite-jobs-prod", "arn:aws:s3:::framewrite-jobs-prod/*"],
+      "Condition": { "Bool": { "aws:SecureTransport": "false" } }
+    },
+    {
+      "Sid": "DenyEveryoneExceptAppAndAdmin",
+      "Effect": "Deny",
+      "Principal": "*",
+      "Action": "s3:*",
+      "Resource": ["arn:aws:s3:::framewrite-jobs-prod", "arn:aws:s3:::framewrite-jobs-prod/*"],
+      "Condition": { "StringNotEquals": { "aws:PrincipalArn": ["__APP_PRINCIPAL_ARN__", "__ADMIN_PRINCIPAL_ARN__"] } }
+    }
+  ]
+}

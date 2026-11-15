@@ -4,7 +4,7 @@ from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
-from .. import billing, derived, emails, jobs
+from .. import billing, chat_jobs, derived, emails, job_storage, jobs, public_jobs
 from ..config import settings
 from ..deps import get_current_user
 from .status import build_job_response
@@ -26,6 +26,21 @@ def list_jobs(
     )
     total = jobs.count_jobs_for_user(current_user["id"], status=status, job_type=job_type)
     return {"jobs": [build_job_response(job, request) for job in job_list], "total": total}
+
+
+@router.get("/api/jobs/{job_id}/media-url")
+def get_media_url(job_id: str, current_user: dict = Depends(get_current_user)) -> dict:
+    """Short-lived signed URL for the job's original video/audio, for a
+    <video>/<audio> element (S3 handles Range requests). Owner only."""
+    job = jobs.get_job(job_id)
+    if not job or job["user_id"] != current_user["id"] or job["status"] != "done":
+        raise HTTPException(status_code=404, detail="Job not found")
+    rel = job_storage.source_rel(job) if job_storage.is_stored(job) else None
+    if rel:
+        return {"url": job_storage.presigned_url(job, rel), "expires_in": settings.JOB_STORAGE_URL_EXPIRES_SECONDS}
+    if job["chat_enabled_at"] is not None:
+        return {"url": chat_jobs.generate_media_url(job), "expires_in": chat_jobs.MEDIA_URL_EXPIRES_SECONDS}
+    raise HTTPException(status_code=404, detail="No media available for this job")
 
 
 @router.post("/api/jobs/{job_id}/retry", status_code=202)
@@ -161,15 +176,35 @@ def delete_job(job_id: str, current_user: dict = Depends(get_current_user)):
     job = jobs.get_job(job_id)
     if not job or job["user_id"] != current_user["id"]:
         raise HTTPException(status_code=404, detail="Job not found")
-    if job["status"] not in ("failed", "awaiting_review", "cancelled"):
+    if job["status"] not in ("failed", "awaiting_review", "cancelled", "done"):
         raise HTTPException(
-            status_code=400, detail="Only failed, cancelled, or awaiting-review jobs can be deleted"
+            status_code=400, detail="Only finished, failed, cancelled, or awaiting-review jobs can be deleted"
         )
     if job["public_status"] is not None:
         raise HTTPException(status_code=400, detail="Jobs in the public showcase can't be deleted")
 
+    # Documents derived from this job (routes/derived.py) go with it -- the
+    # database cascade removes their rows, so their files have to be removed
+    # here. One still being made would be deleted out from under the worker.
+    children = jobs.list_child_jobs(job_id)
+    if any(c["status"] in ("queued", "processing", "awaiting_review") for c in children):
+        raise HTTPException(
+            status_code=400,
+            detail="Documents made from this are still in progress. Wait for them to finish, or delete them first.",
+        )
+
     if job["status"] == "awaiting_review" and job.get("user_id") and job.get("billed_cents"):
         billing.refund_job_charge(job["user_id"], job_id, job["billed_cents"])
+
+    for child in children:
+        job_storage.delete_job(child)
+        shutil.rmtree(settings.OUTPUT_DIR / child["id"], ignore_errors=True)
+
+    # A finished job lives in private S3 (see job_storage.py) -- remove it
+    # there, along with its chat archive if chat was enabled. Deleting a done
+    # job refunds nothing: it produced what was paid for.
+    job_storage.delete_job(job)
+    public_jobs.delete_s3_archive(job.get("chat_archive_prefix"))
 
     shutil.rmtree(settings.OUTPUT_DIR / job_id, ignore_errors=True)
     # Derived from job_id, not job["source_path"] (which is None for a

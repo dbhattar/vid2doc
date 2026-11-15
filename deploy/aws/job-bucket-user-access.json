@@ -1,0 +1,30 @@
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Sid": "FramewriteJobStorageObjectAccess",
+      "Effect": "Allow",
+      "Action": [
+        "s3:PutObject",
+        "s3:GetObject",
+        "s3:DeleteObject",
+        "s3:AbortMultipartUpload",
+        "s3:ListMultipartUploadParts"
+      ],
+      "Resource": [
+        "arn:aws:s3:::framewrite-jobs-dev/jobs/*",
+        "arn:aws:s3:::framewrite-jobs-prod/jobs/*"
+      ]
+    },
+    {
+      "Sid": "FramewriteJobStorageList",
+      "Effect": "Allow",
+      "Action": "s3:ListBucket",
+      "Resource": [
+        "arn:aws:s3:::framewrite-jobs-dev",
+        "arn:aws:s3:::framewrite-jobs-prod"
+      ],
+      "Condition": { "StringLike": { "s3:prefix": ["jobs/*"] } }
+    }
+  ]
+}

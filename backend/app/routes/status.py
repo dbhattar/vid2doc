@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Request
 
-from .. import archive_access, job_errors, jobs, public_jobs
+from .. import job_errors, job_storage, jobs, public_jobs
 from ..config import settings
 from ..deps import get_current_user
 
@@ -65,16 +65,14 @@ def build_job_response(job: dict, request: Request, full: bool = False) -> dict:
         response["thumbnail_url"] = f"{base}/api/videos/{job['id']}/thumbnail.jpg"
     elif job["status"] == "done":
         base = f"{str(request.base_url).rstrip('/')}/api/documents/{job['id']}"
-        doc_dir = settings.OUTPUT_DIR / job["id"] / "document"
         response["document_url"] = f"{base}/document.md"
         response["document_bundle_url"] = f"{base}/bundle.zip"
-        # A swept job with an S3 archive is still served (documents.py
-        # rebuilds it from there), so it's only the optional files that
-        # need an archive lookup instead of a local one.
-        swept = full and not (doc_dir / "document.md").exists() and archive_access.archive_prefix(job)
 
         def has(name: str) -> bool:
-            return archive_access.archive_file_exists(job, name) if swept else (doc_dir / name).exists()
+            # Wherever the job lives (private S3, local disk, or -- for a job
+            # retention swept -- its showcase/chat archive; that lookup is only
+            # made for the single-job route, not once per row of a list).
+            return job_storage.has_doc_file(job, name, check_archive=full)
 
         # docx/pdf are best-effort exports -- only advertised if they actually rendered.
         if has("document.docx"):
@@ -85,7 +83,7 @@ def build_job_response(job: dict, request: Request, full: bool = False) -> dict:
             response["document_transcript_json_url"] = f"{base}/transcript.json"
         # Only present for a live-recording session that had the opt-in
         # research panel enabled -- see routes/live.py's finalize_live_session.
-        if (doc_dir / "research.md").exists():
+        if has("research.md"):
             response["research_url"] = f"{base}/research.md"
     if job["status"] == "failed":
         response["error"] = job_errors.user_facing_error(job["error_message"])

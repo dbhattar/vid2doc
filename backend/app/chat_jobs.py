@@ -22,7 +22,7 @@ from pathlib import Path
 from .config import settings
 from .db import get_session
 from .models import ChatMessage
-from .public_jobs import upload_job_archive
+from .public_jobs import archive_job
 from .s3_client import get_client as get_s3_client
 
 
@@ -171,7 +171,7 @@ def enable_chat(job: dict, doc_dir: Path) -> dict:
     (routes/chat.py) charges the flat fee BEFORE calling this, and refunds
     it if this raises."""
     prefix = archive_prefix_for(job["id"])
-    video_filename = upload_job_archive(job["id"], doc_dir, Path(job["source_path"]), prefix)
+    video_filename = archive_job(job, doc_dir, prefix)
     return {"chat_archive_prefix": prefix, "chat_video_key": video_filename}
 
 
@@ -200,10 +200,8 @@ def _read_s3_text(prefix: str, filename: str) -> str:
 
 
 def answer_question(job: dict, history: list[dict], question: str) -> dict:
-    """Reads document.md + transcript.json from S3 (not local disk -- by
-    the time of any given chat message, local files may already be long
-    gone per the normal 7-day retention sweep, which this feature is
-    otherwise unaffected by since the archive already exists). `history` is
+    """Reads document.md + transcript.json from the chat archive in S3 (a
+    separate copy, so this never depends on local disk). `history` is
     prior chat_messages rows (role/content), oldest first."""
     prefix = job["chat_archive_prefix"]
     document_text = _read_s3_text(prefix, "document.md")

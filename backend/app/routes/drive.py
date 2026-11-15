@@ -14,10 +14,10 @@ from googleapiclient.errors import HttpError
 from googleapiclient.http import MediaFileUpload
 from pydantic import BaseModel
 
-from .. import crypto, drive_connections, jobs
+from .. import crypto, drive_connections, job_storage
 from ..config import settings
 from ..deps import get_current_session_user, get_current_user
-from .documents import _owned_done_doc_dir
+from .documents import _owned_done_job
 
 router = APIRouter()
 
@@ -129,8 +129,7 @@ def _load_drive_client(user_id: str):
 
 @router.post("/api/jobs/{job_id}/drive-upload")
 def upload_job_to_drive(job_id: str, current_user: dict = Depends(get_current_user)):
-    doc_dir = _owned_done_doc_dir(job_id, current_user)
-    job = jobs.get_job(job_id)
+    job = _owned_done_job(job_id, current_user)
     drive = _load_drive_client(current_user["id"])
 
     folder_name = (job["title"] or "").strip() or f"Framewrite job {job_id}"
@@ -141,31 +140,28 @@ def upload_job_to_drive(job_id: str, current_user: dict = Depends(get_current_us
     )
     folder_id = folder["id"]
 
-    # Same file set as bundle.zip, plus docx/pdf when present -- same
-    # existence-check pattern as build_job_response in routes/status.py.
-    to_upload = []
-    if (doc_dir / "document.md").is_file():
-        to_upload.append(doc_dir / "document.md")
-    if (doc_dir / "document.docx").is_file():
-        to_upload.append(doc_dir / "document.docx")
-    if (doc_dir / "document.pdf").is_file():
-        to_upload.append(doc_dir / "document.pdf")
-    if (doc_dir / "transcript.json").is_file():
-        to_upload.append(doc_dir / "transcript.json")
-    images_dir = doc_dir / "images"
-    if images_dir.is_dir():
-        to_upload.extend(sorted(p for p in images_dir.iterdir() if p.is_file()))
-
     warnings = []
-    for path in to_upload:
-        try:
-            media = MediaFileUpload(str(path))
-            drive.files().create(
-                body={"name": path.name, "parents": [folder_id]}, media_body=media, fields="id"
-            ).execute(num_retries=3)
-        except HttpError as e:
-            warnings.append(path.name)
-            print(f"Drive upload failed for job {job_id}, file {path.name}: {e}", flush=True)
+    # A job in S3 is pulled to a temp dir first (a no-op for a legacy job).
+    with job_storage.doc_dir_for(job) as doc_dir:
+        # Same file set as bundle.zip, plus docx/pdf when present -- same
+        # existence-check pattern as build_job_response in routes/status.py.
+        to_upload = []
+        for name in ("document.md", "document.docx", "document.pdf", "transcript.json"):
+            if (doc_dir / name).is_file():
+                to_upload.append(doc_dir / name)
+        images_dir = doc_dir / "images"
+        if images_dir.is_dir():
+            to_upload.extend(sorted(p for p in images_dir.iterdir() if p.is_file()))
+
+        for path in to_upload:
+            try:
+                media = MediaFileUpload(str(path))
+                drive.files().create(
+                    body={"name": path.name, "parents": [folder_id]}, media_body=media, fields="id"
+                ).execute(num_retries=3)
+            except HttpError as e:
+                warnings.append(path.name)
+                print(f"Drive upload failed for job {job_id}, file {path.name}: {e}", flush=True)
 
     folder_info = drive.files().get(fileId=folder_id, fields="webViewLink").execute()
     return {"folder_url": folder_info["webViewLink"], "warnings": warnings}

@@ -1,14 +1,16 @@
 """One-shot retention sweep, three parts:
 
-1. `done` jobs older than RETENTION_DAYS: their on-disk files are deleted
-   (nobody's documents are guaranteed past this -- pricing is pay-as-you-go
-   with no plan tier that grants unlimited retention). The job row itself is
-   kept (id, duration_seconds, user_id, billed_cents, timestamps) since
-   usage/billing history still needs it -- only document_path is nulled (it's
-   the one thing route handlers use to decide whether a document is servable)
-   and deleted_at is set. source_path is left as a historical string, not
-   nulled -- nothing reads it once a job is done, so it's harmless as a record
-   of where the upload used to live.
+Finished jobs are NOT swept when private S3 storage is on: app/job_storage.py
+moves their documents and original upload to S3 when they finish, deletes the
+local copies, and records `storage_prefix`; those files stay until the user
+deletes the job. What this script still handles:
+
+1. `done` jobs that never reached S3 (they predate JOB_STORAGE_S3_BUCKET, or
+   their upload failed -- `storage_prefix` is NULL) and are older than
+   RETENTION_DAYS: their on-disk files are deleted. The job row is kept
+   (id, duration_seconds, user_id, billed_cents, timestamps) since usage/
+   billing history still needs it -- only document_path is nulled and
+   deleted_at is set. source_path is left as a historical string.
 
    Exception: a done job with an S3 archive (a showcase submission or a
    chat-enabled job) is NOT marked deleted. Its local files are freed like any
