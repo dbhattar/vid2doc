@@ -353,7 +353,8 @@ def list_jobs_eligible_for_retention(cutoff: datetime) -> list[dict]:
 
 def list_jobs_pending_storage(settled_before: datetime, created_from: datetime | None, limit: int) -> list[dict]:
     """Finished jobs that still live only on local disk, waiting for (or
-    retrying) their upload to private S3 (see job_storage.run_loop). Oldest
+    retrying) their upload to private S3 (see job_storage.run_loop) -- including
+    owner-less public agency-meeting jobs, which are kept too. Oldest
     first, so a job that keeps failing doesn't starve newer ones forever."""
     session = get_session()
     try:
@@ -361,7 +362,6 @@ def list_jobs_pending_storage(settled_before: datetime, created_from: datetime |
             Job.status == "done",
             Job.storage_prefix.is_(None),
             Job.deleted_at.is_(None),
-            Job.user_id.is_not(None),
             Job.updated_at < settled_before,
         )
         if created_from is not None:

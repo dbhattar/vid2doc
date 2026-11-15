@@ -422,7 +422,11 @@ Code: `app/agency_ingest.py` (sources, polling, queueing, finishing),
    serves owner-less jobs after user jobs (`jobs.claim_next_queued_job`).
    YouTube captions, when the video has them, replace paid transcription.
 3. **Finish**: when the job is done the transcript is copied into the meeting
-   row (the job's files can then be swept by retention), the LLM tags it
+   row (read through `job_storage`, since the job's files may already be in
+   private S3) and the job's files are kept indefinitely: like any finished job,
+   the worker's `job_storage` loop uploads them (documents, transcript and the
+   source recording) to `jobs/_meetings/<job_id>/` in the job bucket, which has
+   no owner so no user can reach them through the API. The LLM tags it
    against the admin-curated `topics`, it becomes `ready` (public), and one
    `topic_notifications` row per follower is queued. A subject the model sees
    that isn't a listed topic becomes a new active topic on the spot (people can

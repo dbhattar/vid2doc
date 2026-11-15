@@ -26,7 +26,7 @@ from datetime import datetime, timedelta, timezone
 
 from sqlalchemy import func, select
 
-from . import direct_media, jobs, topic_alerts, topics, youtube
+from . import direct_media, job_storage, jobs, topic_alerts, topics, youtube
 from .config import settings
 from .db import get_session
 from .models import AgencyMeeting, Job, MeetingSource
@@ -393,10 +393,11 @@ def finish_meeting(meeting_id: str, job_id: str | None) -> bool:
     if job["status"] != "done":
         return False
 
-    transcript_path = settings.OUTPUT_DIR / job["id"] / "document" / "transcript.json"
+    # Read through job_storage: by now the job's files may already have moved to
+    # private S3 (job_storage.run_loop keeps these jobs too), not just local disk.
     try:
-        transcript = json.loads(transcript_path.read_text())
-    except (OSError, ValueError):
+        transcript = json.loads(job_storage.read_doc_text(job, "transcript.json"))
+    except Exception:
         _set_failed(meeting_id, "The finished job has no transcript.")
         return False
 

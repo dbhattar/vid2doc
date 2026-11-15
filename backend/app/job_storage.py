@@ -8,7 +8,8 @@ Every key is built from the job's recorded `storage_prefix` plus a relative
 path that must appear in the job's `storage_files` list -- never from raw
 request input -- so a crafted path can't reach another user's objects.
 
-Layout under `jobs/<user_id>/<job_id>/`:
+Layout under `jobs/<user_id>/<job_id>/` (`jobs/_meetings/<job_id>/` for a public
+agency meeting's job, which has no owner but is kept the same way):
   document/...        document.md/.docx/.pdf, transcript.json, images/...
   source<ext>         the original upload
   video/final.mp4     video_gen deliverable (+ video/thumbnail.jpg)
@@ -46,10 +47,12 @@ def enabled() -> bool:
     return bool(settings.JOB_STORAGE_S3_BUCKET)
 
 
-def prefix_for(user_id: str, job_id: str) -> str:
-    if not _UUID_RE.match(str(user_id)) or not _UUID_RE.match(str(job_id)):
+def prefix_for(user_id: str | None, job_id: str) -> str:
+    """`jobs/<user_id>/<job_id>/`, or `jobs/_meetings/<job_id>/` for a job with
+    no owner (a public agency meeting, see agency_ingest.py)."""
+    if not _UUID_RE.match(str(job_id)) or (user_id is not None and not _UUID_RE.match(str(user_id))):
         raise JobStorageError("Refusing to build a storage prefix from a non-uuid id")
-    return f"jobs/{user_id}/{job_id}/"
+    return f"jobs/{user_id or '_meetings'}/{job_id}/"
 
 
 def is_stored(job: dict) -> bool:
@@ -120,7 +123,7 @@ def store_finished_job(job_id: str) -> bool:
         return False
     try:
         job = jobs.get_job(job_id)
-        if not job or not job["user_id"] or is_stored(job) or job["status"] != "done":
+        if not job or is_stored(job) or job["status"] != "done":
             return False
         if job["job_type"] == "video_gen":
             video_dir = settings.OUTPUT_DIR / job_id / "video"
